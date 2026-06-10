@@ -440,6 +440,7 @@
     const banners = getHeroBanners();
     bg.innerHTML = banners.map((b, i)=>`<div class="hero-slide ${i===0?'active':''}"><div class="hero-slide-blur" style="background-image:url('${escapeHtml(b.image)}')"></div><div class="hero-slide-fit" style="background-image:url('${escapeHtml(b.image)}')"></div></div>`).join('');
     showHeroBanner(0);
+    bindHeroSwipe();
     if(heroTimer) clearInterval(heroTimer);
     const mode = (state.settings && state.settings.heroMode) || 'single';
     if(mode === 'slider' && banners.length > 1){
@@ -515,6 +516,139 @@
     $('tourModal').classList.add('open');
   }
 
+
+  function bindSwipeReveal(container, imgSelector, getList, getIndex, moveFn){
+    if(!container || container.dataset.swipeRevealBound === '1') return;
+    container.dataset.swipeRevealBound = '1';
+    let dragging = false;
+    let startX = 0, startY = 0, dx = 0, pointerId = null;
+    let ghost = null, step = 0;
+
+    function clean(){
+      const img = container.querySelector(imgSelector);
+      if(img){
+        img.style.transition = '';
+        img.style.transform = '';
+        img.style.zIndex = '';
+      }
+      if(ghost){ ghost.remove(); ghost = null; }
+      container.classList.remove('swiping');
+      step = 0; dx = 0;
+    }
+
+    function makeGhost(nextSrc, side){
+      if(ghost) ghost.remove();
+      ghost = document.createElement('img');
+      ghost.className = 'swipe-ghost-img';
+      ghost.src = nextSrc || 'assets/hero.svg';
+      ghost.alt = 'Sonraki görsel';
+      ghost.onerror = function(){ this.src = 'assets/hero.svg'; };
+      ghost.style.transform = `translate3d(${side * 100}%,0,0)`;
+      container.appendChild(ghost);
+    }
+
+    container.addEventListener('pointerdown', (e)=>{
+      if(e.target.closest('button,a,input,textarea,select')) return;
+      if(e.pointerType === 'mouse' && e.button !== 0) return;
+      const list = getList();
+      if(!Array.isArray(list) || list.length <= 1) return;
+      dragging = true;
+      startX = e.clientX; startY = e.clientY; dx = 0; pointerId = e.pointerId;
+      container.classList.add('swiping');
+      try{ container.setPointerCapture(pointerId); }catch(_){}
+    });
+
+    container.addEventListener('pointermove', (e)=>{
+      if(!dragging) return;
+      dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if(Math.abs(dx) < 4 || Math.abs(dx) < Math.abs(dy)) return;
+      e.preventDefault();
+      const list = getList();
+      const len = list.length;
+      const img = container.querySelector(imgSelector);
+      if(!img || !len) return;
+      const side = dx < 0 ? 1 : -1;
+      if(step !== side){
+        step = side;
+        const idx = getIndex();
+        const nextIndex = ((idx + step) % len + len) % len;
+        makeGhost(list[nextIndex], side);
+      }
+      img.style.transition = 'none';
+      img.style.transform = `translate3d(${dx}px,0,0)`;
+      img.style.zIndex = '2';
+      if(ghost){
+        ghost.style.transition = 'none';
+        ghost.style.transform = `translate3d(${step * container.clientWidth + dx}px,0,0)`;
+      }
+    }, {passive:false});
+
+    function finish(e){
+      if(!dragging) return;
+      dragging = false;
+      const dy = e.clientY - startY;
+      try{ if(pointerId !== null) container.releasePointerCapture(pointerId); }catch(_){}
+      pointerId = null;
+      const img = container.querySelector(imgSelector);
+      const width = container.clientWidth || 1;
+      const valid = Math.abs(dx) > Math.min(120, width * .18) && Math.abs(dx) > Math.abs(dy);
+      if(!img){ clean(); return; }
+      if(valid && step){
+        img.style.transition = 'transform .28s ease';
+        img.style.transform = `translate3d(${-step * width}px,0,0)`;
+        if(ghost){
+          ghost.style.transition = 'transform .28s ease';
+          ghost.style.transform = 'translate3d(0,0,0)';
+        }
+        window.setTimeout(()=>{ moveFn(step); clean(); }, 290);
+      }else{
+        img.style.transition = 'transform .22s ease';
+        img.style.transform = 'translate3d(0,0,0)';
+        if(ghost){
+          ghost.style.transition = 'transform .22s ease';
+          ghost.style.transform = `translate3d(${step * width}px,0,0)`;
+        }
+        window.setTimeout(clean, 230);
+      }
+    }
+    container.addEventListener('pointerup', finish);
+    container.addEventListener('pointercancel', finish);
+  }
+
+  function bindCurrentModalSwipe(){
+    bindSwipeReveal(document.querySelector('[data-tour-carousel]'), '#tourModalImage', ()=>currentTourImages, ()=>currentTourImageIndex, moveTourModalImage);
+    bindSwipeReveal(document.querySelector('.hotel-detail-slider'), '#hotelModalImage', ()=>currentHotelImages, ()=>currentHotelImageIndex, moveHotelModalImage);
+    const list = state.gallery.length ? state.gallery : DEFAULT_DATA.gallery;
+    bindSwipeReveal(document.querySelector('.gallery-viewer'), '.gallery-viewer > img', ()=>list.map(x=>x.image), ()=>currentGalleryIndex, moveGalleryModal);
+  }
+
+  function bindHeroSwipe(){
+    const hero = document.querySelector('.hero');
+    if(!hero || hero.dataset.heroSwipeBound === '1') return;
+    hero.dataset.heroSwipeBound = '1';
+    let dragging = false, startX = 0, startY = 0, dx = 0;
+    hero.addEventListener('pointerdown', (e)=>{
+      if(e.target.closest('a,button,input,textarea,select')) return;
+      const banners = getHeroBanners();
+      if(!banners || banners.length <= 1) return;
+      dragging = true; startX = e.clientX; startY = e.clientY; dx = 0;
+      hero.classList.add('swiping');
+    });
+    hero.addEventListener('pointermove', (e)=>{
+      if(!dragging) return;
+      dx = e.clientX - startX;
+      if(Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(e.clientY - startY)) e.preventDefault();
+    }, {passive:false});
+    function end(e){
+      if(!dragging) return;
+      dragging = false; hero.classList.remove('swiping');
+      if(Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(e.clientY - startY)) showHeroBanner(heroSlideIndex + (dx < 0 ? 1 : -1));
+    }
+    hero.addEventListener('pointerup', end);
+    hero.addEventListener('pointercancel', end);
+  }
+
   function openGalleryModal(index){
     currentHotelImages = [];
     currentTourImages = [];
@@ -530,6 +664,7 @@
       <div class="gallery-viewer-footer"><h2>${escapeHtml(g.title)}</h2><span>${currentGalleryIndex + 1} / ${list.length}</span></div>
     </div>`;
     $('tourModal').classList.add('open');
+    bindCurrentModalSwipe();
   }
 
   function moveGalleryModal(step){
@@ -560,6 +695,7 @@
       </div>
     </div>`;
     $('tourModal').classList.add('open');
+    bindCurrentModalSwipe();
   }
 
   function renderPublic(){
@@ -863,6 +999,7 @@
       </div>
     </div>`;
     $('tourModal').classList.add('open');
+    bindCurrentModalSwipe();
   }
 
   function resetTourForm(){
