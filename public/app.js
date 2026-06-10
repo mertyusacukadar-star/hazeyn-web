@@ -47,6 +47,9 @@
   let state = null;
   let adminLoggedIn = false;
   let tempTourImage = '';
+  let tempTourImages = [];
+  let currentTourImages = [];
+  let currentTourImageIndex = 0;
   let tempHotelMekkeImages = [];
   let tempHotelMedineImages = [];
   let dragPassengerInfo = null;
@@ -531,8 +534,10 @@
 
   function openTourModal(id){
     const t = state.tours.find(x=>x.id===id); if(!t) return;
-    $('modalBody').innerHTML = `<div class="modal-content">
-      <img src="${escapeHtml(t.image || 'assets/hotel.svg')}" alt="${escapeHtml(t.title)}" onerror="this.src='assets/hotel.svg'">
+    currentTourImages = getTourImages(t);
+    currentTourImageIndex = 0;
+    $('modalBody').innerHTML = `<div class="modal-content tour-detail-modal">
+      ${tourImageCarouselHtml(t)}
       <div>
         <span class="section-kicker">${escapeHtml(t.tag || '')}</span>
         <h2>${escapeHtml(t.title)}</h2>
@@ -563,6 +568,10 @@
       if(galleryPrev) moveGalleryModal(-1);
       const galleryNext = e.target.closest('[data-gallery-next]');
       if(galleryNext) moveGalleryModal(1);
+      const tourPrev = e.target.closest('[data-tour-image-prev]');
+      if(tourPrev) moveTourModalImage(-1);
+      const tourNext = e.target.closest('[data-tour-image-next]');
+      if(tourNext) moveTourModalImage(1);
       const blogBtn = e.target.closest('[data-blog]');
       if(blogBtn) openBlogModal(blogBtn.dataset.blog);
     });
@@ -573,8 +582,8 @@
         const blogBtn = e.target.closest && e.target.closest('[data-blog]');
         if(blogBtn) openBlogModal(blogBtn.dataset.blog);
       }
-      if(e.key === 'ArrowLeft' && $('tourModal')?.classList.contains('open')) moveGalleryModal(-1);
-      if(e.key === 'ArrowRight' && $('tourModal')?.classList.contains('open')) moveGalleryModal(1);
+      if(e.key === 'ArrowLeft' && $('tourModal')?.classList.contains('open')){ currentTourImages.length > 1 ? moveTourModalImage(-1) : moveGalleryModal(-1); }
+      if(e.key === 'ArrowRight' && $('tourModal')?.classList.contains('open')){ currentTourImages.length > 1 ? moveTourModalImage(1) : moveGalleryModal(1); }
       if(e.key === 'Escape'){
         const modal = $('tourModal'); if(modal) modal.classList.remove('open');
       }
@@ -674,6 +683,42 @@
     return [];
   }
 
+  function getTourImages(t){
+    const fallback = (t && t.type === 'yurtici') ? 'assets/yurtici.svg' : 'assets/hotel.svg';
+    const fromArray = normalizeImageArray(t && t.images);
+    const first = normalizeImageArray(t && t.image);
+    const list = uniqueList([...fromArray, ...first]);
+    return list.length ? list : [fallback];
+  }
+
+  function setTourModalImage(index){
+    if(!currentTourImages.length) return;
+    currentTourImageIndex = (Number(index) + currentTourImages.length) % currentTourImages.length;
+    const src = currentTourImages[currentTourImageIndex];
+    const img = $('tourModalImage');
+    const bg = $('tourModalImageBg');
+    const counter = $('tourImageCounter');
+    if(img) img.src = src;
+    if(bg) bg.style.backgroundImage = `url('${src.replace(/'/g, "\'")}')`;
+    if(counter) counter.textContent = `${currentTourImageIndex + 1} / ${currentTourImages.length}`;
+  }
+
+  function moveTourModalImage(step){
+    setTourModalImage(currentTourImageIndex + Number(step || 0));
+  }
+
+  function tourImageCarouselHtml(t){
+    const images = getTourImages(t);
+    const first = images[0];
+    const nav = images.length > 1 ? `<button class="tour-carousel-nav tour-carousel-prev" type="button" data-tour-image-prev aria-label="Önceki görsel">‹</button><button class="tour-carousel-nav tour-carousel-next" type="button" data-tour-image-next aria-label="Sonraki görsel">›</button>` : '';
+    return `<div class="tour-modal-carousel" data-tour-carousel>
+      <div class="tour-modal-image-bg" id="tourModalImageBg" style="background-image:url('${escapeHtml(first)}')"></div>
+      <img id="tourModalImage" src="${escapeHtml(first)}" alt="${escapeHtml(t.title || 'Tur görseli')}" onerror="this.src='assets/hero.svg'">
+      ${nav}
+      <div class="tour-image-counter" id="tourImageCounter">1 / ${images.length}</div>
+    </div>`;
+  }
+
   function getHotelImageArrays(t){
     const h = (t && t.hotelImages) || {};
     return {
@@ -706,9 +751,11 @@
     $('tourForm').reset();
     $('tourId').value='';
     tempTourImage='';
+    tempTourImages=[];
     tempHotelMekkeImages=[];
     tempHotelMedineImages=[];
     const coverPreview = $('tourPreview'); if(coverPreview) coverPreview.removeAttribute('src');
+    renderMultiPreview('tourImagesPreview', []);
     renderMultiPreview('tourHotelMekkePreview', []);
     renderMultiPreview('tourHotelMedinePreview', []);
   }
@@ -716,7 +763,7 @@
   function renderTourAdmin(){
     const list = $('tourAdminList'); if(!list) return;
     list.innerHTML = state.tours.map(t=>`<div class="admin-item">
-      <div><h3>${escapeHtml(t.title)} <small>(${escapeHtml(typeLabel(t.type))})</small></h3><p>${t.departureDate ? 'Kalkış: ' + escapeHtml(formatDateTR(t.departureDate)) + '\n' : ''}${escapeHtml(t.nights || '')}\n${escapeHtml(firstLine(t.hotels))}\n${escapeHtml(String(t.cardText || '').trim() || pricePreview(t))}${hotelImageCountText(t)}</p></div>
+      <div><h3>${escapeHtml(t.title)} <small>(${escapeHtml(typeLabel(t.type))})</small></h3><p>${t.departureDate ? 'Kalkış: ' + escapeHtml(formatDateTR(t.departureDate)) + '\n' : ''}${escapeHtml(t.nights || '')}\n${escapeHtml(firstLine(t.hotels))}\n${escapeHtml(String(t.cardText || '').trim() || pricePreview(t))}${tourImageCountText(t)}${hotelImageCountText(t)}</p></div>
       <div class="admin-item-actions"><button class="icon-btn" data-edit-tour="${escapeHtml(t.id)}">Düzenle</button><button class="icon-btn danger" data-delete-tour="${escapeHtml(t.id)}">Sil</button></div>
     </div>`).join('');
   }
@@ -724,7 +771,10 @@
   function editTour(id){
     const t = state.tours.find(x=>x.id===id); if(!t) return;
     switchTab('tours'); $('tourId').value=t.id; $('tourType').value=t.type; $('tourTitle').value=t.title || ''; $('tourTag').value=t.tag || '';
-    $('tourImage').value = (t.image && !t.image.startsWith('data:')) ? t.image : ''; tempTourImage = t.image || '';
+    const tourImages = getTourImages(t);
+    $('tourImage').value = tourImages.filter(src=>!src.startsWith('data:')).join('\n');
+    tempTourImages = tourImages.slice();
+    tempTourImage = tourImages[0] || (t.image || '');
     const hotelImages = getHotelImageArrays(t);
     tempHotelMekkeImages = hotelImages.mekke.slice();
     tempHotelMedineImages = hotelImages.medine.slice();
@@ -735,7 +785,8 @@
     const roomPrices = getRoomPrices(t);
     $('tourPrice1').value = roomPrices['1']; $('tourPrice2').value = roomPrices['2']; $('tourPrice3').value = roomPrices['3']; $('tourPrice4').value = roomPrices['4']; $('tourPrice5plus').value = roomPrices['5+'];
     $('tourNights').value=t.nights || ''; $('tourHotels').value=t.hotels || ''; $('tourAirline').value=t.airline || ''; $('tourPrice').value=t.price || ''; $('tourProgram').value=t.program || '';
-    $('tourPreview').src = t.image || '';
+    $('tourPreview').src = tempTourImage || '';
+    renderMultiPreview('tourImagesPreview', tourImages);
     renderMultiPreview('tourHotelMekkePreview', hotelImages.mekke);
     renderMultiPreview('tourHotelMedinePreview', hotelImages.medine);
     window.scrollTo({top:0,behavior:'smooth'});
@@ -744,13 +795,15 @@
   async function saveTour(e){
     e.preventDefault();
     const id = $('tourId').value || uid('t');
-    const image = tempTourImage || $('tourImage').value.trim() || ($('tourType').value === 'yurtici' ? 'assets/yurtici.svg' : 'assets/hotel.svg');
+    const fallbackImage = $('tourType').value === 'yurtici' ? 'assets/yurtici.svg' : 'assets/hotel.svg';
+    const tourImages = uniqueList([...tempTourImages, ...linesToList($('tourImage')?.value)]);
+    const image = tourImages[0] || fallbackImage;
     const hotelImages = {
       mekke: uniqueList([...tempHotelMekkeImages, ...linesToList($('tourHotelMekkeImage')?.value)]),
       medine: uniqueList([...tempHotelMedineImages, ...linesToList($('tourHotelMedineImage')?.value)])
     };
     const roomPrices = cleanRoomPrices({'1':$('tourPrice1').value, '2':$('tourPrice2').value, '3':$('tourPrice3').value, '4':$('tourPrice4').value, '5+':$('tourPrice5plus').value});
-    const t = {id, type:$('tourType').value, title:$('tourTitle').value.trim(), tag:$('tourTag').value.trim(), departureDate:$('tourDepartureDate').value, cardText:$('tourCardText') ? $('tourCardText').value.trim() : '', image, hotelImages, roomPrices,
+    const t = {id, type:$('tourType').value, title:$('tourTitle').value.trim(), tag:$('tourTag').value.trim(), departureDate:$('tourDepartureDate').value, cardText:$('tourCardText') ? $('tourCardText').value.trim() : '', image, images: tourImages.length ? tourImages : [image], hotelImages, roomPrices,
       nights:$('tourNights').value.trim(), hotels:$('tourHotels').value.trim(), airline:$('tourAirline').value.trim(), price:$('tourPrice').value.trim(), program:$('tourProgram').value.trim()};
     const idx = state.tours.findIndex(x=>x.id===id);
     if(idx>-1) state.tours[idx]=t; else state.tours.unshift(t);
@@ -911,6 +964,11 @@ Yazı konumu: ${escapeHtml(b.textPosition || 'left')} • Başlık: ${escapeHtml
 
   function typeLabel(type){
     return type === 'umre' ? 'Umre' : type === 'hac' ? 'Hac' : 'Yurt İçi';
+  }
+
+  function tourImageCountText(t){
+    const count = getTourImages(t).filter(src => !/^assets\//.test(src)).length;
+    return count > 1 ? `\n${count} kapak görseli eklendi` : '';
   }
 
   function hotelImageCountText(t){
@@ -1140,7 +1198,7 @@ Yazı konumu: ${escapeHtml(b.textPosition || 'left')} • Başlık: ${escapeHtml
     document.querySelectorAll('.admin-tab').forEach(btn=>btn.onclick=()=>switchTab(btn.dataset.tab));
     $('exportBtn').onclick = exportBackup;
     $('tourForm').addEventListener('submit', saveTour); $('tourReset').onclick = resetTourForm;
-    $('tourImageFile').addEventListener('change', e=>previewFile(e.target, src=>{ tempTourImage=src; $('tourPreview').src=src; }));
+    $('tourImageFile').addEventListener('change', e=>previewFiles(e.target, srcs=>{ tempTourImages=uniqueList([...tempTourImages, ...srcs]); tempTourImage=tempTourImages[0] || ''; $('tourPreview').src=tempTourImage; renderMultiPreview('tourImagesPreview', tempTourImages); }));
     $('tourHotelMekkeFile').addEventListener('change', e=>previewFiles(e.target, srcs=>{ tempHotelMekkeImages=uniqueList([...tempHotelMekkeImages, ...srcs]); renderMultiPreview('tourHotelMekkePreview', tempHotelMekkeImages); }));
     $('tourHotelMedineFile').addEventListener('change', e=>previewFiles(e.target, srcs=>{ tempHotelMedineImages=uniqueList([...tempHotelMedineImages, ...srcs]); renderMultiPreview('tourHotelMedinePreview', tempHotelMedineImages); }));
     $('reviewForm').addEventListener('submit', saveReview); $('reviewReset').onclick = resetReviewForm;

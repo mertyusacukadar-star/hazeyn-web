@@ -68,9 +68,10 @@
             <label>Etiket<input id="tourTag" placeholder="Kesin Kalkışlı" /></label>
             <label>Kalkış Tarihi<input id="tourDepartureDate" type="date" /></label>
             <label>İncele Butonu Yanındaki Yazı <small>Boş bırakırsan kişi başı fiyat görünür</small><input id="tourCardText" placeholder="Örn: Kişi Başı 1.450 USD veya Kontenjan Sınırlı" /></label>
-            <label>Kapak Görsel URL<input id="tourImage" placeholder="assets/hotel.svg veya https://..." /></label>
-            <label>Veya Kapak Görseli Yükle <small>En fazla 50 MB</small><input id="tourImageFile" type="file" accept="image/*" /></label>
+            <label>Kapak Görsel URL'leri <small>Birden fazla görsel için her satıra 1 link yaz</small><textarea id="tourImage" placeholder="https://.../gorsel-1.jpg&#10;https://.../gorsel-2.jpg"></textarea></label>
+            <label>Veya Kapak Görselleri Yükle <small>Birden fazla seçebilirsin. Her görsel en fazla 50 MB</small><input id="tourImageFile" type="file" accept="image/*" multiple /></label>
             <img id="tourPreview" class="image-preview" alt="Kapak ön izleme" />
+            <div id="tourImagesPreview" class="multi-preview" aria-label="Tur kapak görselleri ön izleme"></div>
             <div class="hotel-image-fields">
               <h3>Otel Görselleri <small>İsteğe bağlı</small></h3>
               <div class="form-row two-col">
