@@ -162,12 +162,12 @@ a{color:inherit;text-decoration:none}img{max-width:100%;display:block}button,inp
 
 /* Tur detay popup: tam görsel + kapak görsel carousel */
 .tour-detail-modal > img{display:none!important}
-.tour-modal-carousel{position:relative;width:100%;height:clamp(250px,38vw,390px);background:#f6efe5;overflow:hidden;border-radius:26px 26px 0 0}
+.tour-modal-carousel{position:relative;width:100%;aspect-ratio:16/9;height:auto;max-height:65vh;background:#f6efe5;overflow:hidden;border-radius:26px 26px 0 0;display:flex;align-items:center;justify-content:center}
 .tour-modal-image-bg{position:absolute;inset:0;background:center/cover no-repeat;filter:blur(22px);transform:scale(1.12);opacity:.42}
 .tour-modal-carousel::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(0,0,0,.08));pointer-events:none}
-.tour-modal-carousel img{position:relative;z-index:1;width:100%;height:100%;object-fit:contain!important;background:transparent!important}
+.tour-modal-carousel img{position:relative;z-index:1;width:100%;height:100%;object-fit:contain!important;background:transparent!important;display:block}
 .tour-carousel-nav{position:absolute;z-index:3;top:50%;transform:translateY(-50%);width:42px;height:42px;border:0;border-radius:999px;background:rgba(12,12,14,.76);color:#fff;font-size:34px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 12px 28px rgba(0,0,0,.22)}
 .tour-carousel-prev{left:14px}.tour-carousel-next{right:14px}
 .tour-carousel-nav:hover{background:var(--gold)}
 .tour-image-counter{position:absolute;left:14px;bottom:14px;z-index:4;background:rgba(0,0,0,.68);color:#fff;border-radius:999px;padding:7px 12px;font-weight:900;font-size:13px;backdrop-filter:blur(8px)}
-@media(max-width:820px){.tour-modal-carousel{height:250px}.tour-carousel-nav{width:36px;height:36px;font-size:28px}.tour-image-counter{font-size:12px}}
+@media(max-width:820px){.tour-modal-carousel{aspect-ratio:16/9;max-height:48vh}.tour-carousel-nav{width:36px;height:36px;font-size:28px}.tour-image-counter{font-size:12px}}
