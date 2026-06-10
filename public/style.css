@@ -328,3 +328,72 @@ a{color:inherit;text-decoration:none}img{max-width:100%;display:block}button,inp
     font-size:22px!important;
   }
 }
+
+
+/* ChatGPT fix: gerçek galerideki gibi sürüklemeli slider */
+.swipe-track{
+  width:100%;
+  height:100%;
+  display:flex;
+  transform:translate3d(0,0,0);
+  transition:transform .34s ease;
+  will-change:transform;
+}
+.swipe-slide{
+  min-width:100%;
+  width:100%;
+  height:100%;
+  flex:0 0 100%;
+  overflow:hidden;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.swipe-slide img{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  display:block!important;
+  user-select:none!important;
+  -webkit-user-drag:none!important;
+}
+.tour-modal-carousel,
+.hotel-detail-slider,
+.gallery-viewer{
+  cursor:grab;
+  touch-action:pan-y;
+}
+.tour-modal-carousel.dragging,
+.hotel-detail-slider.dragging,
+.gallery-viewer.dragging,
+.hero.dragging{
+  cursor:grabbing!important;
+}
+.tour-carousel-nav,
+.hotel-slider-nav,
+.gallery-nav{
+  z-index:25!important;
+  pointer-events:auto!important;
+}
+.tour-carousel-nav:hover,
+.hotel-slider-nav:hover,
+.gallery-nav:hover{
+  background:linear-gradient(135deg,var(--gold),var(--gold2))!important;
+  color:#fff!important;
+}
+.modal-card{
+  background:transparent!important;
+  overflow:hidden auto!important;
+}
+.modal-content,
+.tour-detail-modal,
+.hotel-detail-modal,
+.image-viewer{
+  background:#fff!important;
+  border-radius:26px!important;
+  overflow:hidden!important;
+}
+.modal-close{
+  pointer-events:auto!important;
+  z-index:60!important;
+}
