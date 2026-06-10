@@ -9,7 +9,7 @@
       heroSubtitle: 'Hac, Umre ve yurt içi turlarında profesyonel organizasyon.',
       heroMode: 'slider',
       heroBanners: [
-        {id:'hb1', image:'assets/hero.svg', title:'Kutsal Yolculuğunuzda Güvenilir Rehberiniz', subtitle:'Hac, Umre ve yurt içi turlarında profesyonel organizasyon.', textColor:'#ffffff', textPosition:'left'}
+        {id:'hb1', image:'assets/hero.svg', title:'Kutsal Yolculuğunuzda Güvenilir Rehberiniz', subtitle:'Hac, Umre ve yurt içi turlarında profesyonel organizasyon.', textColor:'#ffffff', titleColor:'#ffffff', accentColor:'#D4A63A', subtitleColor:'#F2E8D8', textPosition:'left', buttonText:'Umre Programları', buttonLink:'#umre', button2Text:'Bizi Arayın', button2Link:'#iletisim', buttonBgColor:'#D4A63A', buttonTextColor:'#111111', buttonHoverColor:'#B8871F'}
       ],
       adminPassword: '1234'
     },
@@ -331,33 +331,92 @@
     }
   }
 
+  function normalizeColor(value, fallback){
+    const v = String(value || '').trim();
+    return /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(v) ? v : fallback;
+  }
+
   function getHeroBanners(){
     const s = state.settings || {};
     const list = Array.isArray(s.heroBanners) ? s.heroBanners : [];
-    const cleaned = list.map((b, i) => ({
-      id: b.id || ('hb' + i),
-      image: String(b.image || '').trim() || 'assets/hero.svg',
-      title: String(b.title || '').trim() || s.heroTitle || DEFAULT_DATA.settings.heroTitle,
-      subtitle: String(b.subtitle || '').trim() || s.heroSubtitle || DEFAULT_DATA.settings.heroSubtitle,
-      textColor: String(b.textColor || '').trim() || '#ffffff',
-      textPosition: ['left','center','right'].includes(b.textPosition) ? b.textPosition : 'left'
-    })).filter(b => b.image || b.title || b.subtitle);
-    return cleaned.length ? cleaned : [{id:'hb-default', image:'assets/hero.svg', title:s.heroTitle || DEFAULT_DATA.settings.heroTitle, subtitle:s.heroSubtitle || DEFAULT_DATA.settings.heroSubtitle, textColor:'#ffffff', textPosition:'left'}];
+    const defaultBanner = {
+      id:'hb-default', image:'assets/hero.svg',
+      title:s.heroTitle || DEFAULT_DATA.settings.heroTitle,
+      subtitle:s.heroSubtitle || DEFAULT_DATA.settings.heroSubtitle,
+      titleColor:'#ffffff', accentColor:'#D4A63A', subtitleColor:'#F2E8D8', textColor:'#ffffff', textPosition:'left',
+      buttonText:'Umre Programları', buttonLink:'#umre', button2Text:'Bizi Arayın', button2Link:'#iletisim',
+      buttonBgColor:'#D4A63A', buttonTextColor:'#111111', buttonHoverColor:'#B8871F'
+    };
+    const cleaned = list.map((b, i) => {
+      const legacyTextColor = normalizeColor(b.textColor, '#ffffff');
+      return {
+        id: b.id || ('hb' + i),
+        image: String(b.image || '').trim() || 'assets/hero.svg',
+        title: String(b.title || '').trim() || s.heroTitle || DEFAULT_DATA.settings.heroTitle,
+        subtitle: String(b.subtitle || '').trim() || s.heroSubtitle || DEFAULT_DATA.settings.heroSubtitle,
+        textColor: legacyTextColor,
+        titleColor: normalizeColor(b.titleColor, legacyTextColor),
+        accentColor: normalizeColor(b.accentColor, '#D4A63A'),
+        subtitleColor: normalizeColor(b.subtitleColor, normalizeColor(b.textColor, '#F2E8D8')),
+        textPosition: ['left','center','right'].includes(b.textPosition) ? b.textPosition : 'left',
+        buttonText: String(b.buttonText || 'Umre Programları').trim(),
+        buttonLink: String(b.buttonLink || '#umre').trim(),
+        button2Text: String(b.button2Text || 'Bizi Arayın').trim(),
+        button2Link: String(b.button2Link || '#iletisim').trim(),
+        buttonBgColor: normalizeColor(b.buttonBgColor, '#D4A63A'),
+        buttonTextColor: normalizeColor(b.buttonTextColor, '#111111'),
+        buttonHoverColor: normalizeColor(b.buttonHoverColor, '#B8871F')
+      };
+    }).filter(b => b.image || b.title || b.subtitle);
+    return cleaned.length ? cleaned : [defaultBanner];
+  }
+
+  function safeLink(link, fallback){
+    const value = String(link || '').trim();
+    if(!value) return fallback || '#';
+    if(value.startsWith('#') || value.startsWith('/') || /^https?:\/\//i.test(value) || /^tel:/i.test(value) || /^mailto:/i.test(value)) return value;
+    return '#' + value.replace(/^#+/, '');
+  }
+
+  function heroButtonHtml(text, link, type, banner){
+    const label = String(text || '').trim();
+    if(!label) return '';
+    const href = safeLink(link, '#');
+    const bg = banner.buttonBgColor || '#D4A63A';
+    const color = banner.buttonTextColor || '#111111';
+    const hover = banner.buttonHoverColor || '#B8871F';
+    const cls = type === 'outline' ? 'btn btn-outline hero-dynamic-btn' : 'btn btn-gold hero-dynamic-btn';
+    const style = type === 'outline'
+      ? `--hero-btn-bg: transparent; --hero-btn-text:${color}; --hero-btn-hover:${hover}; border-color:${bg}; color:${color};`
+      : `--hero-btn-bg:${bg}; --hero-btn-text:${color}; --hero-btn-hover:${hover}; background:${bg}; color:${color}; border-color:${bg};`;
+    return `<a href="${escapeHtml(href)}" class="${cls}" style="${escapeHtml(style)}">${escapeHtml(label)}</a>`;
   }
 
   function setHeroText(banner){
     const copy = document.querySelector('.hero-copy');
     const title = $('heroTitle');
     const subtitle = $('heroSubtitle');
+    const eyebrow = document.querySelector('.hero-copy .eyebrow');
+    const buttons = document.querySelector('.hero-buttons');
     if(title) title.textContent = banner.title || '';
     if(subtitle) subtitle.textContent = banner.subtitle || '';
     if(copy){
       copy.classList.remove('hero-pos-left','hero-pos-center','hero-pos-right');
       copy.classList.add('hero-pos-' + (banner.textPosition || 'left'));
-      copy.style.color = banner.textColor || '#ffffff';
+      copy.style.color = banner.titleColor || banner.textColor || '#ffffff';
+      copy.style.setProperty('--hero-btn-hover', banner.buttonHoverColor || '#B8871F');
     }
-    if(title) title.style.color = banner.textColor || '#ffffff';
-    if(subtitle) subtitle.style.color = banner.textColor || '#ffffff';
+    if(eyebrow) eyebrow.style.color = banner.accentColor || '#D4A63A';
+    if(title) title.style.color = banner.titleColor || banner.textColor || '#ffffff';
+    if(subtitle) subtitle.style.color = banner.subtitleColor || '#F2E8D8';
+    if(buttons){
+      const html = [
+        heroButtonHtml(banner.buttonText, banner.buttonLink, 'gold', banner),
+        heroButtonHtml(banner.button2Text, banner.button2Link, 'outline', banner)
+      ].filter(Boolean).join('');
+      buttons.innerHTML = html;
+      buttons.style.display = html ? 'flex' : 'none';
+    }
   }
 
   function showHeroBanner(index){
@@ -372,7 +431,7 @@
     const bg = document.querySelector('.hero-bg');
     if(!bg) return;
     const banners = getHeroBanners();
-    bg.innerHTML = banners.map((b, i)=>`<div class="hero-slide ${i===0?'active':''}" style="background-image:url('${escapeHtml(b.image)}')"></div>`).join('');
+    bg.innerHTML = banners.map((b, i)=>`<div class="hero-slide ${i===0?'active':''}"><div class="hero-slide-blur" style="background-image:url('${escapeHtml(b.image)}')"></div><div class="hero-slide-fit" style="background-image:url('${escapeHtml(b.image)}')"></div></div>`).join('');
     showHeroBanner(0);
     if(heroTimer) clearInterval(heroTimer);
     const mode = (state.settings && state.settings.heroMode) || 'single';
@@ -754,9 +813,15 @@
   }
 
   function resetHeroBannerForm(){
-    const ids = ['heroBannerId','heroBannerImage','heroBannerTitle','heroBannerSubtitle'];
+    const ids = ['heroBannerId','heroBannerImage','heroBannerTitle','heroBannerSubtitle','heroBannerButtonText','heroBannerButtonLink','heroBannerButton2Text','heroBannerButton2Link'];
     ids.forEach(id=>{ if($(id)) $(id).value=''; });
+    if($('heroBannerTitleColor')) $('heroBannerTitleColor').value = '#ffffff';
+    if($('heroBannerAccentColor')) $('heroBannerAccentColor').value = '#D4A63A';
+    if($('heroBannerSubtitleColor')) $('heroBannerSubtitleColor').value = '#F2E8D8';
     if($('heroBannerTextColor')) $('heroBannerTextColor').value = '#ffffff';
+    if($('heroBannerButtonBgColor')) $('heroBannerButtonBgColor').value = '#D4A63A';
+    if($('heroBannerButtonTextColor')) $('heroBannerButtonTextColor').value = '#111111';
+    if($('heroBannerButtonHoverColor')) $('heroBannerButtonHoverColor').value = '#B8871F';
     if($('heroBannerTextPosition')) $('heroBannerTextPosition').value = 'left';
     tempHeroBannerImage = '';
     const p = $('heroBannerPreview'); if(p) p.removeAttribute('src');
@@ -777,7 +842,7 @@
     const list = $('heroBannerAdminList'); if(!list) return;
     const banners = getHeroBanners();
     list.innerHTML = banners.map((b, i)=>`<div class="admin-item hero-banner-admin-item" draggable="true" data-hero-banner-id="${escapeHtml(b.id)}"><span class="drag-handle hero-banner-drag" title="Tut sürükle">☰</span><img src="${escapeHtml(b.image)}" onerror="this.src='assets/hero.svg'" alt=""><div><h3>${i+1}. ${escapeHtml(b.title || 'Banner')}</h3><p>${escapeHtml(b.subtitle || '')}
-Yazı konumu: ${escapeHtml(b.textPosition || 'left')} • Yazı rengi: ${escapeHtml(b.textColor || '#ffffff')}</p></div><div class="admin-item-actions"><button class="icon-btn" type="button" data-edit-hero-banner="${escapeHtml(b.id)}">Düzenle</button><button class="icon-btn danger" type="button" data-delete-hero-banner="${escapeHtml(b.id)}">Sil</button></div></div>`).join('') || '<p>Henüz banner eklenmedi.</p>';
+Yazı konumu: ${escapeHtml(b.textPosition || 'left')} • Başlık: ${escapeHtml(b.titleColor || '#ffffff')} • Vurgu: ${escapeHtml(b.accentColor || '#D4A63A')} • Buton: ${escapeHtml(b.buttonText || '')}</p></div><div class="admin-item-actions"><button class="icon-btn" type="button" data-edit-hero-banner="${escapeHtml(b.id)}">Düzenle</button><button class="icon-btn danger" type="button" data-delete-hero-banner="${escapeHtml(b.id)}">Sil</button></div></div>`).join('') || '<p>Henüz banner eklenmedi.</p>';
   }
 
   async function saveHeroBanner(){
@@ -786,9 +851,19 @@ Yazı konumu: ${escapeHtml(b.textPosition || 'left')} • Yazı rengi: ${escapeH
     const image = tempHeroBannerImage || $('heroBannerImage').value.trim() || 'assets/hero.svg';
     const title = $('heroBannerTitle').value.trim() || $('setHeroTitle').value.trim() || DEFAULT_DATA.settings.heroTitle;
     const subtitle = $('heroBannerSubtitle').value.trim() || $('setHeroSubtitle').value.trim() || DEFAULT_DATA.settings.heroSubtitle;
-    const textColor = $('heroBannerTextColor').value || '#ffffff';
+    const titleColor = ($('heroBannerTitleColor') && $('heroBannerTitleColor').value) || ($('heroBannerTextColor') && $('heroBannerTextColor').value) || '#ffffff';
+    const accentColor = ($('heroBannerAccentColor') && $('heroBannerAccentColor').value) || '#D4A63A';
+    const subtitleColor = ($('heroBannerSubtitleColor') && $('heroBannerSubtitleColor').value) || '#F2E8D8';
+    const textColor = titleColor;
     const textPosition = $('heroBannerTextPosition').value || 'left';
-    const item = {id, image, title, subtitle, textColor, textPosition};
+    const buttonText = ($('heroBannerButtonText') && $('heroBannerButtonText').value.trim()) || 'Umre Programları';
+    const buttonLink = ($('heroBannerButtonLink') && $('heroBannerButtonLink').value.trim()) || '#umre';
+    const button2Text = ($('heroBannerButton2Text') && $('heroBannerButton2Text').value.trim()) || '';
+    const button2Link = ($('heroBannerButton2Link') && $('heroBannerButton2Link').value.trim()) || '#iletisim';
+    const buttonBgColor = ($('heroBannerButtonBgColor') && $('heroBannerButtonBgColor').value) || '#D4A63A';
+    const buttonTextColor = ($('heroBannerButtonTextColor') && $('heroBannerButtonTextColor').value) || '#111111';
+    const buttonHoverColor = ($('heroBannerButtonHoverColor') && $('heroBannerButtonHoverColor').value) || '#B8871F';
+    const item = {id, image, title, subtitle, textColor, titleColor, accentColor, subtitleColor, textPosition, buttonText, buttonLink, button2Text, button2Link, buttonBgColor, buttonTextColor, buttonHoverColor};
     const idx = state.settings.heroBanners.findIndex(x=>x.id===id);
     if(idx > -1) state.settings.heroBanners[idx] = item; else state.settings.heroBanners.push(item);
     await saveData(); resetHeroBannerForm(); renderHeroBannerAdmin(); applySettings(); toast('Banner kaydedildi.');
@@ -800,7 +875,17 @@ Yazı konumu: ${escapeHtml(b.textPosition || 'left')} • Yazı rengi: ${escapeH
     $('heroBannerImage').value = b.image && !b.image.startsWith('data:') ? b.image : '';
     $('heroBannerTitle').value = b.title || '';
     $('heroBannerSubtitle').value = b.subtitle || '';
-    $('heroBannerTextColor').value = b.textColor || '#ffffff';
+    if($('heroBannerTitleColor')) $('heroBannerTitleColor').value = b.titleColor || b.textColor || '#ffffff';
+    if($('heroBannerAccentColor')) $('heroBannerAccentColor').value = b.accentColor || '#D4A63A';
+    if($('heroBannerSubtitleColor')) $('heroBannerSubtitleColor').value = b.subtitleColor || b.textColor || '#F2E8D8';
+    if($('heroBannerTextColor')) $('heroBannerTextColor').value = b.textColor || b.titleColor || '#ffffff';
+    if($('heroBannerButtonText')) $('heroBannerButtonText').value = b.buttonText || 'Umre Programları';
+    if($('heroBannerButtonLink')) $('heroBannerButtonLink').value = b.buttonLink || '#umre';
+    if($('heroBannerButton2Text')) $('heroBannerButton2Text').value = b.button2Text || '';
+    if($('heroBannerButton2Link')) $('heroBannerButton2Link').value = b.button2Link || '#iletisim';
+    if($('heroBannerButtonBgColor')) $('heroBannerButtonBgColor').value = b.buttonBgColor || '#D4A63A';
+    if($('heroBannerButtonTextColor')) $('heroBannerButtonTextColor').value = b.buttonTextColor || '#111111';
+    if($('heroBannerButtonHoverColor')) $('heroBannerButtonHoverColor').value = b.buttonHoverColor || '#B8871F';
     $('heroBannerTextPosition').value = b.textPosition || 'left';
     tempHeroBannerImage = b.image || '';
     if($('heroBannerPreview')) $('heroBannerPreview').src = b.image || '';

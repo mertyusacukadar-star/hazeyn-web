@@ -3,10 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <base href="/">
   <title>Hazeyn Yönetici Paneli</title>
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="/style.css" />
 </head>
 <body data-page="admin" class="admin-body">
   <section class="login-screen" id="loginScreen">
@@ -239,8 +240,12 @@
               <img id="heroBannerPreview" class="image-preview banner-preview" alt="Banner ön izleme" />
               <label>Banner Başlığı<input id="heroBannerTitle" placeholder="Kutsal Yolculuğunuzda Güvenilir Rehberiniz" /></label>
               <label>Banner Alt Yazısı<textarea id="heroBannerSubtitle" placeholder="Hac, Umre ve yurt içi turlarında profesyonel organizasyon."></textarea></label>
+              <div class="form-row three">
+                <label>Ana Başlık Rengi<input id="heroBannerTitleColor" type="color" value="#ffffff" /></label>
+                <label>Vurgu Rengi<input id="heroBannerAccentColor" type="color" value="#D4A63A" /></label>
+                <label>Açıklama Yazısı Rengi<input id="heroBannerSubtitleColor" type="color" value="#F2E8D8" /></label>
+              </div>
               <div class="form-row two-col">
-                <label>Yazı Rengi<input id="heroBannerTextColor" type="color" value="#ffffff" /></label>
                 <label>Yazı Konumu
                   <select id="heroBannerTextPosition">
                     <option value="left">Sol</option>
@@ -248,7 +253,19 @@
                     <option value="right">Sağ</option>
                   </select>
                 </label>
+                <label>1. Buton Yazısı<input id="heroBannerButtonText" placeholder="Umre Programları" /></label>
               </div>
+              <label>1. Buton Linki<input id="heroBannerButtonLink" placeholder="#umre veya https://..." /></label>
+              <div class="form-row three">
+                <label>Buton Arka Planı<input id="heroBannerButtonBgColor" type="color" value="#D4A63A" /></label>
+                <label>Buton Yazı Rengi<input id="heroBannerButtonTextColor" type="color" value="#111111" /></label>
+                <label>Buton Hover<input id="heroBannerButtonHoverColor" type="color" value="#B8871F" /></label>
+              </div>
+              <div class="form-row two-col">
+                <label>2. Buton Yazısı <small>İsteğe bağlı</small><input id="heroBannerButton2Text" placeholder="Bizi Arayın" /></label>
+                <label>2. Buton Linki <small>İsteğe bağlı</small><input id="heroBannerButton2Link" placeholder="#iletisim" /></label>
+              </div>
+              <p class="hint-text">Banner görseli artık kırpılmadan tam görünür. Arka plandaki bulanık dolgu boşluk kalmasını engeller.</p>
               <div class="form-actions">
                 <button class="btn btn-gold" type="button" id="saveHeroBanner">Banner Ekle / Güncelle</button>
                 <button class="btn btn-outline dark" type="button" id="resetHeroBanner">Banner Formunu Temizle</button>
@@ -265,6 +282,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js"></script>
+  <script src="/app.js"></script>
 </body>
 </html>

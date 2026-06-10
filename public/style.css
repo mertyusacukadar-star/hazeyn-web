@@ -123,10 +123,15 @@ a{color:inherit;text-decoration:none}img{max-width:100%;display:block}button,inp
 @media(max-width:520px){.nav-actions.open .btn{width:100%;justify-content:center}.contact-cards{grid-template-columns:1fr}.social-icon-line{align-items:flex-start}}
 
 /* Güncelleme: Merak edilenler animasyonu, galeri akışı, banner yönetimi */
-.hero-bg{transform:none;background:none;overflow:hidden}
-.hero-slide{position:absolute;inset:0;background:center/cover no-repeat;opacity:0;transform:scale(1.04);transition:opacity 1s ease,transform 7s ease}
-.hero-slide.active{opacity:1;transform:scale(1)}
+.hero-bg{transform:none;background:#0e0e10;overflow:hidden}
+.hero-slide{position:absolute;inset:0;opacity:0;transition:opacity 1s ease;overflow:hidden}
+.hero-slide.active{opacity:1}
+.hero-slide-blur{position:absolute;inset:-34px;background:center/cover no-repeat;filter:blur(22px);transform:scale(1.08);opacity:.55}
+.hero-slide-fit{position:absolute;inset:0;background:center/contain no-repeat;transition:transform 7s ease}
+.hero-slide.active .hero-slide-fit{transform:scale(1.01)}
 .hero-copy{transition:margin .35s ease,text-align .35s ease,color .35s ease}
+.hero-dynamic-btn{border:1px solid transparent}.hero-dynamic-btn:hover{background:var(--hero-btn-hover)!important;border-color:var(--hero-btn-hover)!important;color:var(--hero-btn-text)!important}
+.hero-copy .btn-outline.hero-dynamic-btn:hover{background:var(--hero-btn-hover)!important;color:#fff!important}
 .hero-copy.hero-pos-left{margin-right:auto;text-align:left}
 .hero-copy.hero-pos-center{margin-inline:auto;text-align:center}
 .hero-copy.hero-pos-right{margin-left:auto;text-align:right}

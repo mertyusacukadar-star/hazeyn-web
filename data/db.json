@@ -19,7 +19,17 @@
         "title": "Kutsal Yolculuğunuzda Güvenilir Rehberiniz",
         "subtitle": "Hac, Umre ve yurt içi turlarında profesyonel organizasyon.",
         "textColor": "#ffffff",
-        "textPosition": "left"
+        "textPosition": "left",
+        "titleColor": "#ffffff",
+        "accentColor": "#D4A63A",
+        "subtitleColor": "#F2E8D8",
+        "buttonText": "Umre Programları",
+        "buttonLink": "#umre",
+        "button2Text": "Bizi Arayın",
+        "button2Link": "#iletisim",
+        "buttonBgColor": "#D4A63A",
+        "buttonTextColor": "#111111",
+        "buttonHoverColor": "#B8871F"
       }
     ]
   },
