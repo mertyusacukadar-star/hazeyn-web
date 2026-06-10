@@ -1,0 +1,16 @@
+{
+  "name": "hazeyn-web-supabase-vercel",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Hazeyn Turizm admin panelli Supabase + Vercel uyumlu web sitesi",
+  "scripts": {
+    "dev": "vercel dev",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4"
+  },
+  "devDependencies": {
+    "vercel": "^37.14.0"
+  }
+}

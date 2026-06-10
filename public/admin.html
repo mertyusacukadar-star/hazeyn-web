@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hazeyn Yönetici Paneli</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-page="admin" class="admin-body">
+  <section class="login-screen" id="loginScreen">
+    <div class="login-card">
+      <img src="assets/logo.png" alt="Hazeyn" />
+      <h1>Yönetici Paneli</h1>
+      <input id="adminPassword" type="password" placeholder="Şifre" />
+      <button id="loginBtn" class="btn btn-gold full">Giriş Yap</button>
+      <a href="index.html" class="back-link">Siteye dön</a>
+    </div>
+  </section>
+
+  <div class="admin-shell" id="adminShell" hidden>
+    <aside class="admin-sidebar">
+      <img src="assets/logo.png" alt="Hazeyn" />
+      <button class="admin-tab active" data-tab="dashboard">Genel Bakış</button>
+      <button class="admin-tab" data-tab="tours">Turlar</button>
+      <button class="admin-tab" data-tab="reviews">Google Yorumları</button>
+      <button class="admin-tab" data-tab="gallery">Galeri</button>
+      <button class="admin-tab" data-tab="staff">Deneyimli Kadro</button>
+      <button class="admin-tab" data-tab="blog">Merak Edilenler / Blog</button>
+      <button class="admin-tab" data-tab="passengers">Yolcu Listesi PDF</button>
+      <button class="admin-tab" data-tab="settings">Site Ayarları</button>
+      <a class="admin-view" href="index.html">Siteyi Gör</a>
+      <button id="logoutBtn" class="admin-logout">Çıkış</button>
+    </aside>
+
+    <main class="admin-main">
+      <div class="admin-topbar">
+        <div><span class="section-kicker">Hazeyn</span><h1>Yönetici Paneli</h1></div>
+        <button id="exportBtn" class="btn btn-outline dark">Yedek İndir</button>
+      </div>
+      <div id="toast" class="toast"></div>
+
+      <section class="admin-panel active" id="tab-dashboard">
+        <div class="stats-grid">
+          <article><strong id="statTours">0</strong><span>Tur</span></article>
+          <article><strong id="statReviews">0</strong><span>Yorum</span></article>
+          <article><strong id="statGallery">0</strong><span>Galeri Görseli</span></article>
+          <article><strong id="statLists">0</strong><span>Yolcu Listesi</span></article>
+          <article><strong id="statStaff">0</strong><span>Kadro</span></article>
+          <article><strong id="statBlogs">0</strong><span>Blog Yazısı</span></article>
+        </div>
+        <div class="admin-card">
+          <h2>Nasıl kullanılır?</h2>
+          <p>Turları, yorumları, galeri görsellerini ve yolcu listelerini buradan ekleyebilirsin. Kaydettiğin değişiklikler sitede otomatik görünür.</p><p>Yolcular kaydedilirken önce oda kişiliğine, sonra aynı soyadına göre otomatik sıralanır. Örneğin 2 kişilik aynı soyadlılar 2 kişilik odalarda alt alta; 4 kişilik olanlar 4 kişilik odalarda ayrı görünür.</p>
+          <p>Yolcu listesinde <b>PDF / Yazdır</b> butonuna basınca yazdırma ekranı açılır. Yazıcı seçebilir veya “PDF olarak kaydet” diyebilirsin.</p>
+        </div>
+      </section>
+
+      <section class="admin-panel" id="tab-tours">
+        <div class="admin-grid two">
+          <form class="admin-card form" id="tourForm">
+            <h2>Tur Ekle / Düzenle</h2>
+            <input type="hidden" id="tourId" />
+            <label>Tur Türü<select id="tourType"><option value="umre">Umre</option><option value="hac">Hac</option><option value="yurtici">Yurt İçi</option></select></label>
+            <label>Başlık<input id="tourTitle" placeholder="Şevval Umresi" required /></label>
+            <label>Etiket<input id="tourTag" placeholder="Kesin Kalkışlı" /></label>
+            <label>Kalkış Tarihi<input id="tourDepartureDate" type="date" /></label>
+            <label>İncele Butonu Yanındaki Yazı <small>Boş bırakırsan kişi başı fiyat görünür</small><input id="tourCardText" placeholder="Örn: Kişi Başı 1.450 USD veya Kontenjan Sınırlı" /></label>
+            <label>Kapak Görsel URL<input id="tourImage" placeholder="assets/hotel.svg veya https://..." /></label>
+            <label>Veya Kapak Görseli Yükle <small>En fazla 50 MB</small><input id="tourImageFile" type="file" accept="image/*" /></label>
+            <img id="tourPreview" class="image-preview" alt="Kapak ön izleme" />
+            <div class="hotel-image-fields">
+              <h3>Otel Görselleri <small>İsteğe bağlı</small></h3>
+              <div class="form-row two-col">
+                <label>Mekke Otel Görsel URL'leri <small>Her satıra 1 görsel linki yaz</small><textarea id="tourHotelMekkeImage" placeholder="https://.../mekke-otel-1.jpg&#10;https://.../mekke-otel-2.jpg"></textarea></label>
+                <label>Medine Otel Görsel URL'leri <small>Her satıra 1 görsel linki yaz</small><textarea id="tourHotelMedineImage" placeholder="https://.../medine-otel-1.jpg&#10;https://.../medine-otel-2.jpg"></textarea></label>
+              </div>
+              <div class="form-row two-col">
+                <label>Mekke Otel Görselleri Yükle <small>Birden fazla seçebilirsin. Her görsel en fazla 50 MB</small><input id="tourHotelMekkeFile" type="file" accept="image/*" multiple /></label>
+                <label>Medine Otel Görselleri Yükle <small>Birden fazla seçebilirsin. Her görsel en fazla 50 MB</small><input id="tourHotelMedineFile" type="file" accept="image/*" multiple /></label>
+              </div>
+              <div class="hotel-preview-row">
+                <div id="tourHotelMekkePreview" class="multi-preview" aria-label="Mekke otel ön izleme"></div>
+                <div id="tourHotelMedinePreview" class="multi-preview" aria-label="Medine otel ön izleme"></div>
+              </div>
+              <p class="hint-text">Birden fazla otel görseli ekleyebilirsin. Otel resmi eklemezsen incele bölümünde otel görsel alanı hiç görünmez.</p>
+            </div>
+            <label>Gece / Süre<input id="tourNights" placeholder="11 Gece Mekke / 3 Gece Medine" /></label>
+            <label>Otel Bilgileri<textarea id="tourHotels" placeholder="Mekke: ...&#10;Medine: ..."></textarea></label>
+            <label>Ulaşım / Havayolu<input id="tourAirline" placeholder="Türk Hava Yolları" /></label>
+            <div class="room-price-fields">
+              <h3>Oda Fiyatları <small>Her oda tipi ayrı fiyat</small></h3>
+              <div class="form-row price-grid">
+                <label>1 Kişilik Oda<input id="tourPrice1" placeholder="Örn: 1.850 USD" /></label>
+                <label>2 Kişilik Oda<input id="tourPrice2" placeholder="Örn: 1.450 USD" /></label>
+                <label>3 Kişilik Oda<input id="tourPrice3" placeholder="Örn: 1.350 USD" /></label>
+                <label>4 Kişilik Oda<input id="tourPrice4" placeholder="Örn: 1.250 USD" /></label>
+                <label>5+ Kişilik Oda<input id="tourPrice5plus" placeholder="Örn: 1.150 USD" /></label>
+              </div>
+              <p class="hint-text">Boş bıraktığın oda tipi sitede görünmez. Eski genel fiyat alanı aşağıda yedek olarak kalır.</p>
+            </div>
+            <label>Genel Fiyat Notu <small>İsteğe bağlı</small><input id="tourPrice" placeholder="Fiyat Sorunuz veya 1.250 USD’den başlayan" /></label>
+            <label>Program Örneği<textarea id="tourProgram" placeholder="1. Gün: ..."></textarea></label>
+            <div class="form-actions"><button class="btn btn-gold" type="submit">Kaydet</button><button class="btn btn-outline dark" type="button" id="tourReset">Temizle</button></div>
+          </form>
+          <div class="admin-card"><h2>Mevcut Turlar</h2><div id="tourAdminList" class="admin-list"></div></div>
+        </div>
+      </section>
+
+      <section class="admin-panel" id="tab-reviews">
+        <div class="admin-grid two">
+          <form class="admin-card form" id="reviewForm">
+            <h2>Google Yorumu Ekle</h2>
+            <input type="hidden" id="reviewId" />
+            <label>Ad Soyad<input id="reviewName" required placeholder="Ahmet Yılmaz" /></label>
+            <label>Yıldız<select id="reviewStars"><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select></label>
+            <label>Yorum<textarea id="reviewText" required placeholder="Çok memnun kaldık..."></textarea></label>
+            <div class="form-actions"><button class="btn btn-gold" type="submit">Kaydet</button><button class="btn btn-outline dark" type="button" id="reviewReset">Temizle</button></div>
+          </form>
+          <div class="admin-card"><h2>Yorumlar</h2><div id="reviewAdminList" class="admin-list"></div></div>
+        </div>
+      </section>
+
+      <section class="admin-panel" id="tab-gallery">
+        <div class="admin-grid two">
+          <form class="admin-card form" id="galleryForm">
+            <h2>Galeri Görseli Ekle</h2>
+            <label>Başlık<input id="galleryTitle" required placeholder="Kabe Ziyareti" /></label>
+            <label>Görsel URL<input id="galleryImage" placeholder="assets/hero.svg veya https://..." /></label>
+            <label>Veya Görsel Yükle <small>En fazla 50 MB</small><input id="galleryFile" type="file" accept="image/*" /></label>
+            <img id="galleryPreview" class="image-preview" alt="Ön izleme" />
+            <button class="btn btn-gold" type="submit">Ekle</button>
+          </form>
+          <div class="admin-card"><h2>Galeri</h2><div id="galleryAdminList" class="admin-list gallery-admin"></div></div>
+        </div>
+      </section>
+
+      <section class="admin-panel" id="tab-staff">
+        <div class="admin-grid two">
+          <form class="admin-card form" id="staffForm">
+            <h2>Deneyimli Kadro Ekle / Düzenle</h2>
+            <input type="hidden" id="staffId" />
+            <label>Ad Soyad<input id="staffName" required placeholder="Emrullah Kesken" /></label>
+            <label>Görev / Ünvan<input id="staffRole" placeholder="Umre Rehberi / Kafile Sorumlusu" /></label>
+            <label>Fotoğraf URL<input id="staffImage" placeholder="https://... veya assets/icon.png" /></label>
+            <label>Veya Fotoğraf Yükle <small>En fazla 50 MB</small><input id="staffFile" type="file" accept="image/*" /></label>
+            <img id="staffPreview" class="image-preview" alt="Kadro ön izleme" />
+            <label>Kısa Biyografi<textarea id="staffBio" required placeholder="Kısa biyografi, görev alanı ve tecrübe bilgisi..."></textarea></label>
+            <div class="form-actions"><button class="btn btn-gold" type="submit">Kaydet</button><button class="btn btn-outline dark" type="button" id="staffReset">Temizle</button></div>
+          </form>
+          <div class="admin-card"><h2>Kayıtlı Kadro</h2><div id="staffAdminList" class="admin-list staff-admin"></div></div>
+        </div>
+      </section>
+
+      <section class="admin-panel" id="tab-blog">
+        <div class="admin-grid two">
+          <form class="admin-card form" id="blogForm">
+            <h2>Merak Edilenler / Blog Ekle</h2>
+            <input type="hidden" id="blogId" />
+            <label>Kategori<input id="blogCategory" placeholder="Umre Rehberi, Vize İşlemleri, Hazırlık" /></label>
+            <label>Başlık<input id="blogTitle" required placeholder="İhram Yasakları Nelerdir?" /></label>
+            <label>Kısa Özet<textarea id="blogSummary" placeholder="Kartta görünecek kısa açıklama"></textarea></label>
+            <label>Görsel URL <small>İsteğe bağlı</small><input id="blogImage" placeholder="https://..." /></label>
+            <label>Veya Görsel Yükle <small>İsteğe bağlı, en fazla 50 MB</small><input id="blogFile" type="file" accept="image/*" /></label>
+            <img id="blogPreview" class="image-preview" alt="Blog görsel ön izleme" />
+            <label>İçerik<textarea id="blogContent" required placeholder="İhram yasakları, vize işlemleri, yapılması gerekenler gibi içerikleri buraya yaz..."></textarea></label>
+            <div class="form-actions"><button class="btn btn-gold" type="submit">Kaydet</button><button class="btn btn-outline dark" type="button" id="blogReset">Temizle</button></div>
+          </form>
+          <div class="admin-card"><h2>Kayıtlı Yazılar</h2><div id="blogAdminList" class="admin-list"></div></div>
+        </div>
+      </section>
+
+      <section class="admin-panel" id="tab-passengers">
+        <div class="admin-card form">
+          <h2>Yolcu Listesi Oluştur</h2>
+          <input type="hidden" id="listId" />
+          <input type="hidden" id="listTourId" />
+          <div class="form-row three">
+            <label>Tur Seç
+              <select id="listTourSelect"><option value="">Önce tur ekleyin veya seçin</option></select>
+            </label>
+            <label>Liste Başlığı<input id="listTitle" placeholder="Şevval Umresi" /></label>
+            <label>Tarih<input id="listDate" type="date" /></label>
+          </div>
+          <div class="form-row two-col">
+            <label>Rehber<input id="listLeader" placeholder="Emrullah Hoca" /></label>
+            <label>Liste Notu<input id="listNotes" placeholder="Özel notlar..." /></label>
+          </div>
+          <div class="table-wrap">
+            <table class="passenger-table wide" id="passengerTable">
+              <thead>
+                <tr>
+                  <th>Ad Soyad</th>
+                  <th>Cinsiyet</th>
+                  <th>TC No</th>
+                  <th>Telefon Numarası</th>
+                  <th>Pasaport Numarası</th>
+                  <th>Doğum Tarihi</th>
+                  <th>Pasaport Başlangıç</th>
+                  <th>Pasaport Bitiş</th>
+                  <th>Oda Kaç Kişilik</th>
+                  <th>Oda Numarası</th>
+                  <th>Not</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="form-actions"><button class="btn btn-outline dark" id="addPassengerRow" type="button">Yolcu Ekle</button><button class="btn btn-gold" id="savePassengerList" type="button">Listeyi Kaydet</button><button class="btn btn-outline dark" id="clearPassengerList" type="button">Temizle</button></div>
+        </div>
+        <div class="admin-card"><h2>Kayıtlı Yolcu Listeleri</h2><div id="passengerListAdmin" class="admin-list"></div></div>
+      </section>
+
+      <section class="admin-panel" id="tab-settings">
+        <form class="admin-card form" id="settingsForm">
+          <h2>Site Ayarları</h2>
+          <div class="form-row two-col"><label>Telefon<input id="setPhone" /></label><label>İkinci Telefon<input id="setPhone2" /></label></div>
+          <div class="form-row two-col"><label>WhatsApp No<input id="setWhatsapp" placeholder="905331234567" /></label><label>E-posta<input id="setEmail" /></label></div>
+          <div class="form-row two-col"><label>Website<input id="setWebsite" /></label><label>Instagram Kullanıcı Adı<input id="setInstagram" placeholder="hazeynturizm" /></label></div>
+          <label>Adres<input id="setAddress" /></label>
+          <label>Ana Başlık<input id="setHeroTitle" /></label>
+          <label>Ana Alt Yazı<textarea id="setHeroSubtitle"></textarea></label>
+          <div class="banner-admin-box">
+            <h2>Site Banner Ayarları</h2>
+            <label>Banner Kullanımı
+              <select id="setHeroMode">
+                <option value="single">Tek Banner</option>
+                <option value="slider">Kaydıraçlı Banner</option>
+              </select>
+            </label>
+            <div class="banner-editor">
+              <input type="hidden" id="heroBannerId" />
+              <div class="form-row two-col">
+                <label>Banner Görsel URL<input id="heroBannerImage" placeholder="assets/hero.svg veya https://..." /></label>
+                <label>Veya Banner Görseli Yükle <small>En fazla 50 MB</small><input id="heroBannerFile" type="file" accept="image/*" /></label>
+              </div>
+              <img id="heroBannerPreview" class="image-preview banner-preview" alt="Banner ön izleme" />
+              <label>Banner Başlığı<input id="heroBannerTitle" placeholder="Kutsal Yolculuğunuzda Güvenilir Rehberiniz" /></label>
+              <label>Banner Alt Yazısı<textarea id="heroBannerSubtitle" placeholder="Hac, Umre ve yurt içi turlarında profesyonel organizasyon."></textarea></label>
+              <div class="form-row two-col">
+                <label>Yazı Rengi<input id="heroBannerTextColor" type="color" value="#ffffff" /></label>
+                <label>Yazı Konumu
+                  <select id="heroBannerTextPosition">
+                    <option value="left">Sol</option>
+                    <option value="center">Orta</option>
+                    <option value="right">Sağ</option>
+                  </select>
+                </label>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-gold" type="button" id="saveHeroBanner">Banner Ekle / Güncelle</button>
+                <button class="btn btn-outline dark" type="button" id="resetHeroBanner">Banner Formunu Temizle</button>
+              </div>
+            </div>
+            <div class="admin-list hero-banner-admin-list" id="heroBannerAdminList"></div>
+            <p class="hint-text">Banner sırasını değiştirmek için listedeki ☰ işaretini mouse ile tutup yukarı-aşağı sürükleyebilirsin. Tek banner seçersen listedeki ilk banner görünür. Kaydıraçlı seçersen eklediğin bannerlar bu sırayla akar.</p>
+          </div>
+          <label>Admin Şifresi<input id="setAdminPassword" placeholder="1234" /></label>
+          <button class="btn btn-gold" type="submit">Ayarları Kaydet</button>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>

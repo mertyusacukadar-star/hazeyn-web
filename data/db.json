@@ -1,0 +1,206 @@
+{
+  "settings": {
+    "brand": "HAZEYN Turizm Seyahat Acentası",
+    "phone": "0216 280 0 777",
+    "phone2": "0533 094 0683",
+    "whatsapp": "905330940683",
+    "email": "info@hazeynturizm.com",
+    "website": "https://www.hazeynturizm.com/tr/",
+    "address": "Ümraniye / İstanbul",
+    "heroTitle": "Kutsal Yolculuğunuzda Güvenilir Rehberiniz",
+    "heroSubtitle": "Hac, Umre ve yurt içi turlarında profesyonel organizasyon.",
+    "adminPassword": "1234",
+    "instagram": "hazeynturizm",
+    "heroMode": "slider",
+    "heroBanners": [
+      {
+        "id": "hb1",
+        "image": "assets/hero.svg",
+        "title": "Kutsal Yolculuğunuzda Güvenilir Rehberiniz",
+        "subtitle": "Hac, Umre ve yurt içi turlarında profesyonel organizasyon.",
+        "textColor": "#ffffff",
+        "textPosition": "left"
+      }
+    ]
+  },
+  "tours": [
+    {
+      "id": "t1",
+      "type": "umre",
+      "title": "Şevval Umresi",
+      "tag": "Kesin Kalkışlı",
+      "image": "assets/hotel.svg",
+      "nights": "11 Gece Mekke / 3 Gece Medine",
+      "hotels": "Mekke: Voco Hotel\nMedine: Emaar Royal",
+      "airline": "Türk Hava Yolları",
+      "price": "1.250 USD",
+      "program": "1. Gün: İstanbul çıkış ve Medine'ye varış.\n2-3. Gün: Medine ziyaretleri.\n4. Gün: Mekke'ye geçiş ve umre ibadeti.\nSon Gün: Dönüş hazırlığı ve İstanbul'a uçuş.",
+      "departureDate": "2026-05-14",
+      "roomPrices": {
+        "1": "1.650 USD",
+        "2": "1.450 USD",
+        "3": "1.350 USD",
+        "4": "1.250 USD",
+        "5+": "1.150 USD"
+      }
+    },
+    {
+      "id": "t2",
+      "type": "umre",
+      "title": "Ramazan Umresi",
+      "tag": "Yoğun Talep",
+      "image": "assets/hotel.svg",
+      "nights": "14 Gece Mekke / 3 Gece Medine",
+      "hotels": "Mekke: Swissotel Al Maqam\nMedine: Anwar Al Madinah",
+      "airline": "Türk Hava Yolları",
+      "price": "1.650 USD",
+      "program": "Ramazan ayına özel program. Sahur ve iftar düzeni, rehber eşliğinde ziyaretler ve grup takibi dahildir.",
+      "departureDate": "2026-03-01",
+      "roomPrices": {
+        "1": "2.050 USD",
+        "2": "1.850 USD",
+        "3": "1.750 USD",
+        "4": "1.650 USD"
+      }
+    },
+    {
+      "id": "t3",
+      "type": "hac",
+      "title": "2026 Hac Programı",
+      "tag": "Ön Kayıt",
+      "image": "assets/hero.svg",
+      "nights": "40 Gün",
+      "hotels": "Mekke: Swissotel Al Maqam\nMedine: Anwar Al Madinah",
+      "airline": "Türk Hava Yolları",
+      "price": "8.950 USD",
+      "program": "Hac ibadetleri, rehberlik, ulaşım, konaklama ve grup takibi program detaylarına göre planlanır.",
+      "departureDate": "2026-05-25",
+      "roomPrices": {
+        "1": "9.950 USD",
+        "2": "8.950 USD",
+        "3": "8.650 USD",
+        "4": "8.350 USD"
+      }
+    },
+    {
+      "id": "t4",
+      "type": "yurtici",
+      "title": "GAP Turu",
+      "tag": "Kültür & Tarih",
+      "image": "assets/yurtici.svg",
+      "nights": "2 Gece 3 Gün",
+      "hotels": "Şanlıurfa / Mardin otel konaklaması",
+      "airline": "Otobüs veya uçaklı seçenek",
+      "price": "15.000 TL",
+      "program": "Halfeti, Şanlıurfa, Mardin, Diyarbakır ve Gaziantep rotasına göre kültür turu programı.",
+      "departureDate": "2026-06-08",
+      "roomPrices": {
+        "2": "15.000 TL",
+        "3": "15.000 TL",
+        "4": "15.000 TL"
+      }
+    },
+    {
+      "id": "t5",
+      "type": "yurtici",
+      "title": "Karadeniz Turu",
+      "tag": "Doğa",
+      "image": "assets/yurtici.svg",
+      "nights": "5 Gece 6 Gün",
+      "hotels": "Bölge otellerinde konaklama",
+      "airline": "Otobüslü program",
+      "price": "Fiyat Sorunuz",
+      "program": "Yaylalar, doğa gezileri ve yöresel duraklardan oluşan örnek Karadeniz programı."
+    }
+  ],
+  "reviews": [
+    {
+      "id": "r1",
+      "name": "Ahmet Yılmaz",
+      "text": "Harika bir umre deneyimi yaşadık. Her şey çok güzel organize edilmişti.",
+      "stars": 5
+    },
+    {
+      "id": "r2",
+      "name": "Zeynep Kaya",
+      "text": "Rehberimiz çok ilgiliydi. Otel ve ulaşım hizmetlerinden memnun kaldık.",
+      "stars": 5
+    },
+    {
+      "id": "r3",
+      "name": "Mehmet Demir",
+      "text": "Ailemle birlikte huzurlu ve güvenli bir yolculuk yaptık.",
+      "stars": 5
+    },
+    {
+      "id": "r4",
+      "name": "Fatma Aydın",
+      "text": "Her şey mükemmeldi. Tekrar tercih edeceğimiz bir acenta.",
+      "stars": 5
+    }
+  ],
+  "gallery": [
+    {
+      "id": "g1",
+      "title": "Kabe Ziyareti",
+      "image": "assets/hero.svg"
+    },
+    {
+      "id": "g2",
+      "title": "Otel Konaklama",
+      "image": "assets/hotel.svg"
+    },
+    {
+      "id": "g3",
+      "title": "Yurt İçi Tur",
+      "image": "assets/yurtici.svg"
+    }
+  ],
+  "passengerLists": [],
+  "staff": [
+    {
+      "id": "s1",
+      "name": "Emrullah Kesken",
+      "role": "Umre Rehberi",
+      "image": "assets/icon.png",
+      "bio": "Hac ve umre organizasyonlarında misafirlere ibadet, ziyaret ve grup takibi konularında rehberlik eder."
+    },
+    {
+      "id": "s2",
+      "name": "Ahmet İkinci",
+      "role": "Kafile Sorumlusu",
+      "image": "assets/icon.png",
+      "bio": "Program akışı, otel yerleşimi ve yolculuk sürecinde misafir memnuniyetine odaklanır."
+    },
+    {
+      "id": "s3",
+      "name": "Barış Ay",
+      "role": "Şirket Yetkilisi",
+      "image": "assets/icon.png",
+      "bio": "Tur planlaması, operasyon ve iletişim süreçlerinde profesyonel destek sağlar."
+    }
+  ],
+  "blogs": [
+    {
+      "id": "b1",
+      "category": "Umre Rehberi",
+      "title": "İhram Yasakları Nelerdir?",
+      "summary": "Umreye gitmeden önce bilinmesi gereken temel ihram kuralları.",
+      "content": "İhrama giren kişinin dikkat etmesi gereken bazı kurallar vardır. Koku sürmemek, saç ve tırnak kesmemek, avlanmamak, dikişli kıyafet giymemek gibi konular rehber eşliğinde detaylı anlatılır."
+    },
+    {
+      "id": "b2",
+      "category": "Vize İşlemleri",
+      "title": "Umre Vize İşlemleri Nasıl Yapılır?",
+      "summary": "Pasaport, evrak ve vize süreci hakkında kısa bilgilendirme.",
+      "content": "Umre vize işlemleri için pasaport bilgileri ve gerekli evraklar alınır. Başvuru süreci acenta tarafından takip edilir ve misafire gerekli bilgilendirme yapılır."
+    },
+    {
+      "id": "b3",
+      "category": "Hazırlık",
+      "title": "Umreye Giderken Neler Alınmalı?",
+      "summary": "Yolculuk öncesi çanta hazırlığı ve gerekli eşyalar.",
+      "content": "İhram, rahat terlik, kişisel ilaçlar, küçük çanta, şarj cihazı, pasaport ve gerekli evraklar yolculuk öncesinde hazır edilmelidir."
+    }
+  ]
+}
