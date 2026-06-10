@@ -1,0 +1,25 @@
+BU SÜRÜMDE DÜZELTİLENLER
+
+- Vercel'de /api/config ve /api/login 404 hatası veren sorun düzeltildi.
+- Görsel yükleme artık canlı sitede server.js üzerinden /api/signed-upload ile Supabase Storage'a gider.
+- /api/data kaydı Supabase veritabanına yapılır.
+
+GITHUB'A YÜKLEME:
+1) Zip'i bilgisayarda çıkar.
+2) hazeyn-web-supabase-vercel klasörünün İÇİNDEKİ tüm dosya ve klasörleri GitHub reposuna sürükle bırak.
+3) GitHub'da "Commit changes" de.
+4) Vercel otomatik deploy almazsa Vercel > Deployments > Redeploy yap.
+
+VERCEL ENVIRONMENT VARIABLES:
+SUPABASE_URL
+SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_TABLE=hazeyn_data
+SUPABASE_ROW_ID=main
+SUPABASE_BUCKET=hazeyn
+ADMIN_PASSWORD=admin şifren
+
+Yükleme testi:
+- Admin panelden yeni bir görsel yükle.
+- Supabase > Storage > hazeyn klasöründe dosya oluşmalı.
+- Admin panelde görsel satırında data:image değil, https://...supabase.co/... linki görünmeli.
