@@ -1,5 +1,32 @@
 {
     "version": 2,
+    "redirects": [
+        {
+            "source": "/tr",
+            "destination": "/",
+            "permanent": false
+        },
+        {
+            "source": "/tr/",
+            "destination": "/",
+            "permanent": false
+        },
+        {
+            "source": "/tr/hac-umre",
+            "destination": "/",
+            "permanent": false
+        },
+        {
+            "source": "/tr/hac-umre/",
+            "destination": "/",
+            "permanent": false
+        },
+        {
+            "source": "/tr/:path*",
+            "destination": "/",
+            "permanent": false
+        }
+    ],
     "rewrites": [
         {
             "source": "/admin",
@@ -24,26 +51,6 @@
         {
             "source": "/merak-edilenler/",
             "destination": "/merak-edilenler.html"
-        },
-        {
-            "source": "/tr",
-            "destination": "/index.html"
-        },
-        {
-            "source": "/tr/",
-            "destination": "/index.html"
-        },
-        {
-            "source": "/tr/hac-umre",
-            "destination": "/index.html"
-        },
-        {
-            "source": "/tr/hac-umre/",
-            "destination": "/index.html"
-        },
-        {
-            "source": "/tr/:path*",
-            "destination": "/index.html"
         }
     ]
 }
