@@ -440,7 +440,6 @@
     const banners = getHeroBanners();
     bg.innerHTML = banners.map((b, i)=>`<div class="hero-slide ${i===0?'active':''}"><div class="hero-slide-blur" style="background-image:url('${escapeHtml(b.image)}')"></div><div class="hero-slide-fit" style="background-image:url('${escapeHtml(b.image)}')"></div></div>`).join('');
     showHeroBanner(0);
-    bindHeroDrag();
     if(heroTimer) clearInterval(heroTimer);
     const mode = (state.settings && state.settings.heroMode) || 'single';
     if(mode === 'slider' && banners.length > 1){
@@ -516,94 +515,6 @@
     $('tourModal').classList.add('open');
   }
 
-
-  function makeSlideTrack(images, currentIndex, imageId, bgId, counterId, label){
-    images = Array.isArray(images) && images.length ? images : ['assets/hero.svg'];
-    const safe = images.map(src=>escapeHtml(src));
-    return `<div class="swipe-track" data-swipe-track data-image-id="${escapeHtml(imageId)}" data-bg-id="${escapeHtml(bgId || '')}" data-counter-id="${escapeHtml(counterId)}" data-label="${escapeHtml(label || 'Görsel')}">${safe.map((src, i)=>`<div class="swipe-slide"><img src="${src}" alt="${escapeHtml(label || 'Görsel')} ${i+1}" onerror="this.src='assets/hero.svg'"></div>`).join('')}</div>`;
-  }
-
-  function positionSwipeTrack(container, index, animate){
-    if(!container) return;
-    const track = container.querySelector('[data-swipe-track]');
-    if(!track) return;
-    track.style.transition = animate ? 'transform .34s ease' : 'none';
-    track.style.transform = `translate3d(${-Number(index || 0) * 100}%,0,0)`;
-  }
-
-  function bindSwipeSlider(container, getIndex, getLength, moveFn){
-    if(!container || container.dataset.swipeBound === '1') return;
-    container.dataset.swipeBound = '1';
-
-    let dragging = false;
-    let startX = 0;
-    let startY = 0;
-    let dx = 0;
-    let pointerId = null;
-
-    function resetTrack(){
-      positionSwipeTrack(container, getIndex(), true);
-    }
-
-    container.addEventListener('pointerdown', (e)=>{
-      if(e.target.closest('button,a,input,textarea,select')) return;
-      if(e.pointerType === 'mouse' && e.button !== 0) return;
-      const len = Number(getLength ? getLength() : 0);
-      if(len <= 1) return;
-      dragging = true;
-      dx = 0;
-      startX = e.clientX;
-      startY = e.clientY;
-      pointerId = e.pointerId;
-      container.classList.add('dragging');
-      try{ container.setPointerCapture(pointerId); }catch(_){}
-    });
-
-    container.addEventListener('pointermove', (e)=>{
-      if(!dragging) return;
-      dx = e.clientX - startX;
-      const dy = e.clientY - startY;
-      if(Math.abs(dx) <= Math.abs(dy)) return;
-      e.preventDefault();
-      const track = container.querySelector('[data-swipe-track]');
-      if(!track) return;
-      const width = container.clientWidth || 1;
-      const base = -getIndex() * 100;
-      track.style.transition = 'none';
-      track.style.transform = `translate3d(calc(${base}% + ${dx}px),0,0)`;
-    }, {passive:false});
-
-    function end(e){
-      if(!dragging) return;
-      dragging = false;
-      container.classList.remove('dragging');
-      const dy = e.clientY - startY;
-      try{ if(pointerId !== null) container.releasePointerCapture(pointerId); }catch(_){}
-      pointerId = null;
-      if(Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy)){
-        moveFn(dx < 0 ? 1 : -1);
-      }else{
-        resetTrack();
-      }
-    }
-    container.addEventListener('pointerup', end);
-    container.addEventListener('pointercancel', end);
-    container.addEventListener('lostpointercapture', (e)=>{ if(dragging) end(e); });
-  }
-
-  function bindCurrentModalSwipe(){
-    bindSwipeSlider(document.querySelector('[data-tour-carousel]'), ()=>currentTourImageIndex, ()=>currentTourImages.length, moveTourModalImage);
-    bindSwipeSlider(document.querySelector('.hotel-detail-slider'), ()=>currentHotelImageIndex, ()=>currentHotelImages.length, moveHotelModalImage);
-    const galleryList = state.gallery.length ? state.gallery : DEFAULT_DATA.gallery;
-    bindSwipeSlider(document.querySelector('.gallery-viewer'), ()=>currentGalleryIndex, ()=>galleryList.length, moveGalleryModal);
-  }
-
-  function bindHeroSwipe(){
-    const hero = document.querySelector('.hero');
-    const banners = getHeroBanners();
-    bindSwipeSlider(hero, ()=>heroSlideIndex, ()=>banners.length, (step)=>showHeroBanner(heroSlideIndex + step));
-  }
-
   function openGalleryModal(index){
     currentHotelImages = [];
     currentTourImages = [];
@@ -614,13 +525,11 @@
     const g = list[currentGalleryIndex]; if(!g) return;
     $('modalBody').innerHTML = `<div class="image-viewer gallery-viewer">
       <button class="gallery-nav gallery-prev" type="button" data-gallery-prev aria-label="Önceki görsel">‹</button>
-      ${makeSlideTrack(list.map(x=>x.image), currentGalleryIndex, 'galleryModalImage', '', 'galleryImageCounter', g.title || 'Galeri')}
+      <img src="${escapeHtml(g.image)}" alt="${escapeHtml(g.title)}" onerror="this.src='assets/hero.svg'">
       <button class="gallery-nav gallery-next" type="button" data-gallery-next aria-label="Sonraki görsel">›</button>
-      <div class="gallery-viewer-footer"><h2>${escapeHtml(g.title)}</h2><span id="galleryImageCounter">${currentGalleryIndex + 1} / ${list.length}</span></div>
+      <div class="gallery-viewer-footer"><h2>${escapeHtml(g.title)}</h2><span>${currentGalleryIndex + 1} / ${list.length}</span></div>
     </div>`;
-    positionSwipeTrack(document.querySelector('.gallery-viewer'), currentGalleryIndex, false);
     $('tourModal').classList.add('open');
-    bindCurrentModalDrag();
   }
 
   function moveGalleryModal(step){
@@ -651,7 +560,6 @@
       </div>
     </div>`;
     $('tourModal').classList.add('open');
-    bindCurrentModalDrag();
   }
 
   function renderPublic(){
@@ -798,15 +706,14 @@
 
   function setTourModalImage(index){
     if(!currentTourImages.length) return;
-    currentTourImageIndex = ((Number(index) % currentTourImages.length) + currentTourImages.length) % currentTourImages.length;
-    const src = currentTourImages[currentTourImageIndex] || 'assets/hero.svg';
+    currentTourImageIndex = (Number(index) + currentTourImages.length) % currentTourImages.length;
+    const src = currentTourImages[currentTourImageIndex];
     const img = $('tourModalImage');
     const bg = $('tourModalImageBg');
     const counter = $('tourImageCounter');
     if(img) img.src = src;
     if(bg) bg.style.backgroundImage = `url('${src.replace(/'/g, "\'")}')`;
     if(counter) counter.textContent = `${currentTourImageIndex + 1} / ${currentTourImages.length}`;
-    positionSwipeTrack(document.querySelector('[data-tour-carousel]'), currentTourImageIndex, true);
   }
 
   function moveTourModalImage(step){
@@ -815,9 +722,11 @@
 
   function tourImageCarouselHtml(t){
     const images = getTourImages(t);
+    const first = images[0];
     const nav = images.length > 1 ? `<button class="tour-carousel-nav tour-carousel-prev" type="button" data-tour-image-prev aria-label="Önceki görsel">‹</button><button class="tour-carousel-nav tour-carousel-next" type="button" data-tour-image-next aria-label="Sonraki görsel">›</button>` : '';
     return `<div class="tour-modal-carousel" data-tour-carousel>
-      ${makeSlideTrack(images, 0, 'tourModalImage', 'tourModalImageBg', 'tourImageCounter', t.title || 'Tur görseli')}
+      <div class="tour-modal-image-bg" id="tourModalImageBg" style="background-image:url('${escapeHtml(first)}')"></div>
+      <img id="tourModalImage" src="${escapeHtml(first)}" alt="${escapeHtml(t.title || 'Tur görseli')}" onerror="this.src='assets/hero.svg'">
       ${nav}
       <div class="tour-image-counter" id="tourImageCounter">1 / ${images.length}</div>
     </div>`;
@@ -920,12 +829,12 @@
 
   function setHotelModalImage(index){
     if(!currentHotelImages.length) return;
-    currentHotelImageIndex = ((Number(index) % currentHotelImages.length) + currentHotelImages.length) % currentHotelImages.length;
+    currentHotelImageIndex = (Number(index) + currentHotelImages.length) % currentHotelImages.length;
+    const src = currentHotelImages[currentHotelImageIndex];
     const img = $('hotelModalImage');
     const counter = $('hotelImageCounter');
-    if(img) img.src = currentHotelImages[currentHotelImageIndex] || 'assets/hotel.svg';
+    if(img) img.src = src;
     if(counter) counter.textContent = `${currentHotelImageIndex + 1} / ${currentHotelImages.length}`;
-    positionSwipeTrack(document.querySelector('.hotel-detail-slider'), currentHotelImageIndex, true);
   }
 
   function moveHotelModalImage(step){
@@ -943,7 +852,7 @@
     const nav = currentHotelImages.length > 1 ? `<button class="hotel-slider-nav hotel-prev" type="button" data-hotel-image-prev aria-label="Önceki görsel">‹</button><button class="hotel-slider-nav hotel-next" type="button" data-hotel-image-next aria-label="Sonraki görsel">›</button>` : '';
     $('modalBody').innerHTML = `<div class="hotel-detail-modal">
       <div class="hotel-detail-slider">
-        ${makeSlideTrack(currentHotelImages, 0, 'hotelModalImage', '', 'hotelImageCounter', currentHotelTitle)}
+        <img id="hotelModalImage" src="${escapeHtml(currentHotelImages[0])}" alt="${escapeHtml(currentHotelTitle)}" onerror="this.src='assets/hotel.svg'">
         ${nav}
         <div class="hotel-image-counter" id="hotelImageCounter">1 / ${currentHotelImages.length}</div>
       </div>
@@ -954,7 +863,6 @@
       </div>
     </div>`;
     $('tourModal').classList.add('open');
-    bindCurrentModalDrag();
   }
 
   function resetTourForm(){
