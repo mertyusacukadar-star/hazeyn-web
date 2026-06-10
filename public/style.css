@@ -203,3 +203,19 @@ a{color:inherit;text-decoration:none}img{max-width:100%;display:block}button,inp
 .swipe-ghost-img{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:cover!important;z-index:1!important;pointer-events:none!important;user-select:none!important;-webkit-user-drag:none!important;display:block!important;}
 .tour-carousel-nav,.hotel-slider-nav,.gallery-nav{z-index:40!important;pointer-events:auto!important;}
 .tour-image-counter,.hotel-image-counter{z-index:45!important;}
+
+
+/* ChatGPT fix: bannerı telefon galerisi gibi sürükleyerek kaydırma */
+.hero{
+  touch-action:pan-y;
+  cursor:grab;
+}
+.hero.hero-swiping{
+  cursor:grabbing;
+}
+.hero.hero-swiping .hero-slide{
+  pointer-events:none;
+}
+.hero.hero-swiping .hero-slide-fit{
+  transition:none!important;
+}

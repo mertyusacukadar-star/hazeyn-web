@@ -625,28 +625,133 @@
 
   function bindHeroSwipe(){
     const hero = document.querySelector('.hero');
-    if(!hero || hero.dataset.heroSwipeBound === '1') return;
+    const bg = document.querySelector('.hero-bg');
+    if(!hero || !bg || hero.dataset.heroSwipeBound === '1') return;
     hero.dataset.heroSwipeBound = '1';
-    let dragging = false, startX = 0, startY = 0, dx = 0;
+
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let dx = 0;
+    let pointerId = null;
+    let activeSlide = null;
+    let nextSlide = null;
+    let direction = 0;
+
+    function cleanup(){
+      [activeSlide, nextSlide].forEach(slide=>{
+        if(!slide) return;
+        slide.style.transition = '';
+        slide.style.transform = '';
+        slide.style.opacity = '';
+        slide.style.zIndex = '';
+      });
+      hero.classList.remove('hero-swiping');
+      activeSlide = null;
+      nextSlide = null;
+      direction = 0;
+      dx = 0;
+    }
+
+    function prepareSlides(step){
+      const slides = Array.from(document.querySelectorAll('.hero-slide'));
+      if(slides.length <= 1) return false;
+      activeSlide = slides[heroSlideIndex] || document.querySelector('.hero-slide.active');
+      const nextIndex = ((heroSlideIndex + step) % slides.length + slides.length) % slides.length;
+      nextSlide = slides[nextIndex];
+      if(!activeSlide || !nextSlide || activeSlide === nextSlide) return false;
+      direction = step;
+      activeSlide.style.transition = 'none';
+      nextSlide.style.transition = 'none';
+      activeSlide.style.opacity = '1';
+      nextSlide.style.opacity = '1';
+      activeSlide.style.zIndex = '2';
+      nextSlide.style.zIndex = '3';
+      nextSlide.style.transform = `translate3d(${step * 100}%,0,0)`;
+      return true;
+    }
+
     hero.addEventListener('pointerdown', (e)=>{
       if(e.target.closest('a,button,input,textarea,select')) return;
+      if(e.pointerType === 'mouse' && e.button !== 0) return;
       const banners = getHeroBanners();
       if(!banners || banners.length <= 1) return;
-      dragging = true; startX = e.clientX; startY = e.clientY; dx = 0;
-      hero.classList.add('swiping');
+      dragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      dx = 0;
+      pointerId = e.pointerId;
+      hero.classList.add('hero-swiping');
+      try{ hero.setPointerCapture(pointerId); }catch(_){}
+      if(heroTimer) clearInterval(heroTimer);
     });
+
     hero.addEventListener('pointermove', (e)=>{
       if(!dragging) return;
       dx = e.clientX - startX;
-      if(Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(e.clientY - startY)) e.preventDefault();
+      const dy = e.clientY - startY;
+      if(Math.abs(dx) <= 8 || Math.abs(dx) <= Math.abs(dy)) return;
+      e.preventDefault();
+
+      const step = dx < 0 ? 1 : -1;
+      if(!nextSlide || step !== direction){
+        if(activeSlide || nextSlide) cleanup();
+        hero.classList.add('hero-swiping');
+        prepareSlides(step);
+      }
+      if(!activeSlide || !nextSlide) return;
+      const width = hero.clientWidth || window.innerWidth || 1;
+      const dragPx = Math.max(-width, Math.min(width, dx));
+      activeSlide.style.transform = `translate3d(${dragPx}px,0,0)`;
+      nextSlide.style.transform = `translate3d(${step * width + dragPx}px,0,0)`;
     }, {passive:false});
-    function end(e){
+
+    function finish(e){
       if(!dragging) return;
-      dragging = false; hero.classList.remove('swiping');
-      if(Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(e.clientY - startY)) showHeroBanner(heroSlideIndex + (dx < 0 ? 1 : -1));
+      dragging = false;
+      const dy = e.clientY - startY;
+      const width = hero.clientWidth || window.innerWidth || 1;
+      const shouldMove = Math.abs(dx) > Math.min(120, width * 0.18) && Math.abs(dx) > Math.abs(dy);
+      const step = dx < 0 ? 1 : -1;
+      try{ if(pointerId !== null) hero.releasePointerCapture(pointerId); }catch(_){}
+      pointerId = null;
+
+      if(activeSlide && nextSlide){
+        activeSlide.style.transition = 'transform .34s ease';
+        nextSlide.style.transition = 'transform .34s ease';
+        if(shouldMove){
+          activeSlide.style.transform = `translate3d(${-step * width}px,0,0)`;
+          nextSlide.style.transform = 'translate3d(0,0,0)';
+          window.setTimeout(()=>{
+            showHeroBanner(heroSlideIndex + step);
+            cleanup();
+            const mode = (state.settings && state.settings.heroMode) || 'single';
+            const banners = getHeroBanners();
+            if(mode === 'slider' && banners.length > 1){
+              if(heroTimer) clearInterval(heroTimer);
+              heroTimer = setInterval(()=>showHeroBanner(heroSlideIndex + 1), 5500);
+            }
+          }, 360);
+        }else{
+          activeSlide.style.transform = 'translate3d(0,0,0)';
+          nextSlide.style.transform = `translate3d(${step * 100}%,0,0)`;
+          window.setTimeout(()=>{
+            cleanup();
+            const mode = (state.settings && state.settings.heroMode) || 'single';
+            const banners = getHeroBanners();
+            if(mode === 'slider' && banners.length > 1){
+              if(heroTimer) clearInterval(heroTimer);
+              heroTimer = setInterval(()=>showHeroBanner(heroSlideIndex + 1), 5500);
+            }
+          }, 360);
+        }
+      }else{
+        cleanup();
+      }
     }
-    hero.addEventListener('pointerup', end);
-    hero.addEventListener('pointercancel', end);
+
+    hero.addEventListener('pointerup', finish);
+    hero.addEventListener('pointercancel', finish);
   }
 
   function openGalleryModal(index){
