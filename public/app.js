@@ -440,6 +440,7 @@
     const banners = getHeroBanners();
     bg.innerHTML = banners.map((b, i)=>`<div class="hero-slide ${i===0?'active':''}"><div class="hero-slide-blur" style="background-image:url('${escapeHtml(b.image)}')"></div><div class="hero-slide-fit" style="background-image:url('${escapeHtml(b.image)}')"></div></div>`).join('');
     showHeroBanner(0);
+    bindHeroDrag();
     if(heroTimer) clearInterval(heroTimer);
     const mode = (state.settings && state.settings.heroMode) || 'single';
     if(mode === 'slider' && banners.length > 1){
@@ -515,6 +516,62 @@
     $('tourModal').classList.add('open');
   }
 
+
+  function bindDragSlide(el, moveFn){
+    if(!el || el.dataset.dragSlideBound === '1') return;
+    el.dataset.dragSlideBound = '1';
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let pointerId = null;
+    el.addEventListener('pointerdown', (e)=>{
+      if(e.pointerType === 'mouse' && e.button !== 0) return;
+      dragging = true;
+      pointerId = e.pointerId;
+      startX = e.clientX;
+      startY = e.clientY;
+      el.classList.add('dragging');
+      try{ el.setPointerCapture(pointerId); }catch(_){ }
+    });
+    el.addEventListener('pointermove', (e)=>{
+      if(!dragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if(Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)){
+        e.preventDefault();
+      }
+    }, {passive:false});
+    function finishDrag(e){
+      if(!dragging) return;
+      dragging = false;
+      el.classList.remove('dragging');
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      try{ if(pointerId !== null) el.releasePointerCapture(pointerId); }catch(_){ }
+      pointerId = null;
+      if(Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)){
+        moveFn(dx < 0 ? 1 : -1);
+      }
+    }
+    el.addEventListener('pointerup', finishDrag);
+    el.addEventListener('pointercancel', finishDrag);
+    el.addEventListener('pointerleave', (e)=>{
+      if(dragging && e.pointerType === 'mouse') finishDrag(e);
+    });
+  }
+
+  function bindCurrentModalDrag(){
+    bindDragSlide(document.querySelector('[data-tour-carousel]'), moveTourModalImage);
+    bindDragSlide(document.querySelector('.hotel-detail-slider'), moveHotelModalImage);
+    bindDragSlide(document.querySelector('.gallery-viewer'), moveGalleryModal);
+  }
+
+  function bindHeroDrag(){
+    const banners = getHeroBanners();
+    if(!banners || banners.length <= 1) return;
+    bindDragSlide(document.querySelector('.hero'), (step)=>showHeroBanner(heroSlideIndex + step));
+  }
+
   function openGalleryModal(index){
     currentHotelImages = [];
     currentTourImages = [];
@@ -530,6 +587,7 @@
       <div class="gallery-viewer-footer"><h2>${escapeHtml(g.title)}</h2><span>${currentGalleryIndex + 1} / ${list.length}</span></div>
     </div>`;
     $('tourModal').classList.add('open');
+    bindCurrentModalDrag();
   }
 
   function moveGalleryModal(step){
@@ -560,6 +618,7 @@
       </div>
     </div>`;
     $('tourModal').classList.add('open');
+    bindCurrentModalDrag();
   }
 
   function renderPublic(){
@@ -863,6 +922,7 @@
       </div>
     </div>`;
     $('tourModal').classList.add('open');
+    bindCurrentModalDrag();
   }
 
   function resetTourForm(){
