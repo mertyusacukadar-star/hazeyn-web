@@ -71,7 +71,7 @@
             <label>Kapak Görsel URL'leri <small>Birden fazla görsel için her satıra 1 link yaz</small><textarea id="tourImage" placeholder="https://.../gorsel-1.jpg&#10;https://.../gorsel-2.jpg"></textarea></label>
             <label>Veya Kapak Görselleri Yükle <small>Birden fazla seçebilirsin. Her görsel en fazla 50 MB</small><input id="tourImageFile" type="file" accept="image/*" multiple /></label>
             <img id="tourPreview" class="image-preview" alt="Kapak ön izleme" />
-            <div id="tourImagesPreview" class="multi-preview" aria-label="Tur kapak görselleri ön izleme"></div>
+            <div id="tourImagesPreview" class="multi-preview editable-preview" aria-label="Tur kapak görselleri ön izleme"></div>
             <div class="hotel-image-fields">
               <h3>Otel Görselleri <small>İsteğe bağlı</small></h3>
               <div class="form-row two-col">
@@ -82,11 +82,21 @@
                 <label>Mekke Otel Görselleri Yükle <small>Birden fazla seçebilirsin. Her görsel en fazla 50 MB</small><input id="tourHotelMekkeFile" type="file" accept="image/*" multiple /></label>
                 <label>Medine Otel Görselleri Yükle <small>Birden fazla seçebilirsin. Her görsel en fazla 50 MB</small><input id="tourHotelMedineFile" type="file" accept="image/*" multiple /></label>
               </div>
-              <div class="hotel-preview-row">
-                <div id="tourHotelMekkePreview" class="multi-preview" aria-label="Mekke otel ön izleme"></div>
-                <div id="tourHotelMedinePreview" class="multi-preview" aria-label="Medine otel ön izleme"></div>
+              <div class="form-row two-col">
+                <label>Mekke Otel Açıklaması <small>İncele kısmında Mekke Otel kartına tıklanınca görünür</small><textarea id="tourHotelMekkeText" placeholder="Mekke oteli hakkında açıklama, konum, hizmetler..."></textarea></label>
+                <label>Medine Otel Açıklaması <small>İncele kısmında Medine Otel kartına tıklanınca görünür</small><textarea id="tourHotelMedineText" placeholder="Medine oteli hakkında açıklama, konum, hizmetler..."></textarea></label>
               </div>
-              <p class="hint-text">Birden fazla otel görseli ekleyebilirsin. Otel resmi eklemezsen incele bölümünde otel görsel alanı hiç görünmez.</p>
+              <div class="hotel-preview-row">
+                <div>
+                  <h4 class="preview-title">Mekke Otel Görselleri</h4>
+                  <div id="tourHotelMekkePreview" class="multi-preview editable-preview" aria-label="Mekke otel ön izleme"></div>
+                </div>
+                <div>
+                  <h4 class="preview-title">Medine Otel Görselleri</h4>
+                  <div id="tourHotelMedinePreview" class="multi-preview editable-preview" aria-label="Medine otel ön izleme"></div>
+                </div>
+              </div>
+              <p class="hint-text">Görsellerde <b>Başa Al</b> ile kapak görselini seçebilir, <b>Sil</b> ile kaldırabilirsin. Otel resmi eklemezsen incele bölümünde otel görsel alanı hiç görünmez.</p>
             </div>
             <label>Gece / Süre<input id="tourNights" placeholder="11 Gece Mekke / 3 Gece Medine" /></label>
             <label>Otel Bilgileri<textarea id="tourHotels" placeholder="Mekke: ...&#10;Medine: ..."></textarea></label>
