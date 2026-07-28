@@ -129,40 +129,14 @@
         return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
     }
 
-    /* PASAPORT KONTROLÜ: uçuş tarihinde en az 6 ay geçerlilik */
-    function parseLocalDate(value) {
-        if (!value) return null;
-        const d = new Date(String(value) + 'T12:00:00');
-        return Number.isNaN(d.getTime()) ? null : d;
-    }
-
-    function addCalendarMonths(date, months) {
-        const d = new Date(date.getTime());
-        const originalDay = d.getDate();
-        d.setDate(1);
-        d.setMonth(d.getMonth() + months);
-        const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-        d.setDate(Math.min(originalDay, lastDay));
-        return d;
-    }
-
-    function isPassportExpiring(endDate, flightDate) {
-        const end = parseLocalDate(endDate);
-        const flight = parseLocalDate(flightDate);
-        if (!end || !flight) return false;
-        return end < addCalendarMonths(flight, 6);
-    }
-
-    function getListFlightDate(list) {
-        const tour = state && state.tours ? state.tours.find(t => t.id === list.tourId) : null;
-        return (tour && tour.departureDate) || list.date || '';
-    }
-
-    function passportStatus(passenger, flightDate) {
-        if (!passenger.passportEnd) return { level: 'missing', label: 'Bitiş tarihi eksik' };
-        if (!flightDate) return { level: 'missing', label: 'Uçuş tarihi eksik' };
-        if (isPassportExpiring(passenger.passportEnd, flightDate)) return { level: 'danger', label: '6 ay kuralını karşılamıyor' };
-        return { level: 'ok', label: 'Uygun' };
+    /* PASAPORT KONTROLÜ */
+    function isPassportExpiring(endDate) {
+        if (!endDate) return false;
+        const end = new Date(endDate);
+        const today = new Date();
+        const diffTime = end.getTime() - today.getTime();
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+        return diffDays < 180;
     }
 
     /* ODA RENGİ KONTROLÜ */
@@ -596,7 +570,6 @@
         renderGallery();
         renderStaff();
         renderBlogs();
-        renderTravelHub();
 
         document.addEventListener('click', (e) => {
             const tourBtn = e.target.closest('[data-tour]');
@@ -637,40 +610,6 @@
                 document.querySelector('.nav-actions').classList.toggle('open');
             };
         }
-    }
-
-    function renderTravelHub() {
-        const flightInput = $('publicFlightDate');
-        const passportInput = $('publicPassportEnd');
-        const result = $('publicPassportResult');
-        const upcoming = (state.tours || []).filter(t => parseLocalDate(t.departureDate) && parseLocalDate(t.departureDate) >= new Date()).sort((a, b) => parseLocalDate(a.departureDate) - parseLocalDate(b.departureDate))[0];
-        if (flightInput && upcoming?.departureDate) flightInput.value = upcoming.departureDate;
-        if ($('nextTourSummary')) {
-            $('nextTourSummary').innerHTML = upcoming ? `<span>${escapeHtml(upcoming.tag || 'Yaklaşan tur')}</span><h4>${escapeHtml(upcoming.title)}</h4><p>${escapeHtml(formatDateTR(upcoming.departureDate))}</p><small>${escapeHtml(upcoming.nights || '')} • ${escapeHtml(firstLine(upcoming.hotels || upcoming.airline || ''))}</small>` : '<span>Yeni programlarımız için bize ulaşın.</span>';
-        }
-        if ($('checkPassportBtn')) $('checkPassportBtn').onclick = () => {
-            if (!flightInput.value || !passportInput.value) {
-                result.className = 'passport-result missing';
-                result.textContent = 'Lütfen iki tarihi de seçin.';
-                return;
-            }
-            const threshold = addCalendarMonths(parseLocalDate(flightInput.value), 6);
-            if (isPassportExpiring(passportInput.value, flightInput.value)) {
-                result.className = 'passport-result danger';
-                result.innerHTML = `<b>Pasaport süresi yetersiz.</b> En az ${escapeHtml(formatDateTR(threshold.toISOString().slice(0, 10)))} tarihine kadar geçerli olmalı.`;
-            } else {
-                result.className = 'passport-result ok';
-                result.innerHTML = '<b>Pasaport süresi uygun.</b> 6 ay geçerlilik kuralını karşılıyor.';
-            }
-        };
-        const checks = Array.from(document.querySelectorAll('#travelChecklist input'));
-        const updateChecklist = () => {
-            const done = checks.filter(x => x.checked).length;
-            if ($('checklistCount')) $('checklistCount').textContent = `${done} / ${checks.length} hazır`;
-            if ($('checklistBar')) $('checklistBar').style.width = `${checks.length ? done / checks.length * 100 : 0}%`;
-        };
-        checks.forEach(c => c.addEventListener('change', updateChecklist));
-        updateChecklist();
     }
 
     function renderAdmin() {
@@ -1016,38 +955,6 @@
         return Array.from(groups.entries()).sort((a, b) => roomOrderValue(a[0]) - roomOrderValue(b[0])).map(([key, items]) => ({ key, title: roomLabel(key === 'secilmedi' ? '' : key), items }));
     }
 
-    function splitPassengerName(fullName) {
-        const parts = String(fullName || '').trim().replace(/\s+/g, ' ').split(' ').filter(Boolean);
-        if (parts.length < 2) return { firstName: parts[0] || '', surname: '' };
-        return { firstName: parts.slice(0, -1).join(' '), surname: parts[parts.length - 1] };
-    }
-
-    function roomingTypeLabel(roomPeople) {
-        return ({ '1': 'TEKLİ', '2': 'İKİLİ', '3': 'ÜÇLÜ', '4': 'DÖRTLÜ', '5+': '5+ KİŞİLİK' })[String(roomPeople || '')] || 'BELİRSİZ';
-    }
-
-    function createRoomAssignments(passengers) {
-        let roomSequence = 0;
-        let passengerSequence = 0;
-        const rooms = [];
-        groupPassengersByRoom(passengers || []).forEach(group => {
-            const capacity = Math.max(1, parseInt(String(group.key || '1').replace('+', ''), 10) || 1);
-            for (let i = 0; i < group.items.length; i += capacity) {
-                const occupants = group.items.slice(i, i + capacity).map(p => ({ ...p, sheetNo: ++passengerSequence }));
-                roomSequence += 1;
-                rooms.push({
-                    roomSequence,
-                    roomPeople: group.key,
-                    roomingLabel: roomingTypeLabel(group.key),
-                    mekkeRoomNo: occupants.find(p => p.mekkeRoomNo || p.roomNo)?.mekkeRoomNo || occupants.find(p => p.roomNo)?.roomNo || '',
-                    medineRoomNo: occupants.find(p => p.medineRoomNo || p.roomNo)?.medineRoomNo || occupants.find(p => p.roomNo)?.roomNo || '',
-                    occupants
-                });
-            }
-        });
-        return rooms;
-    }
-
     function normalizeNameForSort(value) {
         return String(value || '').trim().replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR');
     }
@@ -1083,8 +990,7 @@
         <td><input class="p-pass-start" type="date" value="${escapeHtml(p.passportStart || '')}"></td>
         <td><input class="p-pass-end" type="date" value="${escapeHtml(p.passportEnd || '')}"></td>
         <td><select class="p-room-people"><option value="">Seç</option>${['1', '2', '3', '4', '5+'].map(v => `<option value="${v}" ${String(roomPeople) === v ? 'selected' : ''}>${v} Kişilik</option>`).join('')}</select></td>
-        <td><input class="p-mekke-room-no" value="${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}" placeholder="Örn: M-305"></td>
-        <td><input class="p-medine-room-no" value="${escapeHtml(p.medineRoomNo || p.roomNo || '')}" placeholder="Örn: D-214"></td>
+        <td><input class="p-room-no" value="${escapeHtml(p.roomNo || '')}" placeholder="Örn: 305"></td>
         <td><input class="p-note" value="${escapeHtml(p.note || '')}" placeholder="Not"></td>
         <td><button type="button" class="icon-btn danger remove-row">Sil</button></td>`;
         $('passengerTable').querySelector('tbody').appendChild(tr);
@@ -1112,10 +1018,9 @@
             passportStart: tr.querySelector('.p-pass-start').value,
             passportEnd: tr.querySelector('.p-pass-end').value,
             roomPeople: tr.querySelector('.p-room-people').value,
-            mekkeRoomNo: tr.querySelector('.p-mekke-room-no')?.value.trim() || '',
-            medineRoomNo: tr.querySelector('.p-medine-room-no')?.value.trim() || '',
+            roomNo: tr.querySelector('.p-room-no')?.value.trim() || '',
             note: tr.querySelector('.p-note').value.trim()
-        })).filter(p => p.name || p.gender || p.tc || p.phone || p.passportNo || p.birthDate || p.passportStart || p.passportEnd || p.roomPeople || p.mekkeRoomNo || p.medineRoomNo || p.note);
+        })).filter(p => p.name || p.gender || p.tc || p.phone || p.passportNo || p.birthDate || p.passportStart || p.passportEnd || p.roomPeople || p.roomNo || p.note);
     }
 
     async function savePassengerList() {
@@ -1147,10 +1052,8 @@
 
     function passengerRowHtml(p, i, listId) {
         const originalIndex = typeof p._originalIndex === 'number' ? p._originalIndex : i;
-        const list = state.passengerLists.find(x => x.id === listId) || {};
-        const flightDate = getListFlightDate(list);
-        const status = passportStatus(p, flightDate);
-        const warningClass = status.level === 'danger' ? 'passport-warning' : status.level === 'missing' ? 'passport-missing' : '';
+        const isExpiring = isPassportExpiring(p.passportEnd);
+        const warningClass = isExpiring ? 'passport-warning' : '';
 
         return `<tr class="passenger-order-row ${warningClass}" draggable="true" data-list-id="${escapeHtml(listId)}" data-passenger-index="${originalIndex}">
         <td class="drag-cell"><span class="drag-handle" title="Tut sürükle">☰</span> ${i + 1}</td>
@@ -1161,10 +1064,9 @@
         <td>${escapeHtml(p.passportNo)}</td>
         <td>${escapeHtml(p.birthDate)}</td>
         <td>${escapeHtml(p.passportStart)}</td>
-        <td>${escapeHtml(p.passportEnd)}<span class="passport-status ${status.level}">${escapeHtml(status.label)}</span></td>
+        <td>${escapeHtml(p.passportEnd)}</td>
         <td><select class="inline-room-people" data-list-id="${escapeHtml(listId)}" data-room-people-index="${originalIndex}">${['', '1', '2', '3', '4', '5+'].map(v => `<option value="${v}" ${String(p.roomPeople || p.room || '') === v ? 'selected' : ''}>${v ? v + ' Kişilik' : 'Seç'}</option>`).join('')}</select></td>
-        <td><input class="inline-room-no" data-list-id="${escapeHtml(listId)}" data-room-field="mekkeRoomNo" data-room-no-index="${originalIndex}" value="${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}" placeholder="Mekke"></td>
-        <td><input class="inline-room-no" data-list-id="${escapeHtml(listId)}" data-room-field="medineRoomNo" data-room-no-index="${originalIndex}" value="${escapeHtml(p.medineRoomNo || p.roomNo || '')}" placeholder="Medine"></td>
+        <td><input class="inline-room-no" data-list-id="${escapeHtml(listId)}" data-room-no-index="${originalIndex}" value="${escapeHtml(p.roomNo || '')}" placeholder="Oda no"></td>
         <td>${escapeHtml(p.note)}</td>
     </tr>`;
     }
@@ -1178,7 +1080,7 @@
             <div class="room-group-title">${escapeHtml(group.title)} <span>${group.items.length} yolcu</span></div>
             <div class="passenger-detail-wrap">
                 <table class="passenger-detail-table room-table">
-                    <thead><tr><th>Sıra</th><th>Ad Soyad</th><th>Cinsiyet</th><th>TC No</th><th>Telefon</th><th>Pasaport No</th><th>Doğum Tarihi</th><th>Pasaport Başlangıç</th><th>Pasaport Bitiş</th><th>Oda Kaç Kişilik</th><th>Mekke Oda</th><th>Medine Oda</th><th>Not</th></tr></thead>
+                    <thead><tr><th>Sıra</th><th>Ad Soyad</th><th>Cinsiyet</th><th>TC No</th><th>Telefon</th><th>Pasaport No</th><th>Doğum Tarihi</th><th>Pasaport Başlangıç</th><th>Pasaport Bitiş</th><th>Oda Kaç Kişilik</th><th>Oda No</th><th>Not</th></tr></thead>
                     <tbody>${group.items.map((p, i) => passengerRowHtml(p, i, l.id)).join('')}</tbody>
                 </table>
             </div>
@@ -1186,42 +1088,24 @@
         }).join('');
     }
 
-    function roomingSheetHtml(l) {
-        const flightDate = getListFlightDate(l);
-        const rooms = createRoomAssignments(l.passengers || []);
-        const rows = rooms.map(room => room.occupants.map((p, index) => {
-            const name = splitPassengerName(p.name);
-            const status = passportStatus(p, flightDate);
-            const rowClass = status.level === 'danger' ? 'passport-warning' : status.level === 'missing' ? 'passport-missing' : '';
-            const shared = index === 0 ? `<td rowspan="${room.occupants.length}" class="rooming-shared">${room.roomSequence}</td><td rowspan="${room.occupants.length}" class="rooming-shared rooming-type">${escapeHtml(room.roomingLabel)}</td><td rowspan="${room.occupants.length}" class="rooming-shared">${escapeHtml(room.mekkeRoomNo)}</td><td rowspan="${room.occupants.length}" class="rooming-shared">${escapeHtml(room.medineRoomNo)}</td>` : '';
-            return `<tr class="${rowClass}"><td>${p.sheetNo}</td><td>${escapeHtml(name.firstName)}</td><td>${escapeHtml(name.surname)}</td>${shared}<td><span class="passport-status ${status.level}">${escapeHtml(status.label)}</span><small>${escapeHtml(p.passportEnd || '-')}</small></td></tr>`;
-        }).join('')).join('');
-        return `<div class="rooming-preview">
-            <div class="rooming-preview-head"><div><span>HAZEYN</span><strong>${escapeHtml(l.title)} ODALAMA YERLEŞKESİ</strong></div><small>Excel çıktısıyla aynı düzen</small></div>
-            <div class="passenger-detail-wrap"><table class="rooming-table"><thead><tr><th>NO</th><th>İSİM</th><th>SOY İSİM</th><th>SAYI</th><th>ODALAMA</th><th>MEKKE</th><th>MEDİNE</th><th>PASAPORT</th></tr></thead><tbody>${rows || '<tr><td colspan="8">Yolcu bulunamadı.</td></tr>'}</tbody></table></div>
-        </div>`;
-    }
-
     function passengerListCard(l) {
         const tourTitle = (state.tours.find(t => t.id === l.tourId) || {}).title || l.title || '-';
         const total = (l.passengers || []).length;
         const males = (l.passengers || []).filter(p => p.gender === 'Erkek').length;
         const females = (l.passengers || []).filter(p => p.gender === 'Kadın').length;
-        const flightDate = getListFlightDate(l);
-        const expiringCount = (l.passengers || []).filter(p => isPassportExpiring(p.passportEnd, flightDate)).length;
+        const expiringCount = (l.passengers || []).filter(p => isPassportExpiring(p.passportEnd)).length;
 
         return `<div class="passenger-list-card" data-list-card="${escapeHtml(l.id)}">
         <div class="passenger-list-top">
             <div>
                 <h3>${escapeHtml(l.title)} <small>${escapeHtml(l.date || '')}</small></h3>
-                <p><b>Tur:</b> ${escapeHtml(tourTitle)} &nbsp; <b>Uçuş:</b> ${escapeHtml(formatDateTR(flightDate) || '-')} &nbsp; <b>Rehber:</b> ${escapeHtml(l.leader || '-')}</p>
+                <p><b>Tur:</b> ${escapeHtml(tourTitle)} &nbsp; <b>Rehber:</b> ${escapeHtml(l.leader || '-')}</p>
                 <p><b>Toplam Yolcu:</b> ${total} &nbsp; <b>Erkek:</b> ${males} &nbsp; <b>Kadın:</b> ${females} &nbsp; <b style="color:#d32f2f">Pasaportu 6 Aydan Az Kalan:</b> <span style="color:#d32f2f; font-weight:bold">${expiringCount}</span></p>
                 ${l.notes ? `<p><b>Liste Notu:</b> ${escapeHtml(l.notes)}</p>` : ''}
                 <p class="hint-text"><b>Otomatik sıra:</b> Yolcular oda kişiliğine ve soyadına göre sıralanır. Solundaki ☰ işaretiyle manuel sıra değiştirebilirsin.</p>
             </div>
             <div class="admin-item-actions">
                 <button class="icon-btn" data-edit-list="${escapeHtml(l.id)}">Düzenle</button>
-                <button class="icon-btn excel-btn" data-excel-list="${escapeHtml(l.id)}">Excel Oda Listesi</button>
                 <button class="icon-btn" data-print-list="${escapeHtml(l.id)}" data-ori="portrait">PDF (Dikey)</button>
                 <button class="icon-btn" data-print-list="${escapeHtml(l.id)}" data-ori="landscape">PDF (Yatay)</button>
                 <button class="icon-btn danger" data-delete-list="${escapeHtml(l.id)}">Sil</button>
@@ -1229,7 +1113,7 @@
         </div>
         <input type="checkbox" id="filter-expiring-${escapeHtml(l.id)}" class="filter-expiring-cb">
         <label for="filter-expiring-${escapeHtml(l.id)}" class="filter-expiring-label">Sadece Pasaport Süresi Yetersiz Olanları Göster</label>
-        <div class="passenger-room-area">${roomingSheetHtml(l)}<details class="passenger-details"><summary>Tüm yolcu ve pasaport detaylarını göster</summary>${passengerRoomGroupsHtml(l)}</details></div>
+        <div class="passenger-room-area">${passengerRoomGroupsHtml(l)}</div>
     </div>`;
     }
 
@@ -1250,63 +1134,7 @@
         l.passengers[passengerIndex][field] = value;
         if (field === 'roomPeople') l.passengers = sortPassengersForRooms(l.passengers);
         await saveData();
-        if (field === 'roomPeople' || field === 'mekkeRoomNo' || field === 'medineRoomNo' || field === 'roomNo') renderPassengerAdmin();
-    }
-
-    function xmlEscape(value) {
-        return String(value ?? '').replace(/[&<>'"]/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&apos;', '"': '&quot;' }[s]));
-    }
-
-    function excelCell(value, style = 'Cell', mergeDown = 0) {
-        const merge = mergeDown > 0 ? ` ss:MergeDown="${mergeDown}"` : '';
-        return `<Cell ss:StyleID="${style}"${merge}><Data ss:Type="String">${xmlEscape(value)}</Data></Cell>`;
-    }
-
-    function safeFileName(value) {
-        return String(value || 'oda-listesi').toLocaleLowerCase('tr-TR').replace(/[^a-z0-9çğıöşü]+/gi, '-').replace(/^-+|-+$/g, '');
-    }
-
-    function exportRoomingExcel(id) {
-        const l = state.passengerLists.find(x => x.id === id);
-        if (!l) return;
-        const tour = state.tours.find(t => t.id === l.tourId) || {};
-        const flightDate = getListFlightDate(l);
-        const rooms = createRoomAssignments(l.passengers || []);
-        const dataRows = rooms.map(room => room.occupants.map((p, index) => {
-            const name = splitPassengerName(p.name);
-            const status = passportStatus(p, flightDate);
-            const style = status.level === 'danger' ? 'Danger' : status.level === 'missing' ? 'Missing' : 'Cell';
-            const mergeDown = room.occupants.length - 1;
-            return `<Row ss:AutoFitHeight="1">${excelCell(p.sheetNo, style)}${excelCell(name.firstName.toLocaleUpperCase('tr-TR'), style)}${excelCell(name.surname.toLocaleUpperCase('tr-TR'), style)}${index === 0 ? excelCell(room.roomSequence, style, mergeDown) + excelCell(room.roomingLabel, style, mergeDown) + excelCell(room.mekkeRoomNo, style, mergeDown) + excelCell(room.medineRoomNo, style, mergeDown) : ''}${excelCell(p.passportEnd || 'EKSİK', style)}${excelCell(status.label, style)}</Row>`;
-        }).join('')).join('');
-        const title = `${l.title || tour.title || 'TUR'} ODALAMA YERLEŞKESİ`;
-        const workbook = `<?xml version="1.0"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-<Styles>
-<Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="10"/></Style>
-<Style ss:ID="Title"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="15" ss:Bold="1"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2"/></Borders></Style>
-<Style ss:ID="Brand"><Alignment ss:Horizontal="Left" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="13" ss:Bold="1"/></Style>
-<Style ss:ID="Header"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:Bold="1"/><Interior ss:Color="#E2F0D9" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>
-<Style ss:ID="Cell"><Alignment ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>
-<Style ss:ID="Danger"><Alignment ss:Vertical="Center"/><Font ss:Color="#C00000" ss:Bold="1"/><Interior ss:Color="#FCE8E6" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>
-<Style ss:ID="Missing"><Alignment ss:Vertical="Center"/><Font ss:Color="#8A5A00" ss:Bold="1"/><Interior ss:Color="#FFF4CE" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>
-</Styles>
-<Worksheet ss:Name="Oda Yerleşimi"><Table>
-<Column ss:Width="42"/><Column ss:Width="125"/><Column ss:Width="110"/><Column ss:Width="48"/><Column ss:Width="78"/><Column ss:Width="82"/><Column ss:Width="82"/><Column ss:Width="82"/><Column ss:Width="155"/>
-<Row ss:Height="28">${excelCell('HAZEYN', 'Brand')}${excelCell(title, 'Title', 0).replace('<Cell ', '<Cell ss:MergeAcross="7" ')}</Row>
-<Row>${excelCell(`Uçuş: ${formatDateTR(flightDate) || '-'} • Rehber: ${l.leader || '-'} • Yolcu: ${(l.passengers || []).length}`, 'Cell').replace('<Cell ', '<Cell ss:MergeAcross="8" ')}</Row>
-<Row>${['NO','İSİM','SOY İSİM','SAYI','ODALAMA','MEKKE','MEDİNE','PASAPORT BİTİŞ','PASAPORT DURUMU'].map(v => excelCell(v, 'Header')).join('')}</Row>
-${dataRows}
-</Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>3</SplitHorizontal><TopRowBottomPane>3</TopRowBottomPane><Selected/></WorksheetOptions></Worksheet>
-</Workbook>`;
-        const blob = new Blob(['\ufeff', workbook], { type: 'application/vnd.ms-excel;charset=utf-8' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `${safeFileName(l.title)}-odalama.xls`;
-        a.click();
-        URL.revokeObjectURL(a.href);
-        toast('Excel oda listesi indirildi.');
+        if (field === 'roomPeople') renderPassengerAdmin();
     }
 
     function renderPassengerAdmin() {
@@ -1334,16 +1162,15 @@ ${dataRows}
         const total = (l.passengers || []).length;
         const males = (l.passengers || []).filter(p => p.gender === 'Erkek').length;
         const females = (l.passengers || []).filter(p => p.gender === 'Kadın').length;
-        const flightDate = getListFlightDate(l);
-        const expiringCount = (l.passengers || []).filter(p => isPassportExpiring(p.passportEnd, flightDate)).length;
+        const expiringCount = (l.passengers || []).filter(p => isPassportExpiring(p.passportEnd)).length;
 
         const groupsHtml = groupPassengersByRoom(l.passengers || []).map(group => {
             const colorClass = getRoomColorClass(group.title);
             const rows = group.items.map((p, i) => {
-                const warningStyle = isPassportExpiring(p.passportEnd, flightDate) ? 'color: #d32f2f; font-weight: bold; background-color: rgba(211,47,47,0.05);' : '';
-                return `<tr style="${warningStyle}"><td>${i + 1}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.gender)}</td><td>${escapeHtml(p.tc)}</td><td>${escapeHtml(p.phone)}</td><td>${escapeHtml(p.passportNo)}</td><td>${escapeHtml(p.birthDate)}</td><td>${escapeHtml(p.passportStart)}</td><td>${escapeHtml(p.passportEnd)}</td><td>${escapeHtml(p.roomPeople || p.room)}</td><td>${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}</td><td>${escapeHtml(p.medineRoomNo || p.roomNo || '')}</td><td>${escapeHtml(p.note)}</td></tr>`;
+                const warningStyle = isPassportExpiring(p.passportEnd) ? 'color: #d32f2f; font-weight: bold; background-color: rgba(211,47,47,0.05);' : '';
+                return `<tr style="${warningStyle}"><td>${i + 1}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.gender)}</td><td>${escapeHtml(p.tc)}</td><td>${escapeHtml(p.phone)}</td><td>${escapeHtml(p.passportNo)}</td><td>${escapeHtml(p.birthDate)}</td><td>${escapeHtml(p.passportStart)}</td><td>${escapeHtml(p.passportEnd)}</td><td>${escapeHtml(p.roomPeople || p.room)}</td><td>${escapeHtml(p.roomNo || '')}</td><td>${escapeHtml(p.note)}</td></tr>`;
             }).join('');
-            return `<div class="room-group-block ${colorClass}"><h2 class="print-room-title">${escapeHtml(group.title)} (${group.items.length} yolcu)</h2><table><thead><tr><th>No</th><th>Ad Soyad</th><th>Cinsiyet</th><th>TC No</th><th>Telefon</th><th>Pasaport No</th><th>Doğum Tarihi</th><th>Pasaport Başlangıç</th><th>Pasaport Bitiş</th><th>Oda Kişilik</th><th>Mekke</th><th>Medine</th><th>Not</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+            return `<div class="room-group-block ${colorClass}"><h2 class="print-room-title">${escapeHtml(group.title)} (${group.items.length} yolcu)</h2><table><thead><tr><th>No</th><th>Ad Soyad</th><th>Cinsiyet</th><th>TC No</th><th>Telefon</th><th>Pasaport No</th><th>Doğum Tarihi</th><th>Pasaport Başlangıç</th><th>Pasaport Bitiş</th><th>Oda Kişilik</th><th>Oda No</th><th>Not</th></tr></thead><tbody>${rows}</tbody></table></div>`;
         }).join('') || '<p>Bu listede yolcu bilgisi yok.</p>';
 
         const printCss = `
@@ -1356,7 +1183,7 @@ ${dataRows}
         .print-meta { margin: 12px 0; font-size: 14px; line-height: 1.6; }
     `;
 
-        const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(l.title)} Yolcu Listesi</title><link rel="stylesheet" href="style.css"><style>${printCss}</style></head><body><div class="print-page passenger-print"><div class="print-head"><div><h1>${escapeHtml(l.title)}</h1><div class="print-meta"><b>Tur:</b> ${escapeHtml(tourTitle)} &nbsp; <b>Uçuş:</b> ${escapeHtml(formatDateTR(flightDate) || '-')} &nbsp; <b>Rehber:</b> ${escapeHtml(l.leader || '-')}<br><b>Toplam Yolcu:</b> ${total} &nbsp; <b>Erkek:</b> ${males} &nbsp; <b>Kadın:</b> ${females} &nbsp; <b style="color:#d32f2f">Uçuşta 6 Aydan Az Pasaport:</b> <span style="color:#d32f2f; font-weight:bold;">${expiringCount}</span></div></div><img src="assets/logo.png" alt="Hâzeyn"></div>${groupsHtml}<div class="print-notes"><b>Liste Notu:</b><br>${escapeHtml(l.notes || '')}</div></div><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`;
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(l.title)} Yolcu Listesi</title><link rel="stylesheet" href="style.css"><style>${printCss}</style></head><body><div class="print-page passenger-print"><div class="print-head"><div><h1>${escapeHtml(l.title)}</h1><div class="print-meta"><b>Tur:</b> ${escapeHtml(tourTitle)} &nbsp; <b>Tarih:</b> ${escapeHtml(l.date || '-')} &nbsp; <b>Rehber:</b> ${escapeHtml(l.leader || '-')}<br><b>Toplam Yolcu:</b> ${total} &nbsp; <b>Erkek:</b> ${males} &nbsp; <b>Kadın:</b> ${females} &nbsp; <b style="color:#d32f2f">Pasaportu 6 Aydan Az Kalan:</b> <span style="color:#d32f2f; font-weight:bold;">${expiringCount}</span></div></div><img src="assets/logo.png" alt="Hâzeyn"></div>${groupsHtml}<div class="print-notes"><b>Liste Notu:</b><br>${escapeHtml(l.notes || '')}</div></div><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`;
 
         const w = window.open('', '_blank');
         if (w) { w.document.write(html); w.document.close(); } else {
@@ -1400,7 +1227,7 @@ ${dataRows}
         if ($('saveHeroBanner')) $('saveHeroBanner').onclick = saveHeroBanner;
         if ($('resetHeroBanner')) $('resetHeroBanner').onclick = resetHeroBannerForm;
 
-        $('listTourSelect').addEventListener('change', e => { const t = state.tours.find(x => x.id === e.target.value); $('listTourId').value = e.target.value; if (t) { $('listTitle').value = t.title; if (t.departureDate) $('listDate').value = t.departureDate; } });
+        $('listTourSelect').addEventListener('change', e => { const t = state.tours.find(x => x.id === e.target.value); $('listTourId').value = e.target.value; if (t) $('listTitle').value = t.title; });
         $('addPassengerRow').onclick = () => passengerRow();
         $('savePassengerList').onclick = savePassengerList;
         $('clearPassengerList').onclick = clearPassengerForm;
@@ -1441,7 +1268,7 @@ ${dataRows}
 
         document.addEventListener('change', async (e) => {
             const roomNo = e.target.closest && e.target.closest('[data-room-no-index]');
-            if (roomNo) { await updatePassengerRoomField(roomNo.dataset.listId, Number(roomNo.dataset.roomNoIndex), roomNo.dataset.roomField || 'roomNo', roomNo.value.trim()); return; }
+            if (roomNo) { await updatePassengerRoomField(roomNo.dataset.listId, Number(roomNo.dataset.roomNoIndex), 'roomNo', roomNo.value.trim()); return; }
             const roomPeople = e.target.closest && e.target.closest('[data-room-people-index]');
             if (roomPeople) { await updatePassengerRoomField(roomPeople.dataset.listId, Number(roomPeople.dataset.roomPeopleIndex), 'roomPeople', roomPeople.value); }
         });
@@ -1475,8 +1302,6 @@ ${dataRows}
             // YAZDIRMA YÖNETİMİ
             const printListBtn = e.target.closest('[data-print-list]');
             if (printListBtn) printList(printListBtn.dataset.printList, printListBtn.dataset.ori);
-            const excelListBtn = e.target.closest('[data-excel-list]');
-            if (excelListBtn) exportRoomingExcel(excelListBtn.dataset.excelList);
 
             const delList = e.target.closest('[data-delete-list]');
             if (delList && confirm('Yolcu listesi silinsin mi?')) { state.passengerLists = state.passengerLists.filter(x => x.id !== delList.dataset.deleteList); await saveData(); renderPassengerAdmin(); renderDashboard(); toast('Liste silindi.'); }

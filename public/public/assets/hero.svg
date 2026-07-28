@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#101018"/>
+      <stop offset="0.45" stop-color="#191216"/>
+      <stop offset="1" stop-color="#593318"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="72%" cy="28%" r="50%">
+      <stop offset="0" stop-color="#e5b95b" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#e5b95b" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="5"/></filter>
+  </defs>
+  <rect width="1800" height="900" fill="url(#sky)"/>
+  <rect width="1800" height="900" fill="url(#glow)"/>
+  <circle cx="1420" cy="185" r="92" fill="#d9a84a" opacity=".55" filter="url(#blur)"/>
+  <path d="M0 665 C220 615 305 685 505 650 C700 615 865 540 1080 600 C1320 665 1510 590 1800 625 L1800 900 L0 900Z" fill="#0d0d10" opacity=".72"/>
+  <!-- Kabe -->
+  <g transform="translate(255 452)">
+    <polygon points="0,88 170,15 395,83 222,168" fill="#08080a"/>
+    <polygon points="0,88 222,168 222,380 0,290" fill="#111114"/>
+    <polygon points="222,168 395,83 395,300 222,380" fill="#060608"/>
+    <polygon points="0,128 222,205 395,118 395,158 222,250 0,166" fill="#caa34c" opacity=".96"/>
+    <rect x="35" y="190" width="60" height="115" fill="#20140c"/>
+    <rect x="255" y="175" width="85" height="92" fill="#17100a"/>
+  </g>
+  <!-- Medina mosque silhouette -->
+  <g transform="translate(960 350)" opacity=".94">
+    <rect x="0" y="230" width="625" height="220" fill="#0e0e10"/>
+    <path d="M80 230 Q210 80 340 230Z" fill="#12382b"/>
+    <path d="M403 230 Q470 130 540 230Z" fill="#101b19"/>
+    <g fill="#0d0d10">
+      <rect x="630" y="0" width="42" height="450" rx="20"/>
+      <rect x="650" y="-60" width="20" height="70"/>
+      <path d="M610 0 Q650 -92 690 0Z"/>
+      <rect x="-95" y="65" width="36" height="385" rx="18"/>
+      <rect x="-78" y="15" width="16" height="60"/>
+      <path d="M-108 65 Q-77 -20 -45 65Z"/>
+    </g>
+    <rect x="50" y="274" width="520" height="12" fill="#cba047" opacity=".7"/>
+    <circle cx="210" cy="305" r="18" fill="#d6ad59" opacity=".75"/>
+    <circle cx="350" cy="305" r="18" fill="#d6ad59" opacity=".75"/>
+    <circle cx="490" cy="305" r="18" fill="#d6ad59" opacity=".75"/>
+  </g>
+  <g opacity=".25">
+    <circle cx="120" cy="130" r="2" fill="#fff"/>
+    <circle cx="260" cy="90" r="2" fill="#fff"/>
+    <circle cx="1210" cy="110" r="2" fill="#fff"/>
+    <circle cx="1560" cy="72" r="2" fill="#fff"/>
+    <circle cx="1690" cy="210" r="2" fill="#fff"/>
+  </g>
+</svg>
