@@ -7,6 +7,7 @@ const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const DATA_DIR = path.join(ROOT, 'data');
 const DB_PATH = path.join(DATA_DIR, 'db.json');
+const ADMIN_PASSWORD = process.env.HAZEYN_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '1234';
 
 const mime = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'application/javascript; charset=utf-8',
@@ -31,10 +32,32 @@ function ensureDb(){
 
 const server = http.createServer((req, res) => {
   ensureDb();
+  if(req.url === '/api/login' && req.method === 'POST'){
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk;
+      if(body.length > 1024 * 1024) req.destroy();
+    });
+    req.on('end', () => {
+      try {
+        const data = JSON.parse(body || '{}');
+        if(String(data.password || '') === String(ADMIN_PASSWORD)){
+          return send(res, 200, JSON.stringify({ok:true}), 'application/json; charset=utf-8');
+        }
+        return send(res, 401, JSON.stringify({ok:false, error:'Şifre hatalı.'}), 'application/json; charset=utf-8');
+      } catch(e) {
+        return send(res, 400, JSON.stringify({ok:false, error:'Geçersiz istek.'}), 'application/json; charset=utf-8');
+      }
+    });
+    return;
+  }
   if(req.url === '/api/data' && req.method === 'GET'){
     return send(res, 200, fs.readFileSync(DB_PATH, 'utf8'), 'application/json; charset=utf-8');
   }
   if(req.url === '/api/data' && req.method === 'POST'){
+    if(String(req.headers['x-admin-password'] || '') !== String(ADMIN_PASSWORD)){
+      return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
+    }
     let body = '';
     req.on('data', chunk => {
       body += chunk;
