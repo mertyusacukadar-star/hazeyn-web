@@ -277,7 +277,7 @@
         if (getUploadConfig.cache) return getUploadConfig.cache;
         if (location.protocol === 'file:') return null;
         try {
-            const res = await fetch('/api/config', { cache: 'no-store' });
+            const res = await fetch('/api/data?action=upload-config', { cache: 'no-store' });
             if (!res.ok) return null;
             const cfg = await res.json();
             if (cfg && cfg.url && cfg.anonKey && cfg.bucket) {
@@ -295,7 +295,7 @@
         const cfg = await getUploadConfig();
         if (!password || !cfg || !window.supabase) return null;
 
-        const signed = await fetch('/api/signed-upload', {
+        const signed = await fetch('/api/data?action=signed-upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
             body: JSON.stringify({ filename: file.name, type: file.type, size: file.size, folder: folder || 'uploads' })
@@ -313,11 +313,37 @@
     }
 
     function fileToDataUrl(file) {
+        if (!file || !String(file.type || '').startsWith('image/') || file.size <= 350 * 1024) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error('Görsel okunamadı.'));
+                reader.readAsDataURL(file);
+            });
+        }
         return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = () => reject(new Error('Görsel okunamadı.'));
-            reader.readAsDataURL(file);
+            const objectUrl = URL.createObjectURL(file);
+            const image = new Image();
+            image.onload = () => {
+                const maxSide = 1800;
+                const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+                const width = Math.max(1, Math.round(image.naturalWidth * scale));
+                const height = Math.max(1, Math.round(image.naturalHeight * scale));
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const context = canvas.getContext('2d');
+                context.fillStyle = '#ffffff';
+                context.fillRect(0, 0, width, height);
+                context.drawImage(image, 0, 0, width, height);
+                URL.revokeObjectURL(objectUrl);
+                resolve(canvas.toDataURL('image/jpeg', 0.84));
+            };
+            image.onerror = () => {
+                URL.revokeObjectURL(objectUrl);
+                reject(new Error('Görsel okunamadı.'));
+            };
+            image.src = objectUrl;
         });
     }
 
@@ -437,7 +463,12 @@
         const banners = getHeroBanners();
         if (!banners.length) return;
         heroSlideIndex = ((index % banners.length) + banners.length) % banners.length;
-        document.querySelectorAll('.hero-slide').forEach((el, i) => el.classList.toggle('active', i === heroSlideIndex));
+        document.querySelectorAll('.hero-slide').forEach((el, i) => {
+            const relative = (i - heroSlideIndex + banners.length) % banners.length;
+            el.classList.toggle('active', relative === 0);
+            el.classList.toggle('next', banners.length > 1 && relative === 1);
+            el.classList.toggle('prev', banners.length > 1 && relative === banners.length - 1);
+        });
         setHeroText(banners[heroSlideIndex]);
     }
 
@@ -515,7 +546,7 @@
         if (!target) return;
         const reviews = state.reviews.length ? state.reviews : DEFAULT_DATA.reviews;
         const cards = reviews.map(r => `<article class="review-card"><div class="stars">${stars(r.stars)}</div><p>“${escapeHtml(r.text)}”</p><b>${escapeHtml(r.name)}</b><small>Google yorumu</small></article>`).join('');
-        target.innerHTML = `<div class="review-track">${cards}${cards}</div>`;
+        target.innerHTML = `<div class="review-track"><div class="review-group">${cards}</div><div class="review-group" aria-hidden="true">${cards}</div></div>`;
     }
 
     function renderGallery() {
@@ -541,12 +572,20 @@
         target.innerHTML = list.map(b => `<article class="blog-card reveal" data-blog="${escapeHtml(b.id)}" tabindex="0" role="button"><span>${escapeHtml(b.category || 'Merak Edilenler')}</span><h3>${escapeHtml(b.title || '')}</h3><p>${escapeHtml(b.summary || firstLine(b.content) || '')}</p><button class="text-btn" type="button">Devamını Oku →</button></article>`).join('');
     }
 
+    function setModalOpen(open) {
+        const modal = $('tourModal');
+        if (!modal) return;
+        modal.classList.toggle('open', Boolean(open));
+        modal.setAttribute('aria-hidden', open ? 'false' : 'true');
+        document.body.classList.toggle('modal-open', Boolean(open));
+    }
+
     function openBlogModal(id) {
         const list = state.blogs && state.blogs.length ? state.blogs : DEFAULT_DATA.blogs;
         const b = list.find(x => x.id === id);
         if (!b) return;
         $('modalBody').innerHTML = `<div class="modal-content blog-modal">${b.image ? `<img src="${escapeHtml(b.image)}" alt="${escapeHtml(b.title)}" onerror="this.style.display='none'">` : ''}<div><span class="section-kicker">${escapeHtml(b.category || 'Merak Edilenler')}</span><h2>${escapeHtml(b.title || '')}</h2><p class="blog-summary">${escapeHtml(b.summary || '')}</p><div class="blog-content">${escapeHtml(b.content || '').replace(/\n/g, '<br>')}</div></div></div>`;
-        $('tourModal').classList.add('open');
+        setModalOpen(true);
     }
 
     function openGalleryModal(index) {
@@ -555,14 +594,20 @@
         const n = Number(index);
         currentGalleryIndex = Number.isFinite(n) ? ((n % list.length) + list.length) % list.length : 0;
         const g = list[currentGalleryIndex];
+        const prev = list[(currentGalleryIndex - 1 + list.length) % list.length];
+        const next = list[(currentGalleryIndex + 1) % list.length];
         if (!g) return;
         $('modalBody').innerHTML = `<div class="image-viewer gallery-viewer">
-        <button class="gallery-nav gallery-prev" type="button" data-gallery-prev aria-label="Önceki görsel">‹</button>
-        <img src="${escapeHtml(g.image)}" alt="${escapeHtml(g.title)}" onerror="this.src='assets/hero.svg'">
-        <button class="gallery-nav gallery-next" type="button" data-gallery-next aria-label="Sonraki görsel">›</button>
+        <div class="gallery-stage">
+            <div class="gallery-strip">
+                ${[prev, g, next].map((item, slideIndex) => `<div class="gallery-slide" style="background-image:url('${escapeHtml(item.image)}')"><img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.title)}" draggable="false" onerror="this.src='assets/hero.svg'"></div>`).join('')}
+            </div>
+            <button class="gallery-nav gallery-prev" type="button" data-gallery-prev aria-label="Önceki görsel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+            <button class="gallery-nav gallery-next" type="button" data-gallery-next aria-label="Sonraki görsel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        </div>
         <div class="gallery-viewer-footer"><h2>${escapeHtml(g.title)}</h2><span>${currentGalleryIndex + 1} / ${list.length}</span></div>
     </div>`;
-        $('tourModal').classList.add('open');
+        setModalOpen(true);
     }
 
     function moveGalleryModal(step) {
@@ -571,20 +616,32 @@
         openGalleryModal(currentGalleryIndex + step);
     }
 
-    function bindSwipeNavigation(element, onSwipe, ignoreSelector) {
+    function bindSwipeNavigation(element, handlers, ignoreSelector) {
         if (!element || element.dataset.swipeBound === '1') return;
         element.dataset.swipeBound = '1';
         let startX = 0;
         let startY = 0;
         let pointerId = null;
+        let dragged = false;
+        let suppressClick = false;
 
         element.addEventListener('pointerdown', event => {
             if (ignoreSelector && event.target.closest(ignoreSelector)) return;
             pointerId = event.pointerId;
             startX = event.clientX;
             startY = event.clientY;
-            element.classList.add('is-dragging');
+            dragged = false;
             if (element.setPointerCapture) element.setPointerCapture(pointerId);
+        });
+        element.addEventListener('pointermove', event => {
+            if (pointerId !== event.pointerId) return;
+            const deltaX = event.clientX - startX;
+            const deltaY = event.clientY - startY;
+            if (!dragged && Math.abs(deltaX) > 7 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                dragged = true;
+                element.classList.add('is-dragging');
+            }
+            if (dragged && handlers.onMove) handlers.onMove(deltaX);
         });
         element.addEventListener('pointerup', event => {
             if (pointerId !== event.pointerId) return;
@@ -592,23 +649,72 @@
             const deltaY = event.clientY - startY;
             element.classList.remove('is-dragging');
             pointerId = null;
-            if (Math.abs(deltaX) >= 45 && Math.abs(deltaX) > Math.abs(deltaY)) onSwipe(deltaX < 0 ? 1 : -1);
+            const step = Math.abs(deltaX) >= 45 && Math.abs(deltaX) > Math.abs(deltaY) ? (deltaX < 0 ? 1 : -1) : 0;
+            if (dragged) {
+                suppressClick = true;
+                setTimeout(() => { suppressClick = false; }, 80);
+            }
+            if (handlers.onEnd) handlers.onEnd(step, deltaX);
+            dragged = false;
         });
         element.addEventListener('pointercancel', () => {
             element.classList.remove('is-dragging');
             pointerId = null;
+            dragged = false;
+            if (handlers.onEnd) handlers.onEnd(0, 0);
+        });
+        element.addEventListener('click', event => {
+            if (!suppressClick) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
         });
     }
 
     function bindPublicSwipeInteractions() {
-        bindSwipeNavigation(document.querySelector('.hero'), step => {
-            showHeroBanner(heroSlideIndex + step);
-            restartHeroTimer();
+        const hero = document.querySelector('.hero');
+        const heroBg = document.querySelector('.hero-bg');
+        bindSwipeNavigation(hero, {
+            onMove(deltaX) {
+                if (!heroBg || getHeroBanners().length < 2) return;
+                heroBg.classList.add('is-dragging');
+                heroBg.style.setProperty('--hero-drag-x', `${deltaX}px`);
+            },
+            onEnd(step) {
+                if (!heroBg || getHeroBanners().length < 2) return;
+                heroBg.classList.remove('is-dragging');
+                if (!step) {
+                    heroBg.style.setProperty('--hero-drag-x', '0px');
+                    return;
+                }
+                const target = step > 0 ? -hero.clientWidth : hero.clientWidth;
+                heroBg.style.setProperty('--hero-drag-x', `${target}px`);
+                setTimeout(() => {
+                    heroBg.classList.add('no-transition');
+                    showHeroBanner(heroSlideIndex + step);
+                    heroBg.style.setProperty('--hero-drag-x', '0px');
+                    requestAnimationFrame(() => requestAnimationFrame(() => heroBg.classList.remove('no-transition')));
+                }, 320);
+                restartHeroTimer();
+            }
         }, 'a,button,input,select,textarea');
 
         const modalBody = $('modalBody');
-        bindSwipeNavigation(modalBody, step => {
-            if (modalBody.querySelector('.gallery-viewer')) moveGalleryModal(step);
+        bindSwipeNavigation(modalBody, {
+            onMove(deltaX) {
+                const viewer = modalBody.querySelector('.gallery-viewer');
+                if (viewer) viewer.style.setProperty('--gallery-drag-x', `${deltaX}px`);
+            },
+            onEnd(step) {
+                const viewer = modalBody.querySelector('.gallery-viewer');
+                if (!viewer) return;
+                if (!step) {
+                    viewer.style.setProperty('--gallery-drag-x', '0px');
+                    return;
+                }
+                const target = step > 0 ? -viewer.clientWidth : viewer.clientWidth;
+                viewer.style.setProperty('--gallery-drag-x', `${target}px`);
+                setTimeout(() => moveGalleryModal(step), 280);
+            }
         }, 'button,a,input,select,textarea,summary');
     }
 
@@ -617,8 +723,9 @@
         if (!t) return;
         const program = String(t.program || 'Program detayı yakında eklenecek.');
         const programPreview = program.length > 145 ? program.slice(0, 145).trim() + '…' : program;
+        const coverImage = t.image || 'assets/hotel.svg';
         $('modalBody').innerHTML = `<div class="modal-content">
-        <img src="${escapeHtml(t.image || 'assets/hotel.svg')}" alt="${escapeHtml(t.title)}" onerror="this.src='assets/hotel.svg'">
+        <div class="tour-modal-cover" style="background-image:url('${escapeHtml(coverImage)}')"><img src="${escapeHtml(coverImage)}" alt="${escapeHtml(t.title)}" onerror="this.src='assets/hotel.svg'"></div>
         <div>
             <span class="section-kicker">${escapeHtml(t.tag || '')}</span>
             <h2>${escapeHtml(t.title)}</h2>
@@ -639,7 +746,7 @@
             </section>
         </div>
     </div>`;
-        $('tourModal').classList.add('open');
+        setModalOpen(true);
     }
 
     function renderPublic() {
@@ -677,15 +784,14 @@
             if (e.key === 'ArrowLeft' && $('tourModal')?.classList.contains('open')) moveGalleryModal(-1);
             if (e.key === 'ArrowRight' && $('tourModal')?.classList.contains('open')) moveGalleryModal(1);
             if (e.key === 'Escape') {
-                const modal = $('tourModal');
-                if (modal) modal.classList.remove('open');
+                setModalOpen(false);
             }
         });
 
         const close = $('modalClose');
-        if (close) close.onclick = () => $('tourModal').classList.remove('open');
+        if (close) close.onclick = () => setModalOpen(false);
         const modal = $('tourModal');
-        if (modal) modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+        if (modal) modal.addEventListener('click', e => { if (e.target === modal) setModalOpen(false); });
         const menuToggle = $('menuToggle');
         if (menuToggle) {
             menuToggle.onclick = () => {
@@ -818,7 +924,22 @@
 
     function getHotelImageArrays(t) {
         const h = (t && t.hotelImages) || {};
-        return { mekke: normalizeImageArray(h.mekke), medine: normalizeImageArray(h.medine) };
+        return {
+            mekke: uniqueList([
+                ...normalizeImageArray(h.mekke),
+                ...normalizeImageArray(t && t.mekkeHotelImages),
+                ...normalizeImageArray(t && t.hotelMekkeImages),
+                ...normalizeImageArray(t && t.mekkeImages),
+                ...normalizeImageArray(t && t.hotelMekkeImage)
+            ]),
+            medine: uniqueList([
+                ...normalizeImageArray(h.medine),
+                ...normalizeImageArray(t && t.medineHotelImages),
+                ...normalizeImageArray(t && t.hotelMedineImages),
+                ...normalizeImageArray(t && t.medineImages),
+                ...normalizeImageArray(t && t.hotelMedineImage)
+            ])
+        };
     }
 
     function linesToList(value) {
@@ -1340,17 +1461,9 @@
             paperSize: 9,
             margins: { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.15, footer: 0.15 }
         };
-        sheet.columns = [
-            { width: 7 },
-            { width: 24 },
-            { width: 22 },
-            { width: 9 },
-            { width: 14 },
-            { width: 16 },
-            { width: 16 }
-        ];
-
-        const title = `${list.title || tour.title || 'TUR'} ODALAMA YERLEŞKESİ`;
+        const rawTitle = String(list.title || tour.title || 'TUR').trim();
+        const shortTitle = rawTitle.replace(/\s+\d+\s+Günlük.*$/iu, '').trim() || rawTitle;
+        const title = `${shortTitle} ODALAMA YERLEŞKESİ`;
         sheet.getCell('A1').value = 'HAZEYN';
         sheet.getCell('B1').value = title.toLocaleUpperCase('tr-TR');
         sheet.mergeCells('B1:G1');
@@ -1374,7 +1487,7 @@
                     mekkeRoomNo,
                     medineRoomNo
                 ]);
-                sheet.getRow(rowNumber).height = 22;
+                sheet.getRow(rowNumber).height = 19;
                 rowNumber += 1;
             });
             const roomEnd = rowNumber - 1;
@@ -1392,7 +1505,7 @@
         };
 
         sheet.getRow(1).eachCell({ includeEmpty: true }, cell => {
-            cell.font = { name: 'Arial', size: cell.column === 1 ? 12 : 15, bold: true, color: { argb: 'FF111111' } };
+            cell.font = { name: 'Arial', size: cell.column === 1 ? 10 : 14, bold: true, color: { argb: 'FF111111' } };
             cell.alignment = { vertical: 'middle', horizontal: cell.column === 1 ? 'left' : 'center' };
             cell.border = thinBorder;
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
@@ -1415,7 +1528,9 @@
             });
         });
 
-        sheet.autoFilter = { from: 'A2', to: 'G2' };
+        [7, 24, 22, 9, 14, 16, 16].forEach((width, index) => {
+            sheet.getColumn(index + 1).width = width;
+        });
         sheet.printArea = `A1:G${Math.max(2, rowNumber - 1)}`;
 
         try {
@@ -1527,7 +1642,36 @@
         if ($('saveHeroBanner')) $('saveHeroBanner').onclick = saveHeroBanner;
         if ($('resetHeroBanner')) $('resetHeroBanner').onclick = resetHeroBannerForm;
 
-        $('listTourSelect').addEventListener('change', e => { const t = state.tours.find(x => x.id === e.target.value); $('listTourId').value = e.target.value; if (t) { $('listTitle').value = t.title; if (t.departureDate) $('listDate').value = t.departureDate; } });
+        $('listTourSelect').addEventListener('change', e => {
+            const tourId = e.target.value;
+            const t = state.tours.find(x => x.id === tourId);
+            const savedList = state.passengerLists.find(x => x.tourId === tourId);
+            $('listTourId').value = tourId;
+
+            if (savedList) {
+                $('listId').value = savedList.id;
+                $('listTitle').value = savedList.title || t?.title || '';
+                $('listDate').value = savedList.date || t?.departureDate || '';
+                $('listLeader').value = savedList.leader || '';
+                $('listNotes').value = savedList.notes || '';
+                $('passengerTable').querySelector('tbody').innerHTML = '';
+                (savedList.passengers || []).forEach(passengerRow);
+                ensurePassengerRows();
+                toast('Bu programa ait kayıtlı yolcular açıldı.');
+                return;
+            }
+
+            $('listId').value = '';
+            $('listLeader').value = '';
+            $('listNotes').value = '';
+            $('passengerTable').querySelector('tbody').innerHTML = '';
+            passengerRow();
+            passengerRow();
+            if (t) {
+                $('listTitle').value = t.title;
+                $('listDate').value = t.departureDate || '';
+            }
+        });
         $('addPassengerRow').onclick = () => passengerRow();
         $('savePassengerList').onclick = savePassengerList;
         $('clearPassengerList').onclick = clearPassengerForm;

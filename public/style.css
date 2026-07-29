@@ -224,6 +224,78 @@ a{color:inherit;text-decoration:none}img{max-width:100%;display:block}button,inp
     .hero-buttons .btn{width:100%}
     .passenger-list-top .admin-item-actions{grid-template-columns:1fr}
 }
+
+/* 2026-07 carousel, modal and layered-page refinements */
+body.modal-open{overflow:hidden;padding-right:var(--modal-scrollbar-compensation,0)}
+body[data-page="public"]{background:var(--soft)}
+body[data-page="public"] .hero{position:sticky;top:0;z-index:0}
+body[data-page="public"] .trust-panel,
+body[data-page="public"] .section,
+body[data-page="public"] .cta-strip,
+body[data-page="public"] .footer{position:relative;z-index:2}
+body[data-page="public"] .section.container{
+    background:var(--soft);
+    box-shadow:0 0 0 100vmax var(--soft);
+    clip-path:inset(0 -100vmax)
+}
+
+.hero-bg{--hero-drag-x:0px;transform:none;overflow:hidden}
+.hero-slide{
+    opacity:0;transform:translate3d(calc(100% + var(--hero-drag-x)),0,0) scale(1.015);
+    transition:transform .32s cubic-bezier(.22,.8,.22,1),opacity .12s ease
+}
+.hero-slide.active{opacity:1;transform:translate3d(var(--hero-drag-x),0,0) scale(1.015)}
+.hero-slide.prev{opacity:1;transform:translate3d(calc(-100% + var(--hero-drag-x)),0,0) scale(1.015)}
+.hero-slide.next{opacity:1;transform:translate3d(calc(100% + var(--hero-drag-x)),0,0) scale(1.015)}
+.hero-bg.is-dragging .hero-slide,.hero-bg.no-transition .hero-slide{transition:none}
+.hero-copy{max-width:700px;transform:translateY(14px)}
+.hero-copy.hero-pos-center{max-width:760px}
+.hero-copy.hero-pos-right{max-width:660px;margin-right:clamp(20px,5vw,90px)}
+
+.review-track{display:flex;gap:18px;will-change:transform;animation:reviewLoop 34s linear infinite}
+.review-group{display:flex;gap:18px;flex:none}
+.review-card{flex:0 0 330px}
+@keyframes reviewLoop{from{transform:translate3d(0,0,0)}to{transform:translate3d(calc(-50% - 9px),0,0)}}
+
+.tour-modal{overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.tour-modal .modal-card{overflow:visible}
+.tour-modal-cover{
+    position:relative;width:100%;height:clamp(260px,43vh,460px);overflow:hidden;
+    background-position:center;background-size:cover;background-repeat:no-repeat
+}
+.tour-modal-cover:before,.gallery-slide:before{
+    content:"";position:absolute;inset:0;background:rgba(8,8,10,.12);backdrop-filter:blur(14px);transform:scale(1.08)
+}
+.tour-modal-cover img{
+    position:relative;z-index:1;width:100%;height:100%;object-fit:contain;background:transparent
+}
+
+.gallery-stage{position:relative;overflow:hidden;background:#f4f1ea}
+.gallery-strip{
+    display:flex;width:300%;transform:translate3d(calc(-33.333333% + var(--gallery-drag-x,0px)),0,0);
+    transition:transform .28s cubic-bezier(.22,.8,.22,1);will-change:transform
+}
+.gallery-viewer.is-dragging .gallery-strip{transition:none}
+.gallery-slide{
+    position:relative;flex:0 0 33.333333%;height:min(72vh,720px);
+    background-position:center;background-size:cover;background-repeat:no-repeat;overflow:hidden
+}
+.gallery-slide img{
+    position:relative;z-index:1;width:100%;height:100%;min-height:0;max-height:none;
+    object-fit:contain;background:transparent;pointer-events:none
+}
+.gallery-nav{top:50%;padding:0;line-height:0}
+.gallery-nav svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.gallery-viewer-footer{position:relative;z-index:2}
+
+@media(max-width:720px){
+    body[data-page="public"] .hero{position:relative}
+    body[data-page="public"] .hero{min-height:820px;place-items:start center}
+    body[data-page="public"] .hero-inner{padding-top:128px;padding-bottom:72px}
+    .hero-copy{transform:none}
+    .tour-modal-cover{height:min(34vh,300px)}
+    .gallery-slide{height:calc(100dvh - 145px)}
+}
 /* Yolcu Listesi Renklendirme ve Pasaport Uyarısı */
 .passport-warning {
     background-color: rgba(211, 47, 47, 0.04) !important;
