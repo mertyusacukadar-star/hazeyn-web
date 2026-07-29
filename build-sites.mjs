@@ -43,6 +43,7 @@ const worker = `
 const ASSETS = ${JSON.stringify(assets)};
 const DEFAULT_DATA = ${JSON.stringify(defaultData)};
 const SCHEMA = "CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at INTEGER NOT NULL DEFAULT 0)";
+const MEDIA_SCHEMA = "CREATE TABLE IF NOT EXISTS app_media (id TEXT PRIMARY KEY, content_type TEXT NOT NULL, body BLOB NOT NULL, updated_at INTEGER NOT NULL DEFAULT 0)";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
@@ -75,12 +76,30 @@ async function currentPassword(env) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname.startsWith("/media/") && request.method === "GET") {
+      await env.DB.prepare(MEDIA_SCHEMA).run();
+      const id = url.pathname.slice("/media/".length).replace(/[^a-z0-9-]/gi, "");
+      const row = id ? await env.DB.prepare("SELECT content_type, body FROM app_media WHERE id = ?").bind(id).first() : null;
+      if (!row || !row.body) return new Response("Görsel bulunamadı", { status: 404 });
+      return new Response(row.body, { headers: { "content-type": row.content_type, "cache-control": "public, max-age=31536000, immutable" } });
+    }
     if (url.pathname === "/api/data" && request.method === "GET") {
       return new Response(await ensureState(env), { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
     }
     if (url.pathname === "/api/login" && request.method === "POST") {
       const body = await request.json().catch(() => ({}));
       return String(body.password || "") === await currentPassword(env) ? json({ ok: true }) : json({ ok: false, error: "Şifre hatalı." }, 401);
+    }
+    if (url.pathname === "/api/media-upload" && request.method === "POST") {
+      if (String(request.headers.get("x-admin-password") || "") !== await currentPassword(env)) return json({ ok: false, error: "Yetkisiz." }, 401);
+      const body = await request.arrayBuffer();
+      if (!body.byteLength || body.byteLength > 1800000) return json({ ok: false, error: "Görsel en fazla 1,8 MB olabilir." }, 413);
+      const contentType = String(request.headers.get("content-type") || "image/jpeg");
+      if (!contentType.startsWith("image/")) return json({ ok: false, error: "Geçersiz görsel." }, 415);
+      const id = crypto.randomUUID();
+      await env.DB.prepare(MEDIA_SCHEMA).run();
+      await env.DB.prepare("INSERT INTO app_media (id, content_type, body, updated_at) VALUES (?, ?, ?, ?)").bind(id, contentType, body, Date.now()).run();
+      return json({ ok: true, url: "/media/" + id });
     }
     if (url.pathname === "/api/data" && request.method === "POST") {
       if (String(request.headers.get("x-admin-password") || "") !== await currentPassword(env)) return json({ ok: false, error: "Yetkisiz." }, 401);

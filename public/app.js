@@ -292,8 +292,36 @@
 
     async function uploadImageToSupabase(file, folder) {
         const password = getAdminPassword();
+        if (!password) return null;
+
+        if (location.protocol !== 'file:') {
+            try {
+                const prepared = await prepareImageBlob(file);
+                const direct = await fetch('/api/media-upload', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': prepared.type || 'image/jpeg',
+                        'x-admin-password': password,
+                        'x-file-name': file.name || 'image.jpg',
+                        'x-upload-folder': folder || 'uploads'
+                    },
+                    body: prepared
+                });
+                if (direct.ok) {
+                    const result = await direct.json();
+                    if (result && result.url) return result.url;
+                }
+                if (direct.status !== 404 && direct.status !== 405) {
+                    const error = await direct.json().catch(() => ({}));
+                    throw new Error(error.error || 'Görsel yüklenemedi.');
+                }
+            } catch (error) {
+                console.warn('Site görsel yüklemesi kullanılamadı, diğer yöntem deneniyor.', error);
+            }
+        }
+
         const cfg = await getUploadConfig();
-        if (!password || !cfg || !window.supabase) return null;
+        if (!cfg || !window.supabase) return null;
 
         const signed = await fetch('/api/data?action=signed-upload', {
             method: 'POST',
@@ -310,6 +338,36 @@
 
         const pub = client.storage.from(info.bucket || cfg.bucket).getPublicUrl(info.path);
         return pub && pub.data && pub.data.publicUrl ? pub.data.publicUrl : null;
+    }
+
+    function prepareImageBlob(file) {
+        if (!file || !String(file.type || '').startsWith('image/') || file.size <= 1400 * 1024) {
+            return Promise.resolve(file);
+        }
+        return new Promise((resolve, reject) => {
+            const objectUrl = URL.createObjectURL(file);
+            const image = new Image();
+            image.onload = () => {
+                const maxSide = 1600;
+                const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+                const width = Math.max(1, Math.round(image.naturalWidth * scale));
+                const height = Math.max(1, Math.round(image.naturalHeight * scale));
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const context = canvas.getContext('2d');
+                context.fillStyle = '#ffffff';
+                context.fillRect(0, 0, width, height);
+                context.drawImage(image, 0, 0, width, height);
+                URL.revokeObjectURL(objectUrl);
+                canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Görsel hazırlanamadı.')), 'image/jpeg', 0.78);
+            };
+            image.onerror = () => {
+                URL.revokeObjectURL(objectUrl);
+                reject(new Error('Görsel okunamadı.'));
+            };
+            image.src = objectUrl;
+        });
     }
 
     function fileToDataUrl(file) {
