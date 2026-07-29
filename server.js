@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { BUCKET, supabaseAdmin, ensureBucket } = require('./api/_supabase');
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
@@ -32,7 +33,9 @@ function ensureDb(){
 
 const server = http.createServer((req, res) => {
   ensureDb();
-  if(req.url === '/api/login' && req.method === 'POST'){
+  const requestUrl = new URL(req.url, 'http://localhost');
+  const pathname = requestUrl.pathname;
+  if(pathname === '/api/login' && req.method === 'POST'){
     let body = '';
     req.on('data', chunk => {
       body += chunk;
@@ -51,10 +54,44 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
-  if(req.url === '/api/data' && req.method === 'GET'){
+  if(pathname === '/api/data' && req.method === 'GET'){
     return send(res, 200, fs.readFileSync(DB_PATH, 'utf8'), 'application/json; charset=utf-8');
   }
-  if(req.url === '/api/data' && req.method === 'POST'){
+  if(pathname === '/api/media-upload' && req.method === 'POST'){
+    if(String(req.headers['x-admin-password'] || '') !== String(ADMIN_PASSWORD)){
+      return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
+    }
+    const chunks = [];
+    let size = 0;
+    req.on('data', chunk => {
+      size += chunk.length;
+      if(size > 1800000) req.destroy();
+      else chunks.push(chunk);
+    });
+    req.on('end', async () => {
+      try {
+        if(!size || size > 1800000) return send(res, 413, JSON.stringify({ok:false, error:'Görsel en fazla 1,8 MB olabilir.'}), 'application/json; charset=utf-8');
+        const contentType = String(req.headers['content-type'] || 'image/jpeg');
+        if(!contentType.startsWith('image/')) return send(res, 415, JSON.stringify({ok:false, error:'Geçersiz görsel.'}), 'application/json; charset=utf-8');
+        const extension = path.extname(String(req.headers['x-file-name'] || '')).toLowerCase().replace(/[^a-z0-9.]/g, '') || '.jpg';
+        const folder = String(req.headers['x-upload-folder'] || 'uploads').replace(/[^a-z0-9-_\/]/gi, '').replace(/^\/+/, '').slice(0, 80) || 'uploads';
+        const objectPath = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2,10)}${extension}`;
+        const client = supabaseAdmin();
+        await ensureBucket(client);
+        const { error } = await client.storage.from(BUCKET).upload(objectPath, Buffer.concat(chunks), { contentType, upsert: false });
+        if(error) throw error;
+        const published = client.storage.from(BUCKET).getPublicUrl(objectPath);
+        const publicUrl = published && published.data && published.data.publicUrl;
+        if(!publicUrl) throw new Error('Görsel adresi oluşturulamadı.');
+        return send(res, 200, JSON.stringify({ok:true, url:publicUrl}), 'application/json; charset=utf-8');
+      } catch(error) {
+        console.error(error);
+        return send(res, 500, JSON.stringify({ok:false, error:'Görsel kalıcı alana yüklenemedi.'}), 'application/json; charset=utf-8');
+      }
+    });
+    return;
+  }
+  if(pathname === '/api/data' && req.method === 'POST'){
     if(String(req.headers['x-admin-password'] || '') !== String(ADMIN_PASSWORD)){
       return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
     }
@@ -75,7 +112,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  let reqPath = req.url.split('?')[0];
+  let reqPath = pathname;
   if(reqPath === '/') reqPath = '/index.html';
   if(reqPath === '/admin') reqPath = '/admin.html';
   if(reqPath === '/deneyimli-kadro') reqPath = '/deneyimli-kadro.html';
