@@ -1484,9 +1484,16 @@ ${dataRows}
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
+        // Admin girişini uzak veri yüklemesine bağlama. Supabase yavaşlasa veya
+        // geçici olarak cevap vermese bile şifre alanı ve giriş düğmesi çalışsın.
+        if (page === 'admin') {
+            bindAdminEvents();
+            renderAdmin();
+        }
+
         state = await loadData();
         if (page === 'public') renderPublic();
-        if (page === 'admin') { bindAdminEvents(); renderAdmin(); }
+        if (page === 'admin') renderAdmin();
     });
 
 })();
