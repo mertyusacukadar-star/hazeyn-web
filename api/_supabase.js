@@ -5,7 +5,7 @@ const { createClient } = require('@supabase/supabase-js');
 const TABLE = process.env.SUPABASE_TABLE || 'hazeyn_data';
 const ROW_ID = process.env.SUPABASE_ROW_ID || 'main';
 const BUCKET = process.env.SUPABASE_BUCKET || 'hazeyn';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '1234';
+const ADMIN_PASSWORD = process.env.HAZEYN_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '1234';
 
 function requiredEnv(name){
   const value = process.env[name];
