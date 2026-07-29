@@ -441,6 +441,16 @@
         setHeroText(banners[heroSlideIndex]);
     }
 
+    function restartHeroTimer() {
+        if (heroTimer) clearInterval(heroTimer);
+        heroTimer = null;
+        const banners = getHeroBanners();
+        const mode = (state.settings && state.settings.heroMode) || 'single';
+        if (mode === 'slider' && banners.length > 1) {
+            heroTimer = setInterval(() => showHeroBanner(heroSlideIndex + 1), 5500);
+        }
+    }
+
     function renderHeroBanners() {
         const bg = document.querySelector('.hero-bg');
         if (!bg) return;
@@ -450,11 +460,7 @@
 
         showHeroBanner(0);
 
-        if (heroTimer) clearInterval(heroTimer);
-        const mode = (state.settings && state.settings.heroMode) || 'single';
-        if (mode === 'slider' && banners.length > 1) {
-            heroTimer = setInterval(() => showHeroBanner(heroSlideIndex + 1), 5500);
-        }
+        restartHeroTimer();
     }
 
     function applySettings() {
@@ -565,9 +571,52 @@
         openGalleryModal(currentGalleryIndex + step);
     }
 
+    function bindSwipeNavigation(element, onSwipe, ignoreSelector) {
+        if (!element || element.dataset.swipeBound === '1') return;
+        element.dataset.swipeBound = '1';
+        let startX = 0;
+        let startY = 0;
+        let pointerId = null;
+
+        element.addEventListener('pointerdown', event => {
+            if (ignoreSelector && event.target.closest(ignoreSelector)) return;
+            pointerId = event.pointerId;
+            startX = event.clientX;
+            startY = event.clientY;
+            element.classList.add('is-dragging');
+            if (element.setPointerCapture) element.setPointerCapture(pointerId);
+        });
+        element.addEventListener('pointerup', event => {
+            if (pointerId !== event.pointerId) return;
+            const deltaX = event.clientX - startX;
+            const deltaY = event.clientY - startY;
+            element.classList.remove('is-dragging');
+            pointerId = null;
+            if (Math.abs(deltaX) >= 45 && Math.abs(deltaX) > Math.abs(deltaY)) onSwipe(deltaX < 0 ? 1 : -1);
+        });
+        element.addEventListener('pointercancel', () => {
+            element.classList.remove('is-dragging');
+            pointerId = null;
+        });
+    }
+
+    function bindPublicSwipeInteractions() {
+        bindSwipeNavigation(document.querySelector('.hero'), step => {
+            showHeroBanner(heroSlideIndex + step);
+            restartHeroTimer();
+        }, 'a,button,input,select,textarea');
+
+        const modalBody = $('modalBody');
+        bindSwipeNavigation(modalBody, step => {
+            if (modalBody.querySelector('.gallery-viewer')) moveGalleryModal(step);
+        }, 'button,a,input,select,textarea,summary');
+    }
+
     function openTourModal(id) {
         const t = state.tours.find(x => x.id === id);
         if (!t) return;
+        const program = String(t.program || 'Program detayı yakında eklenecek.');
+        const programPreview = program.length > 145 ? program.slice(0, 145).trim() + '…' : program;
         $('modalBody').innerHTML = `<div class="modal-content">
         <img src="${escapeHtml(t.image || 'assets/hotel.svg')}" alt="${escapeHtml(t.title)}" onerror="this.src='assets/hotel.svg'">
         <div>
@@ -577,11 +626,17 @@
             <p><b>Süre:</b> ${escapeHtml(t.nights || '-')}</p>
             <p><b>Otel:</b><br>${escapeHtml(t.hotels || '-').replace(/\n/g, '<br>')}</p>
             <p><b>Ulaşım:</b> ${escapeHtml(t.airline || '-')}</p>
+            <a href="${escapeHtml(tourWhatsappHref(t))}" target="_blank" class="btn btn-gold tour-whatsapp-cta">WhatsApp'tan Bilgi Al</a>
             ${priceTableHtml(t)}
             ${hotelGalleryHtml(t)}
-            <h3>Program Örneği</h3>
-            <pre>${escapeHtml(t.program || 'Program detayı yakında eklenecek.')}</pre>
-            <a href="${escapeHtml(tourWhatsappHref(t))}" target="_blank" class="btn btn-gold">WhatsApp'tan Bilgi Al</a>
+            <section class="program-preview">
+                <h3>Program Örneği</h3>
+                <p>${escapeHtml(programPreview).replace(/\n/g, ' ')}</p>
+                <details>
+                    <summary>Tüm programı göster</summary>
+                    <pre>${escapeHtml(program)}</pre>
+                </details>
+            </section>
         </div>
     </div>`;
         $('tourModal').classList.add('open');
@@ -597,6 +652,7 @@
         renderStaff();
         renderBlogs();
         renderTravelHub();
+        bindPublicSwipeInteractions();
 
         document.addEventListener('click', (e) => {
             const tourBtn = e.target.closest('[data-tour]');
@@ -1193,8 +1249,10 @@
             const name = splitPassengerName(p.name);
             const status = passportStatus(p, flightDate);
             const rowClass = status.level === 'danger' ? 'passport-warning' : status.level === 'missing' ? 'passport-missing' : '';
-            const shared = index === 0 ? `<td rowspan="${room.occupants.length}" class="rooming-shared">${room.roomSequence}</td><td rowspan="${room.occupants.length}" class="rooming-shared rooming-type">${escapeHtml(room.roomingLabel)}</td><td rowspan="${room.occupants.length}" class="rooming-shared">${escapeHtml(room.mekkeRoomNo)}</td><td rowspan="${room.occupants.length}" class="rooming-shared">${escapeHtml(room.medineRoomNo)}</td>` : '';
-            return `<tr class="${rowClass}"><td>${p.sheetNo}</td><td>${escapeHtml(name.firstName)}</td><td>${escapeHtml(name.surname)}</td>${shared}<td><span class="passport-status ${status.level}">${escapeHtml(status.label)}</span><small>${escapeHtml(p.passportEnd || '-')}</small></td></tr>`;
+            const shared = index === 0 ? `<td rowspan="${room.occupants.length}" class="rooming-shared">${room.roomSequence}</td><td rowspan="${room.occupants.length}" class="rooming-shared rooming-type">${escapeHtml(room.roomingLabel)}</td>` : '';
+            const mekkeRoomNo = p.mekkeRoomNo || p.roomNo || room.mekkeRoomNo || '';
+            const medineRoomNo = p.medineRoomNo || room.medineRoomNo || '';
+            return `<tr class="${rowClass}"><td>${p.sheetNo}</td><td>${escapeHtml(name.firstName)}</td><td>${escapeHtml(name.surname)}</td>${shared}<td>${escapeHtml(mekkeRoomNo)}</td><td>${escapeHtml(medineRoomNo)}</td><td><span class="passport-status ${status.level}">${escapeHtml(status.label)}</span><small>${escapeHtml(p.passportEnd || '-')}</small></td></tr>`;
         }).join('')).join('');
         return `<div class="rooming-preview">
             <div class="rooming-preview-head"><div><span>HAZEYN</span><strong>${escapeHtml(l.title)} ODALAMA YERLEŞKESİ</strong></div><small>Excel çıktısıyla aynı düzen</small></div>
@@ -1253,60 +1311,129 @@
         if (field === 'roomPeople' || field === 'mekkeRoomNo' || field === 'medineRoomNo' || field === 'roomNo') renderPassengerAdmin();
     }
 
-    function xmlEscape(value) {
-        return String(value ?? '').replace(/[&<>'"]/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&apos;', '"': '&quot;' }[s]));
-    }
-
-    function excelCell(value, style = 'Cell', mergeDown = 0) {
-        const merge = mergeDown > 0 ? ` ss:MergeDown="${mergeDown}"` : '';
-        return `<Cell ss:StyleID="${style}"${merge}><Data ss:Type="String">${xmlEscape(value)}</Data></Cell>`;
-    }
-
     function safeFileName(value) {
         return String(value || 'oda-listesi').toLocaleLowerCase('tr-TR').replace(/[^a-z0-9çğıöşü]+/gi, '-').replace(/^-+|-+$/g, '');
     }
 
-    function exportRoomingExcel(id) {
-        const l = state.passengerLists.find(x => x.id === id);
-        if (!l) return;
-        const tour = state.tours.find(t => t.id === l.tourId) || {};
-        const flightDate = getListFlightDate(l);
-        const rooms = createRoomAssignments(l.passengers || []);
-        const dataRows = rooms.map(room => room.occupants.map((p, index) => {
-            const name = splitPassengerName(p.name);
-            const status = passportStatus(p, flightDate);
-            const style = status.level === 'danger' ? 'Danger' : status.level === 'missing' ? 'Missing' : 'Cell';
-            const mergeDown = room.occupants.length - 1;
-            return `<Row ss:AutoFitHeight="1">${excelCell(p.sheetNo, style)}${excelCell(name.firstName.toLocaleUpperCase('tr-TR'), style)}${excelCell(name.surname.toLocaleUpperCase('tr-TR'), style)}${index === 0 ? excelCell(room.roomSequence, style, mergeDown) + excelCell(room.roomingLabel, style, mergeDown) + excelCell(room.mekkeRoomNo, style, mergeDown) + excelCell(room.medineRoomNo, style, mergeDown) : ''}${excelCell(p.passportEnd || 'EKSİK', style)}${excelCell(status.label, style)}</Row>`;
-        }).join('')).join('');
-        const title = `${l.title || tour.title || 'TUR'} ODALAMA YERLEŞKESİ`;
-        const workbook = `<?xml version="1.0"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-<Styles>
-<Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="10"/></Style>
-<Style ss:ID="Title"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="15" ss:Bold="1"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2"/></Borders></Style>
-<Style ss:ID="Brand"><Alignment ss:Horizontal="Left" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="13" ss:Bold="1"/></Style>
-<Style ss:ID="Header"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:Bold="1"/><Interior ss:Color="#E2F0D9" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>
-<Style ss:ID="Cell"><Alignment ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>
-<Style ss:ID="Danger"><Alignment ss:Vertical="Center"/><Font ss:Color="#C00000" ss:Bold="1"/><Interior ss:Color="#FCE8E6" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>
-<Style ss:ID="Missing"><Alignment ss:Vertical="Center"/><Font ss:Color="#8A5A00" ss:Bold="1"/><Interior ss:Color="#FFF4CE" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>
-</Styles>
-<Worksheet ss:Name="Oda Yerleşimi"><Table>
-<Column ss:Width="42"/><Column ss:Width="125"/><Column ss:Width="110"/><Column ss:Width="48"/><Column ss:Width="78"/><Column ss:Width="82"/><Column ss:Width="82"/><Column ss:Width="82"/><Column ss:Width="155"/>
-<Row ss:Height="28">${excelCell('HAZEYN', 'Brand')}${excelCell(title, 'Title', 0).replace('<Cell ', '<Cell ss:MergeAcross="7" ')}</Row>
-<Row>${excelCell(`Uçuş: ${formatDateTR(flightDate) || '-'} • Rehber: ${l.leader || '-'} • Yolcu: ${(l.passengers || []).length}`, 'Cell').replace('<Cell ', '<Cell ss:MergeAcross="8" ')}</Row>
-<Row>${['NO','İSİM','SOY İSİM','SAYI','ODALAMA','MEKKE','MEDİNE','PASAPORT BİTİŞ','PASAPORT DURUMU'].map(v => excelCell(v, 'Header')).join('')}</Row>
-${dataRows}
-</Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>3</SplitHorizontal><TopRowBottomPane>3</TopRowBottomPane><Selected/></WorksheetOptions></Worksheet>
-</Workbook>`;
-        const blob = new Blob(['\ufeff', workbook], { type: 'application/vnd.ms-excel;charset=utf-8' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `${safeFileName(l.title)}-odalama.xls`;
-        a.click();
-        URL.revokeObjectURL(a.href);
-        toast('Excel oda listesi indirildi.');
+    async function exportRoomingExcel(id) {
+        const list = state.passengerLists.find(item => item.id === id);
+        if (!list) return;
+        if (!window.ExcelJS) {
+            toast('Excel hazırlama bileşeni yüklenemedi. Sayfayı yenileyip tekrar deneyin.');
+            return;
+        }
+
+        const tour = state.tours.find(item => item.id === list.tourId) || {};
+        const rooms = createRoomAssignments(list.passengers || []);
+        const workbook = new window.ExcelJS.Workbook();
+        workbook.creator = 'Hazeyn Turizm';
+        workbook.created = new Date();
+
+        const sheet = workbook.addWorksheet('Oda Yerleşimi', {
+            views: [{ showGridLines: false, state: 'frozen', ySplit: 2 }]
+        });
+        sheet.pageSetup = {
+            orientation: 'landscape',
+            fitToPage: true,
+            fitToWidth: 1,
+            fitToHeight: 0,
+            paperSize: 9,
+            margins: { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.15, footer: 0.15 }
+        };
+        sheet.columns = [
+            { width: 7 },
+            { width: 24 },
+            { width: 22 },
+            { width: 9 },
+            { width: 14 },
+            { width: 16 },
+            { width: 16 }
+        ];
+
+        const title = `${list.title || tour.title || 'TUR'} ODALAMA YERLEŞKESİ`;
+        sheet.getCell('A1').value = 'HAZEYN';
+        sheet.getCell('B1').value = title.toLocaleUpperCase('tr-TR');
+        sheet.mergeCells('B1:G1');
+        sheet.getRow(1).height = 30;
+        sheet.getRow(2).values = ['NO', 'İSİM', 'SOY İSİM', 'SAYI', 'ODALAMA', 'MEKKE', 'MEDİNE'];
+        sheet.getRow(2).height = 23;
+
+        let rowNumber = 3;
+        rooms.forEach(room => {
+            const roomStart = rowNumber;
+            room.occupants.forEach((passenger, index) => {
+                const name = splitPassengerName(passenger.name);
+                const mekkeRoomNo = passenger.mekkeRoomNo || passenger.roomNo || room.mekkeRoomNo || '';
+                const medineRoomNo = passenger.medineRoomNo || room.medineRoomNo || '';
+                sheet.addRow([
+                    passenger.sheetNo,
+                    name.firstName.toLocaleUpperCase('tr-TR'),
+                    name.surname.toLocaleUpperCase('tr-TR'),
+                    index === 0 ? room.roomSequence : '',
+                    index === 0 ? room.roomingLabel : '',
+                    mekkeRoomNo,
+                    medineRoomNo
+                ]);
+                sheet.getRow(rowNumber).height = 22;
+                rowNumber += 1;
+            });
+            const roomEnd = rowNumber - 1;
+            if (roomEnd > roomStart) {
+                sheet.mergeCells(roomStart, 4, roomEnd, 4);
+                sheet.mergeCells(roomStart, 5, roomEnd, 5);
+            }
+        });
+
+        const thinBorder = {
+            top: { style: 'thin', color: { argb: 'FF1F1F1F' } },
+            left: { style: 'thin', color: { argb: 'FF1F1F1F' } },
+            bottom: { style: 'thin', color: { argb: 'FF1F1F1F' } },
+            right: { style: 'thin', color: { argb: 'FF1F1F1F' } }
+        };
+
+        sheet.getRow(1).eachCell({ includeEmpty: true }, cell => {
+            cell.font = { name: 'Arial', size: cell.column === 1 ? 12 : 15, bold: true, color: { argb: 'FF111111' } };
+            cell.alignment = { vertical: 'middle', horizontal: cell.column === 1 ? 'left' : 'center' };
+            cell.border = thinBorder;
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+        });
+
+        sheet.getRow(2).eachCell({ includeEmpty: true }, cell => {
+            cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: cell.column === 6 ? 'FFFFFFFF' : 'FF111111' } };
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            cell.border = thinBorder;
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: cell.column === 6 ? 'FF2F2F2F' : cell.column === 7 ? 'FF79D84E' : 'FFE2F0D9' } };
+        });
+
+        sheet.eachRow({ includeEmpty: false }, (row, currentRow) => {
+            if (currentRow < 3) return;
+            row.eachCell({ includeEmpty: true }, cell => {
+                const isRoomCell = cell.column === 4 || cell.column === 5;
+                cell.font = { name: 'Arial', size: 10, color: { argb: isRoomCell ? 'FFC00000' : 'FF111111' }, bold: isRoomCell };
+                cell.alignment = { vertical: 'middle', horizontal: [1, 4, 5, 6, 7].includes(cell.column) ? 'center' : 'left' };
+                cell.border = thinBorder;
+            });
+        });
+
+        sheet.autoFilter = { from: 'A2', to: 'G2' };
+        sheet.printArea = `A1:G${Math.max(2, rowNumber - 1)}`;
+
+        try {
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${safeFileName(list.title)}-odalama.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1500);
+            toast('Excel oda listesi .xlsx olarak indirildi.');
+        } catch (error) {
+            console.error('Excel dosyası hazırlanamadı.', error);
+            toast('Excel dosyası hazırlanamadı.');
+        }
     }
 
     function renderPassengerAdmin() {
