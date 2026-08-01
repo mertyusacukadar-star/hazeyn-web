@@ -8,7 +8,7 @@ const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const DATA_DIR = path.join(ROOT, 'data');
 const DB_PATH = path.join(DATA_DIR, 'db.json');
-const ADMIN_PASSWORD = process.env.HAZEYN_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '1234';
+const ADMIN_PASSWORD = process.env.HAZEYN_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Hazeyn_2026_!x9';
 
 const mime = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'application/javascript; charset=utf-8',
@@ -114,6 +114,7 @@ const server = http.createServer((req, res) => {
 
   let reqPath = pathname;
   if(reqPath === '/') reqPath = '/index.html';
+  if(reqPath === '/tr' || reqPath === '/tr/') reqPath = '/index.html';
   if(reqPath === '/admin') reqPath = '/admin.html';
   if(reqPath === '/deneyimli-kadro') reqPath = '/deneyimli-kadro.html';
   if(reqPath === '/merak-edilenler') reqPath = '/merak-edilenler.html';

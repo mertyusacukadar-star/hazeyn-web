@@ -9,15 +9,23 @@
     "address": "Ümraniye / İstanbul",
     "heroTitle": "Kutsal Yolculuğunuzda Güvenilir Rehberiniz",
     "heroSubtitle": "Hac, Umre ve yurt içi turlarında profesyonel organizasyon.",
-    "adminPassword": "1234",
+    "adminPassword": "Hazeyn_2026_!x9",
     "instagram": "hazeynturizm",
     "heroMode": "slider",
     "heroBanners": [
       {
         "id": "hb1",
-        "image": "assets/hero.svg",
-        "title": "Kutsal Yolculuğunuzda Güvenilir Rehberiniz",
-        "subtitle": "Hac, Umre ve yurt içi turlarında profesyonel organizasyon.",
+        "image": "assets/gallery-medine.jpeg",
+        "title": "Umre Pasaportla Değil, Niyetle Başlar",
+        "subtitle": "Hazeyn Turizm ile manevi yolculuğunuzu güvenle planlayın.",
+        "textColor": "#ffffff",
+        "textPosition": "left"
+      },
+      {
+        "id": "hb2",
+        "image": "assets/gallery-kuba.jpeg",
+        "title": "Umre Yolculuğunuz Hazeyn ile Başlasın",
+        "subtitle": "Mekke ve Medine'de konforlu konaklama, rehberlik ve güvenli organizasyon.",
         "textColor": "#ffffff",
         "textPosition": "left"
       }
@@ -142,18 +150,13 @@
   "gallery": [
     {
       "id": "g1",
-      "title": "Kabe Ziyareti",
-      "image": "assets/hero.svg"
+      "title": "Medine Ziyareti",
+      "image": "assets/gallery-medine.jpeg"
     },
     {
       "id": "g2",
-      "title": "Otel Konaklama",
-      "image": "assets/hotel.svg"
-    },
-    {
-      "id": "g3",
-      "title": "Yurt İçi Tur",
-      "image": "assets/yurtici.svg"
+      "title": "Kuba Mescidi",
+      "image": "assets/gallery-kuba.jpeg"
     }
   ],
   "passengerLists": [],

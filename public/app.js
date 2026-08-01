@@ -22,9 +22,10 @@
             blogBannerSubtitle: 'İhram yasakları, vize işlemleri, hazırlık listesi ve yolculuk öncesi bilgilendirmeleri buradan yayınlayabilirsiniz.',
             blogBannerImage: 'assets/hero.svg',
             heroBanners: [
-                { id: 'hb1', image: 'assets/hero.svg', title: 'Kutsal Yolculuğunuzda Güvenilir Rehberiniz', subtitle: 'Hac, Umre ve yurt içi turlarında profesyonel organizasyon.', textColor: '#ffffff', textPosition: 'left' }
+                { id: 'hb1', image: 'assets/gallery-medine.jpeg', title: 'Umre Pasaportla Değil, Niyetle Başlar', subtitle: 'Hazeyn Turizm ile manevi yolculuğunuzu güvenle planlayın.', textColor: '#ffffff', textPosition: 'left' },
+                { id: 'hb2', image: 'assets/gallery-kuba.jpeg', title: 'Umre Yolculuğunuz Hazeyn ile Başlasın', subtitle: "Mekke ve Medine'de konforlu konaklama, rehberlik ve güvenli organizasyon.", textColor: '#ffffff', textPosition: 'left' }
             ],
-            adminPassword: '1234'
+            adminPassword: 'Hazeyn_2026_!x9'
         },
         tours: [
             { id: 't1', type: 'umre', title: 'Şevval Umresi', tag: 'Kesin Kalkışlı', departureDate: '2026-05-14', image: 'assets/hotel.svg', roomPrices: { '1': '1.650 USD', '2': '1.450 USD', '3': '1.350 USD', '4': '1.250 USD', '5+': '1.150 USD' }, nights: '11 Gece Mekke / 3 Gece Medine', hotels: 'Mekke: Voco Hotel\nMedine: Emaar Royal', airline: 'Türk Hava Yolları', price: '1.250 USD', program: '1. Gün: İstanbul çıkış ve Medineye varış.\n2-3. Gün: Medine ziyaretleri.\n4. Gün: Mekkeye geçiş ve umre ibadeti.\nSon Gün: Dönüş hazırlığı ve İstanbul uçuşu.' },
@@ -40,9 +41,8 @@
             { id: 'r4', name: 'Fatma Aydın', text: 'Her şey mükemmeldi. Tekrar tercih edeceğimiz bir acenta.', stars: 5 }
         ],
         gallery: [
-            { id: 'g1', title: 'Kabe Ziyareti', image: 'assets/hero.svg' },
-            { id: 'g2', title: 'Otel Konaklama', image: 'assets/hotel.svg' },
-            { id: 'g3', title: 'Yurt İçi Tur', image: 'assets/yurtici.svg' }
+            { id: 'g1', title: 'Medine Ziyareti', image: 'assets/gallery-medine.jpeg' },
+            { id: 'g2', title: 'Kuba Mescidi', image: 'assets/gallery-kuba.jpeg' }
         ],
         staff: [
             { id: 's1', name: 'Emrullah Kesken', role: 'Umre Rehberi', image: 'assets/icon.png', bio: 'Hac ve umre organizasyonlarında misafirlere ibadet, ziyaret ve grup takibi konularında rehberlik eder.' },
@@ -478,9 +478,10 @@
         const indexed = await idbGet('hazeynData');
         const remote = await fetchRemoteData();
 
-        // Cihazlar arası senkronizasyonda sunucu tek doğru kaynaktır. Yerel kayıtlar
-        // sadece internet/sunucu erişimi yoksa yedek olarak kullanılır.
-        const selected = remote ? mergeDefaults(remote) : chooseBestData([indexed, local]);
+        // Zaman damgası olan sunucu kaydı cihazlar arasında tek doğru kaynaktır.
+        // Eski, boş sunucu kaydı varsa daha zengin yerel yönetim verisini kaybetme.
+        const remoteStamp = Number(remote?._meta?.updatedAt || 0);
+        const selected = remoteStamp > 0 ? mergeDefaults(remote) : chooseBestData([remote, indexed, local]);
         await cacheDataLocally(selected);
 
         return selected;
@@ -495,6 +496,7 @@
             const incoming = mergeDefaults(remote);
             const currentStamp = Number(state?._meta?.updatedAt || 0);
             const incomingStamp = Number(incoming?._meta?.updatedAt || 0);
+            if (incomingStamp === 0 && currentStamp > 0) return;
             if (incomingStamp !== currentStamp || JSON.stringify(incoming.settings) !== JSON.stringify(state?.settings)) {
                 state = incoming;
                 await cacheDataLocally(state);
@@ -979,7 +981,7 @@
             document.body.classList.add('mobile-menu-open');
         };
 
-        toggle.innerHTML = '<span></span><span></span>';
+        toggle.innerHTML = `<svg class="menu-icon menu-icon-bars" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7.5h14M5 12h14M5 16.5h14"/></svg><svg class="menu-icon menu-icon-close" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>`;
         if (toggle.dataset.mobileMenuBound !== '1') {
             toggle.dataset.mobileMenuBound = '1';
             toggle.setAttribute('aria-expanded', 'false');

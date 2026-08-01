@@ -52,7 +52,23 @@ function json(data, status = 200) {
 async function ensureState(env) {
   await env.DB.prepare(SCHEMA).run();
   const row = await env.DB.prepare("SELECT payload FROM app_state WHERE key = ?").bind("main").first();
-  if (row && row.payload) return row.payload;
+  if (row && row.payload) {
+    try {
+      const oldData = JSON.parse(row.payload);
+      const banners = Array.isArray(oldData?.settings?.heroBanners) ? oldData.settings.heroBanners : [];
+      const gallery = Array.isArray(oldData?.gallery) ? oldData.gallery : [];
+      const isEmptyLegacyDefault = !oldData?._meta?.updatedAt
+        && banners.length === 1 && banners[0]?.image === "assets/hero.svg"
+        && gallery.length === 3
+        && gallery.some(item => item?.image === "assets/hotel.svg")
+        && gallery.some(item => item?.image === "assets/yurtici.svg");
+      if (!isEmptyLegacyDefault) return row.payload;
+      await env.DB.prepare("UPDATE app_state SET payload = ?, updated_at = ? WHERE key = ?").bind(DEFAULT_DATA, Date.now(), "main").run();
+      return DEFAULT_DATA;
+    } catch {
+      return row.payload;
+    }
+  }
   await env.DB.prepare("INSERT OR IGNORE INTO app_state (key, payload, updated_at) VALUES (?, ?, ?)").bind("main", DEFAULT_DATA, Date.now()).run();
   return DEFAULT_DATA;
 }
@@ -110,7 +126,7 @@ export default {
     }
     if (url.pathname.startsWith("/api/")) return json({ ok: false, error: "Bu işlem bu sürümde kullanılamıyor." }, 404);
 
-    const routes = { "/": "/index.html", "/admin": "/admin.html", "/deneyimli-kadro": "/deneyimli-kadro.html", "/merak-edilenler": "/merak-edilenler.html" };
+    const routes = { "/": "/index.html", "/tr": "/index.html", "/tr/": "/index.html", "/admin": "/admin.html", "/deneyimli-kadro": "/deneyimli-kadro.html", "/merak-edilenler": "/merak-edilenler.html" };
     const asset = ASSETS[routes[url.pathname] || url.pathname];
     if (!asset) return new Response("Sayfa bulunamadı", { status: 404 });
     return new Response(decodeBase64(asset.body), { headers: { "content-type": asset.type, "cache-control": asset.type.startsWith("text/html") ? "no-cache" : "public, max-age=86400" } });

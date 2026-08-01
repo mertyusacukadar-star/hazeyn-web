@@ -1,5 +1,7 @@
 {
   "rewrites": [
+    { "source": "/tr", "destination": "/index.html" },
+    { "source": "/tr/", "destination": "/index.html" },
     { "source": "/admin", "destination": "/admin.html" },
     { "source": "/deneyimli-kadro", "destination": "/deneyimli-kadro.html" },
     { "source": "/merak-edilenler", "destination": "/merak-edilenler.html" }

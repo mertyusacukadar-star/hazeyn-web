@@ -434,11 +434,13 @@ body[data-page="public"] .section.container{
     body.mobile-menu-open{overflow:hidden;touch-action:none}
     body.mobile-menu-open .site-header{z-index:60;background:#0b0b0d;border-bottom-color:transparent;backdrop-filter:none}
     .site-header .nav-links,.site-header .nav-actions{display:none!important}
-    .menu-toggle{position:relative;z-index:62;width:46px;height:46px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.08);display:grid;place-content:center;gap:7px;transition:background .28s ease,transform .28s ease}
-    .menu-toggle span{display:block;width:22px;height:2px;border-radius:999px;background:#fff;transition:transform .38s cubic-bezier(.2,.8,.2,1),opacity .22s ease}
-    .menu-toggle.open{background:rgba(255,255,255,.13);transform:rotate(90deg)}
-    .menu-toggle.open span:first-child{transform:translateY(4.5px) rotate(45deg)}
-    .menu-toggle.open span:last-child{transform:translateY(-4.5px) rotate(-45deg)}
+    .menu-toggle{position:relative;z-index:62;width:46px;height:46px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.08);display:grid;place-items:center;transition:background .28s ease}
+    .menu-toggle.open{background:rgba(255,255,255,.13)}
+    .menu-icon{position:absolute;inset:50% auto auto 50%;width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.85;stroke-linecap:round;stroke-linejoin:round;transform-origin:center;transition:opacity .24s ease,transform .4s cubic-bezier(.2,.8,.2,1)}
+    .menu-icon-bars{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0)}
+    .menu-icon-close{opacity:0;transform:translate(-50%,-50%) scale(.68) rotate(-45deg)}
+    .menu-toggle.open .menu-icon-bars{opacity:0;transform:translate(-50%,-50%) scale(.68) rotate(45deg)}
+    .menu-toggle.open .menu-icon-close{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0)}
     .mobile-nav-overlay{display:block;position:fixed;inset:0;z-index:55;background:#0b0b0d;color:#fff;opacity:0;visibility:hidden;transform:translateY(-16px) scale(.985);transition:opacity .34s ease,transform .46s cubic-bezier(.2,.8,.2,1),visibility .46s;overflow-y:auto;overscroll-behavior:contain}
     .mobile-nav-overlay.open{opacity:1;visibility:visible;transform:none}
     .mobile-nav-shell{width:min(100% - 44px,620px);min-height:100%;margin:auto;padding:112px 0 max(34px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:38px}
