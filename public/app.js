@@ -75,6 +75,7 @@
     let currentGalleryIndex = 0;
     let revealObserver = null;
     let publicRefreshInFlight = false;
+    let pendingLegacySync = false;
     const surnameSortedLists = new Set();
 
     const page = document.body.dataset.page;
@@ -454,6 +455,63 @@
         return valid[0];
     }
 
+    function passengerListIdentity(list) {
+        const tour = String(list?.tourId || list?.tourTitle || list?.title || '').trim().toLocaleLowerCase('tr-TR');
+        const date = String(list?.flightDate || list?.departureDate || list?.date || '').trim();
+        return `${tour}|${date}`;
+    }
+
+    function mergeRecoveredPassengerLists(remoteLists, localLists) {
+        const merged = (Array.isArray(remoteLists) ? remoteLists : []).map(clone);
+        const positions = new Map(merged.map((list, index) => [passengerListIdentity(list), index]));
+        let changed = false;
+        (Array.isArray(localLists) ? localLists : []).forEach(localList => {
+            const key = passengerListIdentity(localList);
+            const position = positions.get(key);
+            if (position == null) {
+                positions.set(key, merged.length);
+                merged.push(clone(localList));
+                changed = true;
+                return;
+            }
+            const remoteCount = Array.isArray(merged[position]?.passengers) ? merged[position].passengers.length : 0;
+            const localCount = Array.isArray(localList?.passengers) ? localList.passengers.length : 0;
+            if (localCount > remoteCount) {
+                merged[position] = clone(localList);
+                changed = true;
+            }
+        });
+        return { lists: merged, changed };
+    }
+
+    function customMediaCount(items) {
+        return (Array.isArray(items) ? items : []).filter(item => /^(https?:|data:|\/media\/)/i.test(String(item?.image || ''))).length;
+    }
+
+    function recoverLegacyLocalData(remote, local) {
+        const selected = mergeDefaults(remote || local);
+        if (!local || !remote) return { data: selected, changed: false };
+        let changed = false;
+        const recoveredLists = mergeRecoveredPassengerLists(selected.passengerLists, local.passengerLists);
+        selected.passengerLists = recoveredLists.lists;
+        changed = recoveredLists.changed;
+
+        const remoteBanners = selected.settings?.heroBanners || [];
+        const localBanners = local.settings?.heroBanners || [];
+        if (customMediaCount(localBanners) > customMediaCount(remoteBanners)) {
+            selected.settings.heroBanners = clone(localBanners);
+            changed = true;
+        }
+        if (customMediaCount(local.gallery) > customMediaCount(selected.gallery)) {
+            selected.gallery = clone(local.gallery);
+            changed = true;
+        }
+        if (changed) {
+            selected._meta = { ...(selected._meta || {}), updatedAt: Math.max(Number(selected._meta?.updatedAt || 0), Number(local._meta?.updatedAt || 0)) };
+        }
+        return { data: selected, changed };
+    }
+
     async function fetchRemoteData() {
         if (location.protocol === 'file:') return null;
         try {
@@ -484,11 +542,13 @@
         const remoteStamp = Number(remote?._meta?.updatedAt || 0);
         const bestLocal = chooseBestData([indexed, local]);
         const localStamp = Number(bestLocal?._meta?.updatedAt || 0);
+        const recovered = recoverLegacyLocalData(remote, bestLocal);
         const selected = remoteStamp > 0
-            ? mergeDefaults(remote)
+            ? recovered.data
             : localStamp > 0
                 ? chooseBestData([remote, bestLocal])
                 : mergeDefaults(remote || bestLocal);
+        pendingLegacySync = remoteStamp > 0 && recovered.changed;
         await cacheDataLocally(selected);
 
         return selected;
@@ -540,11 +600,19 @@
             try {
                 const password = getAdminPassword();
                 const res = await fetch('/api/data', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': password }, body: JSON.stringify(state) });
-                if (!res.ok) throw new Error('Sunucu kaydı başarısız');
+                if (!res.ok) {
+                    const details = await res.json().catch(() => ({}));
+                    throw new Error(details.error || 'Sunucu kaydı başarısız');
+                }
+                pendingLegacySync = false;
+                return true;
             } catch (e) {
                 console.warn('Sunucu kaydı yapılamadı; IndexedDB kaydı kullanıldı.', e);
+                alert('Kayıt bu cihazda korundu ancak merkezi sisteme aktarılamadı. Lütfen internet bağlantını kontrol edip tekrar kaydet.');
+                return false;
             }
         }
+        return true;
     }
 
     function getHeroBanners() {
@@ -755,7 +823,7 @@
         const stage = image?.closest('.gallery-stage');
         if (!stage || !image.naturalWidth || !image.naturalHeight) return;
         const maxWidth = Math.min(window.innerWidth * 0.94, 1280);
-        const maxHeight = Math.min(window.innerHeight * 0.88, 860);
+        const maxHeight = Math.min(window.innerHeight * 0.78, 780);
         const scale = Math.min(maxWidth / image.naturalWidth, maxHeight / image.naturalHeight, 1);
         stage.style.width = `${Math.max(280, Math.round(image.naturalWidth * scale))}px`;
         stage.style.height = `${Math.max(220, Math.round(image.naturalHeight * scale))}px`;
@@ -779,6 +847,7 @@
             <button class="gallery-nav gallery-prev" type="button" data-gallery-prev aria-label="Önceki görsel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
             <button class="gallery-nav gallery-next" type="button" data-gallery-next aria-label="Sonraki görsel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
         </div>
+        <div class="gallery-viewer-footer"><h2>${escapeHtml(g.title || '')}</h2><span>${currentGalleryIndex + 1} / ${list.length}</span></div>
     </div>`;
         const currentImage = $('modalBody').querySelector('[data-gallery-current]');
         if (currentImage) {
@@ -861,16 +930,21 @@
                 if (!heroBg || getHeroBanners().length < 2) return;
                 heroBg.classList.remove('is-dragging');
                 if (!step) {
+                    heroBg.classList.remove('is-animating');
                     heroBg.style.setProperty('--hero-drag-x', '0px');
                     return;
                 }
+                heroBg.classList.add('is-animating');
                 const target = step > 0 ? -hero.clientWidth : hero.clientWidth;
                 heroBg.style.setProperty('--hero-drag-x', `${target}px`);
                 setTimeout(() => {
                     heroBg.classList.add('no-transition');
                     showHeroBanner(heroSlideIndex + step);
                     heroBg.style.setProperty('--hero-drag-x', '0px');
-                    requestAnimationFrame(() => requestAnimationFrame(() => heroBg.classList.remove('no-transition')));
+                    requestAnimationFrame(() => requestAnimationFrame(() => {
+                        heroBg.classList.remove('no-transition');
+                        heroBg.classList.remove('is-animating');
+                    }));
                 }, 320);
                 restartHeroTimer();
             }
@@ -2050,7 +2124,15 @@
         $('loginBtn').onclick = async () => {
             const password = $('adminPassword').value;
             const ok = await validateAdminPassword(password);
-            if (ok) { adminLoggedIn = true; $('adminPassword').value = ''; renderAdmin(); } else { alert('Şifre hatalı.'); }
+            if (ok) {
+                adminLoggedIn = true;
+                $('adminPassword').value = '';
+                if (pendingLegacySync && state) {
+                    const synced = await saveData();
+                    if (synced) toast('Bu cihazdaki eski yolcu ve görsel kayıtları merkezi sisteme geri aktarıldı.');
+                }
+                renderAdmin();
+            } else { alert('Şifre hatalı.'); }
         };
         $('adminPassword').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
         $('logoutBtn').onclick = () => { adminLoggedIn = false; sessionStorage.removeItem('hazeynAdminPassword'); renderAdmin(); };

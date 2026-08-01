@@ -45,11 +45,51 @@ const DEFAULT_DATA = ${JSON.stringify(defaultData)};
 const SCHEMA = "CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at INTEGER NOT NULL DEFAULT 0)";
 const MEDIA_SCHEMA = "CREATE TABLE IF NOT EXISTS app_media (id TEXT PRIMARY KEY, content_type TEXT NOT NULL, body BLOB NOT NULL, updated_at INTEGER NOT NULL DEFAULT 0)";
 
+function supabaseConfig(env) {
+  const url = String(env.SUPABASE_URL || "").replace(/\\/$/, "");
+  const key = String(env.SUPABASE_SERVICE_ROLE_KEY || "");
+  const table = String(env.SUPABASE_TABLE || "hazeyn_data").replace(/[^a-z0-9_]/gi, "") || "hazeyn_data";
+  const rowId = String(env.SUPABASE_ROW_ID || "main");
+  const bucket = String(env.SUPABASE_BUCKET || "hazeyn").replace(/[^a-z0-9_.-]/gi, "") || "hazeyn";
+  return { url, key, table, rowId, bucket, ready: Boolean(url && key) };
+}
+
+function supabaseHeaders(config, extra = {}) {
+  return { apikey: config.key, authorization: "Bearer " + config.key, ...extra };
+}
+
+async function readSupabaseState(env) {
+  const config = supabaseConfig(env);
+  if (!config.ready) return null;
+  const endpoint = config.url + "/rest/v1/" + config.table + "?id=eq." + encodeURIComponent(config.rowId) + "&select=data&limit=1";
+  const response = await fetch(endpoint, { headers: supabaseHeaders(config, { accept: "application/json" }) });
+  if (!response.ok) throw new Error("Supabase veri okuma hatasi: " + response.status);
+  const rows = await response.json();
+  if (!Array.isArray(rows) || !rows[0] || rows[0].data == null) return null;
+  return typeof rows[0].data === "string" ? rows[0].data : JSON.stringify(rows[0].data);
+}
+
+async function writeSupabaseState(env, payload) {
+  const config = supabaseConfig(env);
+  if (!config.ready) return false;
+  const endpoint = config.url + "/rest/v1/" + config.table;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: supabaseHeaders(config, {
+      "content-type": "application/json",
+      prefer: "resolution=merge-duplicates,return=minimal"
+    }),
+    body: JSON.stringify({ id: config.rowId, data: JSON.parse(payload), updated_at: new Date().toISOString() })
+  });
+  if (!response.ok) throw new Error("Supabase veri kayit hatasi: " + response.status + " " + await response.text());
+  return true;
+}
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
 }
 
-async function ensureState(env) {
+async function ensureLocalState(env) {
   await env.DB.prepare(SCHEMA).run();
   const row = await env.DB.prepare("SELECT payload FROM app_state WHERE key = ?").bind("main").first();
   if (row && row.payload) {
@@ -73,6 +113,16 @@ async function ensureState(env) {
   return DEFAULT_DATA;
 }
 
+async function ensureState(env) {
+  try {
+    const remote = await readSupabaseState(env);
+    if (remote) return { payload: remote, source: "supabase" };
+  } catch (error) {
+    console.error("Supabase okuma basarisiz, yerel yedek kullaniliyor.", error);
+  }
+  return { payload: await ensureLocalState(env), source: "local" };
+}
+
 function decodeBase64(value) {
   const binary = atob(value);
   const bytes = new Uint8Array(binary.length);
@@ -81,8 +131,10 @@ function decodeBase64(value) {
 }
 
 async function currentPassword(env) {
+  const configured = String(env.HAZEYN_ADMIN_PASSWORD || env.ADMIN_PASSWORD || "");
+  if (configured) return configured;
   try {
-    const data = JSON.parse(await ensureState(env));
+    const data = JSON.parse((await ensureState(env)).payload);
     return String(data?.settings?.adminPassword || "1234");
   } catch {
     return "1234";
@@ -100,7 +152,8 @@ export default {
       return new Response(row.body, { headers: { "content-type": row.content_type, "cache-control": "public, max-age=31536000, immutable" } });
     }
     if (url.pathname === "/api/data" && request.method === "GET") {
-      return new Response(await ensureState(env), { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
+      const state = await ensureState(env);
+      return new Response(state.payload, { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-hazeyn-data-source": state.source } });
     }
     if (url.pathname === "/api/login" && request.method === "POST") {
       const body = await request.json().catch(() => ({}));
@@ -113,6 +166,22 @@ export default {
       const contentType = String(request.headers.get("content-type") || "image/jpeg");
       if (!contentType.startsWith("image/")) return json({ ok: false, error: "Geçersiz görsel." }, 415);
       const id = crypto.randomUUID();
+      const config = supabaseConfig(env);
+      if (config.ready) {
+        const requestedFolder = String(request.headers.get("x-upload-folder") || "uploads").replace(/[^a-z0-9_-]/gi, "-") || "uploads";
+        const originalName = String(request.headers.get("x-file-name") || "image.jpg");
+        const originalExt = (originalName.match(/\\.([a-z0-9]{2,5})$/i) || [])[1];
+        const mimeExt = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : contentType.includes("gif") ? "gif" : "jpg";
+        const extension = String(originalExt || mimeExt).replace(/[^a-z0-9]/gi, "").toLowerCase() || mimeExt;
+        const objectPath = requestedFolder + "/" + new Date().toISOString().slice(0, 10) + "/" + id + "." + extension;
+        const upload = await fetch(config.url + "/storage/v1/object/" + config.bucket + "/" + objectPath, {
+          method: "POST",
+          headers: supabaseHeaders(config, { "content-type": contentType, "x-upsert": "false" }),
+          body
+        });
+        if (!upload.ok) return json({ ok: false, error: "Gorsel Supabase'e yuklenemedi (" + upload.status + ")." }, 502);
+        return json({ ok: true, url: config.url + "/storage/v1/object/public/" + config.bucket + "/" + objectPath });
+      }
       await env.DB.prepare(MEDIA_SCHEMA).run();
       await env.DB.prepare("INSERT INTO app_media (id, content_type, body, updated_at) VALUES (?, ?, ?, ?)").bind(id, contentType, body, Date.now()).run();
       return json({ ok: true, url: "/media/" + id });
@@ -121,6 +190,20 @@ export default {
       if (String(request.headers.get("x-admin-password") || "") !== await currentPassword(env)) return json({ ok: false, error: "Yetkisiz." }, 401);
       const payload = await request.text();
       try { JSON.parse(payload); } catch { return json({ ok: false, error: "Geçersiz veri." }, 400); }
+      try {
+        if (await writeSupabaseState(env, payload)) {
+          try {
+            await env.DB.prepare(SCHEMA).run();
+            await env.DB.prepare("INSERT INTO app_state (key, payload, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at").bind("main", payload, Date.now()).run();
+          } catch (error) {
+            console.error("Yerel yedek kaydi basarisiz.", error);
+          }
+          return json({ ok: true, source: "supabase" });
+        }
+      } catch (error) {
+        console.error("Supabase kaydi basarisiz.", error);
+        return json({ ok: false, error: "Merkezi veri kaydi yapilamadi." }, 502);
+      }
       await env.DB.prepare("INSERT INTO app_state (key, payload, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at").bind("main", payload, Date.now()).run();
       return json({ ok: true });
     }

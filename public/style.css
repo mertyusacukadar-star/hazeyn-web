@@ -490,3 +490,44 @@ body[data-page="public"] .section.container{
     .gallery-modal-card{max-width:100vw!important}
     .gallery-modal-card .modal-close{top:8px!important;right:8px!important}
 }
+
+/* Banner siniri ve galeri basligi */
+.hero-bg{
+    overflow:hidden!important;
+    clip-path:inset(0);
+    contain:paint;
+    isolation:isolate;
+}
+.hero-slide{
+    inset-block:0!important;
+    left:-2px!important;
+    right:-2px!important;
+    width:calc(100% + 4px)!important;
+    backface-visibility:hidden;
+    background-color:#111;
+}
+.hero-slide.prev{opacity:0;transform:translate3d(calc(-100.5% + var(--hero-drag-x)),0,0) scale(1.015)}
+.hero-slide.next{opacity:0;transform:translate3d(calc(100.5% + var(--hero-drag-x)),0,0) scale(1.015)}
+.hero-bg.is-dragging .hero-slide.prev,
+.hero-bg.is-dragging .hero-slide.next,
+.hero-bg.is-animating .hero-slide.prev,
+.hero-bg.is-animating .hero-slide.next{opacity:1}
+
+.gallery-modal-card .modal-body{overflow:visible}
+.gallery-viewer{width:fit-content;max-width:94vw;background:transparent!important}
+.gallery-viewer-footer{
+    width:100%;min-height:72px;padding:0 20px;
+    display:flex!important;align-items:center!important;justify-content:space-between!important;
+    flex-direction:row!important;gap:16px;background:#fff!important;color:#111!important;
+    border-radius:0 0 22px 22px;box-sizing:border-box
+}
+.gallery-viewer-footer h2{margin:0!important;padding:18px 0!important;font-size:26px;line-height:1.2}
+.gallery-viewer-footer span{margin:0!important;flex:none}
+.gallery-stage{border-radius:22px 22px 0 0}
+
+@media(max-width:720px){
+    .gallery-viewer{max-width:100vw}
+    .gallery-viewer-footer{min-height:64px;padding:0 16px;border-radius:0}
+    .gallery-viewer-footer h2{padding:14px 0!important;font-size:20px}
+    .gallery-stage{border-radius:0}
+}
