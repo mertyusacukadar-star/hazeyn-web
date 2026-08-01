@@ -479,9 +479,16 @@
         const remote = await fetchRemoteData();
 
         // Zaman damgası olan sunucu kaydı cihazlar arasında tek doğru kaynaktır.
-        // Eski, boş sunucu kaydı varsa daha zengin yerel yönetim verisini kaybetme.
+        // Eski, boş sunucu kaydı varsa yalnızca gerçekten kaydedilmiş yerel yönetim
+        // verisini koru; tarayıcının eski örnek verisi yeni site içeriğini ezmesin.
         const remoteStamp = Number(remote?._meta?.updatedAt || 0);
-        const selected = remoteStamp > 0 ? mergeDefaults(remote) : chooseBestData([remote, indexed, local]);
+        const bestLocal = chooseBestData([indexed, local]);
+        const localStamp = Number(bestLocal?._meta?.updatedAt || 0);
+        const selected = remoteStamp > 0
+            ? mergeDefaults(remote)
+            : localStamp > 0
+                ? chooseBestData([remote, bestLocal])
+                : mergeDefaults(remote || bestLocal);
         await cacheDataLocally(selected);
 
         return selected;
