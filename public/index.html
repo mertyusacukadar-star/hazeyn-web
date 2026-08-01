@@ -15,7 +15,7 @@
   <meta name="twitter:image" content="/og.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png" />
   <link rel="apple-touch-icon" href="/assets/icon.png" />
-  <link rel="stylesheet" href="style.css?v=20260729-ui4" />
+  <link rel="stylesheet" href="style.css?v=20260801-ui6" />
 </head>
 <body data-page="public">
   <header class="site-header" id="top">
@@ -125,12 +125,12 @@
       <div class="tour-grid" id="umreTours"></div>
     </section>
 
-    <section class="section split-section container" id="hac">
-      <div>
+    <section class="section split-section container" id="extraToursSection">
+      <div class="optional-tour-group" id="hac">
         <div class="section-head compact"><div><span class="section-kicker">Özel Programlar</span><h2>Hac Programları</h2></div></div>
         <div class="tour-grid one" id="hacTours"></div>
       </div>
-      <div id="yurtici">
+      <div class="optional-tour-group" id="yurtici">
         <div class="section-head compact"><div><span class="section-kicker">Türkiye Turları</span><h2>Yurt İçi Turlar</h2></div></div>
         <div class="tour-grid mini" id="yurticiTours"></div>
       </div>
@@ -146,14 +146,17 @@
     <section class="section container why-section">
       <img class="watermark" src="assets/icon.png" alt="" />
       <div class="why-card reveal">
-        <span class="section-kicker">Neden Hazeyn?</span>
-        <h2>Yolculuğunuz başlamadan önce güven başlar.</h2>
-        <p>Tur programı, otel bilgileri, fiyatlar, yolcu listesi ve yorumlar yönetim panelinden kolayca düzenlenir.</p>
-        <div class="why-list">
-          <span>✓ Güvenilir hizmet</span>
-          <span>✓ Profesyonel rehberlik</span>
-          <span>✓ Şeffaf fiyat</span>
-          <span>✓ Hızlı iletişim</span>
+        <div class="why-copy">
+          <span class="section-kicker">Neden Hazeyn?</span>
+          <h2>Manevi yolculuğunuz,<br><em>ince düşünülmüş</em> bir planla başlar.</h2>
+          <p>Uçuşunuzdan odanıza, evrak takibinden rehberliğe kadar her ayrıntıyı tek ekip yönetir. Size sadece yolculuğun huzurunu yaşamak kalır.</p>
+          <a href="#iletisim" class="why-link">Yolculuğunuzu birlikte planlayalım <span>→</span></a>
+        </div>
+        <div class="why-features">
+          <article><b>01</b><div><strong>Baştan sona takip</strong><span>Vize, uçuş, otel ve oda planı tek akışta.</span></div></article>
+          <article><b>02</b><div><strong>Sahada gerçek destek</strong><span>Deneyimli rehber ve kafile sorumlusu yanınızda.</span></div></article>
+          <article><b>03</b><div><strong>Şeffaf iletişim</strong><span>Program ve fiyat ayrıntıları açık, ulaşım hızlı.</span></div></article>
+          <article><b>04</b><div><strong>Size uygun program</strong><span>İhtiyacınıza ve tarihinize göre net planlama.</span></div></article>
         </div>
       </div>
     </section>
@@ -216,6 +219,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=20260729-ui4"></script>
+  <script src="app.js?v=20260801-ui6"></script>
 </body>
 </html>

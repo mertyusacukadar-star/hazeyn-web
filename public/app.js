@@ -63,6 +63,8 @@
     let heroSlideIndex = 0;
     let heroTimer = null;
     let currentGalleryIndex = 0;
+    let revealObserver = null;
+    const surnameSortedLists = new Set();
 
     const page = document.body.dataset.page;
     const $ = (id) => document.getElementById(id);
@@ -596,14 +598,23 @@
         const target = $(targetId);
         if (!target) return;
         const list = state.tours.filter(t => t.type === type).slice(0, limit || 50);
-        target.innerHTML = list.length ? list.map(tourCard).join('') : '<div class="empty">Henüz program eklenmedi.</div>';
+        target.innerHTML = list.map(tourCard).join('');
+        const optionalGroup = target.closest('.optional-tour-group');
+        if (optionalGroup) optionalGroup.hidden = list.length === 0;
+        const extraTours = $('extraToursSection');
+        if (extraTours) {
+            const visibleCount = ['hac', 'yurtici'].filter(groupType => state.tours.some(t => t.type === groupType)).length;
+            extraTours.hidden = visibleCount === 0;
+            extraTours.classList.toggle('single-tour-group', visibleCount === 1);
+        }
     }
 
     function renderReviews() {
         const target = $('reviewMarquee');
         if (!target) return;
         const reviews = state.reviews.length ? state.reviews : DEFAULT_DATA.reviews;
-        const cards = reviews.map(r => `<article class="review-card"><div class="stars">${stars(r.stars)}</div><p>“${escapeHtml(r.text)}”</p><b>${escapeHtml(r.name)}</b><small>Google yorumu</small></article>`).join('');
+        const loopReviews = Array.from({ length: Math.max(2, Math.ceil(8 / Math.max(1, reviews.length))) }, () => reviews).flat();
+        const cards = loopReviews.map(r => `<article class="review-card"><div class="stars">${stars(r.stars)}</div><p>“${escapeHtml(r.text)}”</p><b>${escapeHtml(r.name)}</b><small>Google yorumu</small></article>`).join('');
         target.innerHTML = `<div class="review-track"><div class="review-group">${cards}</div><div class="review-group" aria-hidden="true">${cards}</div></div>`;
     }
 
@@ -658,7 +669,7 @@
         $('modalBody').innerHTML = `<div class="image-viewer gallery-viewer">
         <div class="gallery-stage">
             <div class="gallery-strip">
-                ${[prev, g, next].map((item, slideIndex) => `<div class="gallery-slide" style="background-image:url('${escapeHtml(item.image)}')"><img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.title)}" draggable="false" onerror="this.src='assets/hero.svg'"></div>`).join('')}
+                ${[prev, g, next].map(item => `<div class="gallery-slide"><img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.title)}" draggable="false" onerror="this.src='assets/hero.svg'"></div>`).join('')}
             </div>
             <button class="gallery-nav gallery-prev" type="button" data-gallery-prev aria-label="Önceki görsel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
             <button class="gallery-nav gallery-next" type="button" data-gallery-next aria-label="Sonraki görsel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
@@ -807,6 +818,30 @@
         setModalOpen(true);
     }
 
+    function initScrollReveals() {
+        const items = document.querySelectorAll('.reveal,.travel-tool,.trust-panel article,.why-features article,.contact-card');
+        if (!('IntersectionObserver' in window)) {
+            items.forEach(item => item.classList.add('in-view'));
+            return;
+        }
+        if (!revealObserver) {
+            revealObserver = new IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    if (!entry.isIntersecting) return;
+                    entry.target.classList.add('in-view');
+                    revealObserver.unobserve(entry.target);
+                });
+            }, { threshold: 0.12, rootMargin: '0px 0px -7% 0px' });
+        }
+        items.forEach((item, index) => {
+            if (item.dataset.revealBound === '1') return;
+            item.dataset.revealBound = '1';
+            item.classList.add('scroll-reveal');
+            item.style.setProperty('--reveal-delay', `${Math.min(index % 4, 3) * 70}ms`);
+            revealObserver.observe(item);
+        });
+    }
+
     function renderPublic() {
         applySettings();
         renderTourGroup('umre', 'umreTours', 4);
@@ -818,6 +853,7 @@
         renderBlogs();
         renderTravelHub();
         bindPublicSwipeInteractions();
+        requestAnimationFrame(initScrollReveals);
 
         document.addEventListener('click', (e) => {
             const tourBtn = e.target.closest('[data-tour]');
@@ -1246,7 +1282,8 @@
         (passengers || []).forEach((p, originalIndex) => {
             const key = String(p.roomPeople || p.room || '').trim() || 'secilmedi';
             if (!groups.has(key)) groups.set(key, []);
-            groups.get(key).push({ ...p, _originalIndex: originalIndex });
+            const sourceIndex = Number.isInteger(p._sourceIndex) ? p._sourceIndex : originalIndex;
+            groups.get(key).push({ ...p, _originalIndex: sourceIndex });
         });
         return Array.from(groups.entries()).sort((a, b) => roomOrderValue(a[0]) - roomOrderValue(b[0])).map(([key, items]) => ({ key, title: roomLabel(key === 'secilmedi' ? '' : key), items }));
     }
@@ -1272,6 +1309,7 @@
                 roomSequence += 1;
                 rooms.push({
                     roomSequence,
+                    roomIndexInType: Math.floor(i / capacity),
                     roomPeople: group.key,
                     roomingLabel: roomingTypeLabel(group.key),
                     mekkeRoomNo: occupants.find(p => p.mekkeRoomNo || p.roomNo)?.mekkeRoomNo || occupants.find(p => p.roomNo)?.roomNo || '',
@@ -1302,6 +1340,12 @@
             if (nameDiff) return nameDiff;
             return a._sortIndex - b._sortIndex;
         }).map(({ _sortIndex, ...p }) => p);
+    }
+
+    function passengersForList(list) {
+        const passengers = (list && Array.isArray(list.passengers)) ? list.passengers : [];
+        const indexed = passengers.map((passenger, index) => ({ ...passenger, _sourceIndex: index }));
+        return list && surnameSortedLists.has(list.id) ? sortPassengersForRooms(indexed) : indexed;
     }
 
     function passengerRow(p = {}) {
@@ -1354,7 +1398,7 @@
     }
 
     async function savePassengerList() {
-        const passengers = sortPassengersForRooms(readPassengers());
+        const passengers = readPassengers();
         const tourId = $('listTourSelect').value || $('listTourId').value || '';
         const selectedTour = state.tours.find(t => t.id === tourId);
         if (selectedTour && !$('listTitle').value.trim()) $('listTitle').value = selectedTour.title;
@@ -1380,15 +1424,16 @@
         (l.passengers || []).forEach(passengerRow); ensurePassengerRows(); window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    function passengerRowHtml(p, i, listId) {
+    function passengerRowHtml(p, i, listId, roomBandClass = '') {
         const originalIndex = typeof p._originalIndex === 'number' ? p._originalIndex : i;
         const list = state.passengerLists.find(x => x.id === listId) || {};
         const flightDate = getListFlightDate(list);
         const status = passportStatus(p, flightDate);
         const warningClass = status.level === 'danger' ? 'passport-warning' : status.level === 'missing' ? 'passport-missing' : '';
 
-        return `<tr class="passenger-order-row ${warningClass}" draggable="true" data-list-id="${escapeHtml(listId)}" data-passenger-index="${originalIndex}">
-        <td class="drag-cell"><span class="drag-handle" title="Tut sürükle">☰</span> ${i + 1}</td>
+        const isSurnameView = surnameSortedLists.has(listId);
+        return `<tr class="passenger-order-row ${warningClass} ${roomBandClass}" draggable="${isSurnameView ? 'false' : 'true'}" data-list-id="${escapeHtml(listId)}" data-passenger-index="${originalIndex}">
+        <td class="drag-cell"><span class="drag-handle" title="${isSurnameView ? 'Manuel sıralama için soyad görünümünü kapat' : 'Tut sürükle'}">☰</span> ${i + 1}</td>
         <td>${escapeHtml(p.name)}</td>
         <td>${escapeHtml(p.gender)}</td>
         <td>${escapeHtml(p.tc)}</td>
@@ -1405,7 +1450,7 @@
     }
 
     function passengerRoomGroupsHtml(l) {
-        const groups = groupPassengersByRoom(l.passengers || []);
+        const groups = groupPassengersByRoom(passengersForList(l));
         if (!groups.length) return '<div class="empty small">Bu listede yolcu bilgisi yok.</div>';
         return groups.map(group => {
             const colorClass = getRoomColorClass(group.title);
@@ -1414,7 +1459,11 @@
             <div class="passenger-detail-wrap">
                 <table class="passenger-detail-table room-table">
                     <thead><tr><th>Sıra</th><th>Ad Soyad</th><th>Cinsiyet</th><th>TC No</th><th>Telefon</th><th>Pasaport No</th><th>Doğum Tarihi</th><th>Pasaport Başlangıç</th><th>Pasaport Bitiş</th><th>Oda Kaç Kişilik</th><th>Mekke Oda</th><th>Medine Oda</th><th>Not</th></tr></thead>
-                    <tbody>${group.items.map((p, i) => passengerRowHtml(p, i, l.id)).join('')}</tbody>
+                    <tbody>${group.items.map((p, i) => {
+                        const capacity = Math.max(1, parseInt(String(group.key || '1').replace('+', ''), 10) || 1);
+                        const band = Math.floor(i / capacity) % 2 === 0 ? 'room-band-blue' : 'room-band-gold';
+                        return passengerRowHtml(p, i, l.id, band);
+                    }).join('')}</tbody>
                 </table>
             </div>
         </div>`;
@@ -1423,11 +1472,12 @@
 
     function roomingSheetHtml(l) {
         const flightDate = getListFlightDate(l);
-        const rooms = createRoomAssignments(l.passengers || []);
+        const rooms = createRoomAssignments(passengersForList(l));
         const rows = rooms.map(room => room.occupants.map((p, index) => {
             const name = splitPassengerName(p.name);
             const status = passportStatus(p, flightDate);
-            const rowClass = status.level === 'danger' ? 'passport-warning' : status.level === 'missing' ? 'passport-missing' : '';
+            const statusClass = status.level === 'danger' ? 'passport-warning' : status.level === 'missing' ? 'passport-missing' : '';
+            const rowClass = `${statusClass} ${room.roomIndexInType % 2 === 0 ? 'room-band-blue' : 'room-band-gold'}`;
             const shared = index === 0 ? `<td rowspan="${room.occupants.length}" class="rooming-shared">${room.roomSequence}</td><td rowspan="${room.occupants.length}" class="rooming-shared rooming-type">${escapeHtml(room.roomingLabel)}</td>` : '';
             const mekkeRoomNo = p.mekkeRoomNo || p.roomNo || room.mekkeRoomNo || '';
             const medineRoomNo = p.medineRoomNo || room.medineRoomNo || '';
@@ -1454,10 +1504,11 @@
                 <p><b>Tur:</b> ${escapeHtml(tourTitle)} &nbsp; <b>Uçuş:</b> ${escapeHtml(formatDateTR(flightDate) || '-')} &nbsp; <b>Rehber:</b> ${escapeHtml(l.leader || '-')}</p>
                 <p><b>Toplam Yolcu:</b> ${total} &nbsp; <b>Erkek:</b> ${males} &nbsp; <b>Kadın:</b> ${females} &nbsp; <b style="color:#d32f2f">Pasaportu 6 Aydan Az Kalan:</b> <span style="color:#d32f2f; font-weight:bold">${expiringCount}</span></p>
                 ${l.notes ? `<p><b>Liste Notu:</b> ${escapeHtml(l.notes)}</p>` : ''}
-                <p class="hint-text"><b>Otomatik sıra:</b> Yolcular oda kişiliğine ve soyadına göre sıralanır. Solundaki ☰ işaretiyle manuel sıra değiştirebilirsin.</p>
+                <p class="hint-text"><b>Manuel sıra korunur:</b> ☰ işaretinden yolcuyu taşıyabilirsin. İstersen soyad düğmesiyle geçici olarak aynı soyadları yan yana görebilirsin.</p>
             </div>
             <div class="admin-item-actions">
                 <button class="icon-btn" data-edit-list="${escapeHtml(l.id)}">Düzenle</button>
+                <button class="icon-btn surname-toggle-btn ${surnameSortedLists.has(l.id) ? 'active' : ''}" data-surname-toggle="${escapeHtml(l.id)}">${surnameSortedLists.has(l.id) ? 'Manuel Sıraya Dön' : 'Soyada Göre Grupla'}</button>
                 <button class="icon-btn excel-btn" data-excel-list="${escapeHtml(l.id)}">Excel Oda Listesi</button>
                 <button class="icon-btn" data-print-list="${escapeHtml(l.id)}" data-ori="portrait">PDF (Dikey)</button>
                 <button class="icon-btn" data-print-list="${escapeHtml(l.id)}" data-ori="landscape">PDF (Yatay)</button>
@@ -1466,7 +1517,7 @@
         </div>
         <input type="checkbox" id="filter-expiring-${escapeHtml(l.id)}" class="filter-expiring-cb">
         <label for="filter-expiring-${escapeHtml(l.id)}" class="filter-expiring-label">Sadece Pasaport Süresi Yetersiz Olanları Göster</label>
-        <div class="passenger-room-area">${roomingSheetHtml(l)}<details class="passenger-details"><summary>Tüm yolcu ve pasaport detaylarını göster</summary>${passengerRoomGroupsHtml(l)}</details></div>
+        <div class="passenger-room-area">${roomingSheetHtml(l)}<details class="passenger-details" data-details-list-id="${escapeHtml(l.id)}"><summary>Tüm yolcu ve pasaport detaylarını göster</summary>${passengerRoomGroupsHtml(l)}</details></div>
     </div>`;
     }
 
@@ -1485,7 +1536,6 @@
         const l = state.passengerLists.find(x => x.id === listId);
         if (!l || !l.passengers || !l.passengers[passengerIndex]) return;
         l.passengers[passengerIndex][field] = value;
-        if (field === 'roomPeople') l.passengers = sortPassengersForRooms(l.passengers);
         await saveData();
         if (field === 'roomPeople' || field === 'mekkeRoomNo' || field === 'medineRoomNo' || field === 'roomNo') renderPassengerAdmin();
     }
@@ -1503,7 +1553,7 @@
         }
 
         const tour = state.tours.find(item => item.id === list.tourId) || {};
-        const rooms = createRoomAssignments(list.passengers || []);
+        const rooms = createRoomAssignments(passengersForList(list));
         const workbook = new window.ExcelJS.Workbook();
         workbook.creator = 'Hazeyn Turizm';
         workbook.created = new Date();
@@ -1523,8 +1573,9 @@
         const shortTitle = rawTitle.replace(/\s+\d+\s+Günlük.*$/iu, '').trim() || rawTitle;
         const title = `${shortTitle} ODALAMA YERLEŞKESİ`;
         sheet.getCell('A1').value = 'HAZEYN';
-        sheet.getCell('B1').value = title.toLocaleUpperCase('tr-TR');
-        sheet.mergeCells('B1:G1');
+        sheet.getCell('C1').value = title.toLocaleUpperCase('tr-TR');
+        sheet.mergeCells('A1:B1');
+        sheet.mergeCells('C1:G1');
         sheet.getRow(1).height = 30;
         sheet.getRow(2).values = ['NO', 'İSİM', 'SOY İSİM', 'SAYI', 'ODALAMA', 'MEKKE', 'MEDİNE'];
         sheet.getRow(2).height = 23;
@@ -1563,14 +1614,14 @@
         };
 
         sheet.getRow(1).eachCell({ includeEmpty: true }, cell => {
-            cell.font = { name: 'Arial', size: cell.column === 1 ? 10 : 14, bold: true, color: { argb: 'FF111111' } };
-            cell.alignment = { vertical: 'middle', horizontal: cell.column === 1 ? 'left' : 'center' };
+            cell.font = { name: 'Calibri', size: cell.column <= 2 ? 14 : 15, bold: true, color: { argb: 'FF111111' } };
+            cell.alignment = { vertical: 'middle', horizontal: cell.column <= 2 ? 'left' : 'center' };
             cell.border = thinBorder;
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
         });
 
         sheet.getRow(2).eachCell({ includeEmpty: true }, cell => {
-            cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: cell.column === 6 ? 'FFFFFFFF' : 'FF111111' } };
+            cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: cell.column === 6 ? 'FFFFFFFF' : 'FF111111' } };
             cell.alignment = { vertical: 'middle', horizontal: 'center' };
             cell.border = thinBorder;
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: cell.column === 6 ? 'FF2F2F2F' : cell.column === 7 ? 'FF79D84E' : 'FFE2F0D9' } };
@@ -1580,13 +1631,13 @@
             if (currentRow < 3) return;
             row.eachCell({ includeEmpty: true }, cell => {
                 const isRoomCell = cell.column === 4 || cell.column === 5;
-                cell.font = { name: 'Arial', size: 10, color: { argb: isRoomCell ? 'FFC00000' : 'FF111111' }, bold: isRoomCell };
+                cell.font = { name: 'Calibri', size: 11, color: { argb: isRoomCell ? 'FFFF0000' : 'FF111111' }, bold: true };
                 cell.alignment = { vertical: 'middle', horizontal: [1, 4, 5, 6, 7].includes(cell.column) ? 'center' : 'left' };
                 cell.border = thinBorder;
             });
         });
 
-        [7, 24, 22, 9, 14, 16, 16].forEach((width, index) => {
+        [8, 24, 22, 9, 14, 16, 16].forEach((width, index) => {
             sheet.getColumn(index + 1).width = width;
         });
         sheet.printArea = `A1:G${Math.max(2, rowNumber - 1)}`;
@@ -1612,6 +1663,7 @@
     function renderPassengerAdmin() {
         const list = $('passengerListAdmin');
         if (!list) return;
+        const openDetailIds = new Set(Array.from(list.querySelectorAll('.passenger-details[open][data-details-list-id]')).map(details => details.dataset.detailsListId));
         if (!state.passengerLists.length) { list.innerHTML = '<p>Henüz kayıtlı yolcu listesi yok.</p>'; return; }
 
         const groups = [];
@@ -1624,6 +1676,10 @@
         if (noTour.length) groups.push({ title: 'Tur seçilmemiş / eski kayıtlar', type: 'Liste', items: noTour });
 
         list.innerHTML = groups.map(g => `<section class="passenger-group"><div class="passenger-group-head"><h3>${escapeHtml(g.title)}</h3><span>${escapeHtml(g.type)} • ${g.items.length} liste</span></div>${g.items.length ? g.items.map(passengerListCard).join('') : '<div class="empty small">Bu turun altında kayıtlı yolcu listesi yok.</div>'}</section>`).join('');
+        openDetailIds.forEach(id => {
+            const details = list.querySelector(`.passenger-details[data-details-list-id="${CSS.escape(id)}"]`);
+            if (details) details.open = true;
+        });
     }
 
     function printList(id, orientation = 'landscape') {
@@ -1637,21 +1693,22 @@
         const flightDate = getListFlightDate(l);
         const expiringCount = (l.passengers || []).filter(p => isPassportExpiring(p.passportEnd, flightDate)).length;
 
-        const groupsHtml = groupPassengersByRoom(l.passengers || []).map(group => {
-            const colorClass = getRoomColorClass(group.title);
+        const groupsHtml = groupPassengersByRoom(passengersForList(l)).map(group => {
+            const capacity = Math.max(1, parseInt(String(group.key || '1').replace('+', ''), 10) || 1);
             const rows = group.items.map((p, i) => {
-                const warningStyle = isPassportExpiring(p.passportEnd, flightDate) ? 'color: #d32f2f; font-weight: bold; background-color: rgba(211,47,47,0.05);' : '';
-                return `<tr style="${warningStyle}"><td>${i + 1}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.gender)}</td><td>${escapeHtml(p.tc)}</td><td>${escapeHtml(p.phone)}</td><td>${escapeHtml(p.passportNo)}</td><td>${escapeHtml(p.birthDate)}</td><td>${escapeHtml(p.passportStart)}</td><td>${escapeHtml(p.passportEnd)}</td><td>${escapeHtml(p.roomPeople || p.room)}</td><td>${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}</td><td>${escapeHtml(p.medineRoomNo || p.roomNo || '')}</td><td>${escapeHtml(p.note)}</td></tr>`;
+                const roomBand = Math.floor(i / capacity) % 2 === 0 ? 'room-band-blue' : 'room-band-gold';
+                const warningClass = isPassportExpiring(p.passportEnd, flightDate) ? ' passport-print-warning' : '';
+                return `<tr class="${roomBand}${warningClass}"><td>${i + 1}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.gender)}</td><td>${escapeHtml(p.tc)}</td><td>${escapeHtml(p.phone)}</td><td>${escapeHtml(p.passportNo)}</td><td>${escapeHtml(p.birthDate)}</td><td>${escapeHtml(p.passportStart)}</td><td>${escapeHtml(p.passportEnd)}</td><td>${escapeHtml(p.roomPeople || p.room)}</td><td>${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}</td><td>${escapeHtml(p.medineRoomNo || p.roomNo || '')}</td><td>${escapeHtml(p.note)}</td></tr>`;
             }).join('');
-            return `<div class="room-group-block ${colorClass}"><h2 class="print-room-title">${escapeHtml(group.title)} (${group.items.length} yolcu)</h2><table><thead><tr><th>No</th><th>Ad Soyad</th><th>Cinsiyet</th><th>TC No</th><th>Telefon</th><th>Pasaport No</th><th>Doğum Tarihi</th><th>Pasaport Başlangıç</th><th>Pasaport Bitiş</th><th>Oda Kişilik</th><th>Mekke</th><th>Medine</th><th>Not</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+            return `<div class="room-group-block"><h2 class="print-room-title">${escapeHtml(group.title)} (${group.items.length} yolcu)</h2><table><thead><tr><th>No</th><th>Ad Soyad</th><th>Cinsiyet</th><th>TC No</th><th>Telefon</th><th>Pasaport No</th><th>Doğum Tarihi</th><th>Pasaport Başlangıç</th><th>Pasaport Bitiş</th><th>Oda Kişilik</th><th>Mekke</th><th>Medine</th><th>Not</th></tr></thead><tbody>${rows}</tbody></table></div>`;
         }).join('') || '<p>Bu listede yolcu bilgisi yok.</p>';
 
         const printCss = `
         @page { size: A4 ${orientation}; margin: 8mm; }
         .room-group-block { border: 2px solid #ccc; padding: 10px; margin-bottom: 15px; border-radius: 8px; page-break-inside: avoid; }
-        .room-color-2 { border-color: #81d4fa; background-color: #e1f5fe !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .room-color-3 { border-color: #a5d6a7; background-color: #e8f5e9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .room-color-4 { border-color: #ce93d8; background-color: #f3e5f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        tr.room-band-blue td { background:#dff2ff !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        tr.room-band-gold td { background:#fff1c7 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        tr.passport-print-warning td { color:#d32f2f !important; font-weight:700; }
         .print-room-title { font-size: 16px; margin: 0 0 10px; padding: 5px; background: transparent; border: none; color: inherit; }
         .print-meta { margin: 12px 0; font-size: 14px; line-height: 1.6; }
     `;
@@ -1739,7 +1796,9 @@
             const bannerItem = e.target.closest && e.target.closest('.hero-banner-admin-item');
             if (bannerItem) { dragHeroBannerInfo = { id: bannerItem.dataset.heroBannerId }; bannerItem.classList.add('dragging'); if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', JSON.stringify(dragHeroBannerInfo)); } return; }
             const row = e.target.closest && e.target.closest('.passenger-order-row');
-            if (!row) return; dragPassengerInfo = { listId: row.dataset.listId, index: Number(row.dataset.passengerIndex) }; row.classList.add('dragging'); if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', JSON.stringify(dragPassengerInfo)); }
+            if (!row) return;
+            if (surnameSortedLists.has(row.dataset.listId)) { e.preventDefault(); toast('Manuel taşıma için önce “Manuel Sıraya Dön” düğmesine bas.'); return; }
+            dragPassengerInfo = { listId: row.dataset.listId, index: Number(row.dataset.passengerIndex) }; row.classList.add('dragging'); if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', JSON.stringify(dragPassengerInfo)); }
         });
 
         document.addEventListener('dragover', (e) => {
@@ -1800,6 +1859,13 @@
             if (delHeroBanner && confirm('Banner silinsin mi?')) { state.settings.heroBanners = (state.settings.heroBanners || []).filter(x => x.id !== delHeroBanner.dataset.deleteHeroBanner); await saveData(); renderHeroBannerAdmin(); applySettings(); toast('Banner silindi.'); }
 
             const editList = e.target.closest('[data-edit-list]'); if (editList) editPassengerList(editList.dataset.editList);
+            const surnameToggle = e.target.closest('[data-surname-toggle]');
+            if (surnameToggle) {
+                const listId = surnameToggle.dataset.surnameToggle;
+                if (surnameSortedLists.has(listId)) surnameSortedLists.delete(listId); else surnameSortedLists.add(listId);
+                renderPassengerAdmin();
+                toast(surnameSortedLists.has(listId) ? 'Aynı soyadlı yolcular geçici olarak yan yana gösteriliyor.' : 'Manuel yolcu sırasına dönüldü.');
+            }
 
             // YAZDIRMA YÖNETİMİ
             const printListBtn = e.target.closest('[data-print-list]');
@@ -1808,7 +1874,7 @@
             if (excelListBtn) exportRoomingExcel(excelListBtn.dataset.excelList);
 
             const delList = e.target.closest('[data-delete-list]');
-            if (delList && confirm('Yolcu listesi silinsin mi?')) { state.passengerLists = state.passengerLists.filter(x => x.id !== delList.dataset.deleteList); await saveData(); renderPassengerAdmin(); renderDashboard(); toast('Liste silindi.'); }
+            if (delList && confirm('Yolcu listesi silinsin mi?')) { surnameSortedLists.delete(delList.dataset.deleteList); state.passengerLists = state.passengerLists.filter(x => x.id !== delList.dataset.deleteList); await saveData(); renderPassengerAdmin(); renderDashboard(); toast('Liste silindi.'); }
         });
     }
 
