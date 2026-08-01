@@ -427,3 +427,64 @@ body[data-page="public"] .section.container{
     .review-track,.gallery-track{animation:none!important}
     .scroll-reveal{opacity:1;transform:none;transition:none}
 }
+
+/* Apple esintili tam ekran mobil menü */
+.mobile-nav-overlay{display:none}
+@media(max-width:1040px){
+    body.mobile-menu-open{overflow:hidden;touch-action:none}
+    body.mobile-menu-open .site-header{z-index:60;background:#0b0b0d;border-bottom-color:transparent;backdrop-filter:none}
+    .site-header .nav-links,.site-header .nav-actions{display:none!important}
+    .menu-toggle{position:relative;z-index:62;width:46px;height:46px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.08);display:grid;place-content:center;gap:7px;transition:background .28s ease,transform .28s ease}
+    .menu-toggle span{display:block;width:22px;height:2px;border-radius:999px;background:#fff;transition:transform .38s cubic-bezier(.2,.8,.2,1),opacity .22s ease}
+    .menu-toggle.open{background:rgba(255,255,255,.13);transform:rotate(90deg)}
+    .menu-toggle.open span:first-child{transform:translateY(4.5px) rotate(45deg)}
+    .menu-toggle.open span:last-child{transform:translateY(-4.5px) rotate(-45deg)}
+    .mobile-nav-overlay{display:block;position:fixed;inset:0;z-index:55;background:#0b0b0d;color:#fff;opacity:0;visibility:hidden;transform:translateY(-16px) scale(.985);transition:opacity .34s ease,transform .46s cubic-bezier(.2,.8,.2,1),visibility .46s;overflow-y:auto;overscroll-behavior:contain}
+    .mobile-nav-overlay.open{opacity:1;visibility:visible;transform:none}
+    .mobile-nav-shell{width:min(100% - 44px,620px);min-height:100%;margin:auto;padding:112px 0 max(34px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:38px}
+    .mobile-nav-links{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+    .mobile-nav-links a{width:100%;padding:10px 0;color:#f5f5f7;font-size:clamp(30px,8.8vw,46px);font-weight:600;line-height:1.08;letter-spacing:-.035em;opacity:0;transform:translateY(28px);transition:opacity .34s ease,transform .48s cubic-bezier(.2,.8,.2,1);transition-delay:calc(var(--menu-index,0) * 32ms)}
+    .mobile-nav-overlay.open .mobile-nav-links a{opacity:1;transform:none}
+    .mobile-nav-actions{margin-top:auto;padding:18px;border:1px solid rgba(255,255,255,.1);border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(230,181,79,.045));display:grid;gap:12px;opacity:0;transform:translateY(24px);transition:opacity .4s .24s ease,transform .48s .24s cubic-bezier(.2,.8,.2,1)}
+    .mobile-nav-overlay.open .mobile-nav-actions{opacity:1;transform:none}
+    .mobile-nav-actions .btn{width:100%;min-height:58px;font-size:17px;border-radius:999px}
+    .mobile-nav-actions .btn-gold{box-shadow:0 13px 30px rgba(196,145,47,.28)}
+    .mobile-nav-overlay{scrollbar-width:none}
+    .mobile-nav-overlay::-webkit-scrollbar{width:0;height:0}
+}
+@media(max-width:520px){
+    .mobile-nav-shell{width:calc(100% - 36px);padding:84px 0 max(12px,env(safe-area-inset-bottom));gap:20px}
+    .mobile-nav-links{gap:2px}
+    .mobile-nav-links a{padding:7px 0;font-size:clamp(29px,8vw,38px)}
+    .mobile-nav-actions{padding:14px;gap:10px;border-radius:24px}
+    .mobile-nav-actions .btn{min-height:52px;font-size:16px}
+}
+
+/* Görsel pencereleri: yalnızca yüklenen görsel, arka plan kopyası ve beyaz şerit yok */
+.gallery-modal-card{width:auto!important;max-width:96vw!important;max-height:none!important;overflow:visible!important;background:transparent!important;border-radius:0!important;box-shadow:none!important}
+.gallery-modal-card .modal-close,.tour-detail-modal-card .modal-close,.blog-modal-card .modal-close{position:absolute!important;top:12px!important;right:12px!important;float:none!important;margin:0!important;z-index:12}
+.gallery-viewer,.gallery-viewer *,.tour-modal-cover,.tour-modal-cover *{-webkit-user-select:none!important;user-select:none!important;-webkit-user-drag:none!important}
+.gallery-stage{width:min(94vw,1180px);height:min(84vh,800px);max-width:94vw;max-height:88vh;background:transparent!important;touch-action:pan-y;cursor:grab}
+.gallery-stage:active{cursor:grabbing}
+.gallery-strip{height:100%}
+.gallery-slide{height:100%!important;background:transparent!important}
+.gallery-slide:before,.tour-modal-cover:before{display:none!important;content:none!important}
+.gallery-slide img{width:100%!important;height:100%!important;object-fit:contain!important;background:transparent!important;-webkit-user-drag:none!important;user-select:none!important}
+.modal-body.is-dragging .gallery-strip{transition:none!important}
+
+.tour-detail-modal-card{overflow:auto!important}
+.tour-detail-modal-card .tour-modal-cover{height:auto!important;min-height:0!important;background:none!important;overflow:hidden}
+.tour-detail-modal-card .tour-modal-cover img{width:100%!important;height:auto!important;max-height:72vh!important;object-fit:contain!important;background:transparent!important}
+.blog-modal-card{width:min(820px,94vw)!important;max-height:min(82vh,760px)!important;overflow:auto!important;margin:auto!important}
+
+.page-banner-admin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:18px}
+.page-banner-admin-grid .banner-admin-box{margin:0}
+.airport-fields input{text-transform:uppercase;letter-spacing:.12em;font-weight:900}
+.flight-excel-btn{background:#e8f0ff!important;color:#234f91!important}
+
+@media(max-width:820px){
+    .page-banner-admin-grid{grid-template-columns:1fr}
+    .gallery-stage{max-width:100vw;max-height:82vh}
+    .gallery-modal-card{max-width:100vw!important}
+    .gallery-modal-card .modal-close{top:8px!important;right:8px!important}
+}

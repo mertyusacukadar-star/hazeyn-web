@@ -6,7 +6,7 @@
     <title>Hâzeyn Yönetici Paneli</title>
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png" />
     <link rel="apple-touch-icon" href="/assets/icon.png" />
-    <link rel="stylesheet" href="style.css?v=20260801-ui6" />
+    <link rel="stylesheet" href="style.css?v=20260802-ui8" />
 </head>
 <body data-page="admin" class="admin-body">
     <section class="login-screen" id="loginScreen">
@@ -50,7 +50,7 @@
                 </div>
                 <div class="admin-card">
                     <h2>Nasıl kullanılır?</h2>
-                    <p>Turları, yorumları, galeri görsellerini ve yolcu listelerini buradan ekleyebilirsin. Kaydettiğin değişiklikler sitede otomatik görünür.</p><p>Yolcular kaydedilirken önce oda kişiliğine, sonra aynı soyadına göre otomatik sıralanır. Örneğin 2 kişilik aynı soyadlılar 2 kişilik odalarda alt alta; 4 kişilik olanlar 4 kişilik odalarda ayrı görünür.</p>
+                    <p>Turları, yorumları, galeri görsellerini ve yolcu listelerini buradan ekleyebilirsin. Kaydettiğin değişiklikler bilgisayar ve telefonda aynı veriden otomatik güncellenir.</p><p>Yolcuların manuel sırası korunur. İstersen kayıtlı listede “Aynı Soyadları Göster” düğmesiyle aynı soyadlıları geçici olarak yan yana görebilir, düğmeye tekrar basarak kendi sıralamana dönebilirsin.</p>
                     <p>Yolcu listesinde <b>PDF / Yazdır</b> butonuna basınca yazdırma ekranı açılır. Yazıcı seçebilir veya “PDF olarak kaydet” diyebilirsin.</p>
                 </div>
             </section>
@@ -187,6 +187,13 @@
                         <label>Rehber<input id="listLeader" placeholder="Emrullah Hoca" /></label>
                         <label>Liste Notu<input id="listNotes" placeholder="Özel notlar..." /></label>
                     </div>
+                    <div class="form-row two-col airport-fields">
+                        <label>Kalkış Havalimanı <small>IATA kodu</small><input id="listOriginAirport" list="airportCodes" placeholder="Örn: SAW" maxlength="3" /></label>
+                        <label>Varış Havalimanı <small>IATA kodu</small><input id="listDestinationAirport" list="airportCodes" placeholder="Örn: JED" maxlength="3" /></label>
+                    </div>
+                    <datalist id="airportCodes">
+                        <option value="IST">İstanbul Havalimanı</option><option value="SAW">İstanbul Sabiha Gökçen</option><option value="ESB">Ankara Esenboğa</option><option value="ADB">İzmir Adnan Menderes</option><option value="AYT">Antalya</option><option value="COV">Çukurova</option><option value="GZT">Gaziantep</option><option value="KYA">Konya</option><option value="ASR">Kayseri</option><option value="TZX">Trabzon</option><option value="RZV">Rize-Artvin</option><option value="ERZ">Erzurum</option><option value="DIY">Diyarbakır</option><option value="VAN">Van Ferit Melen</option><option value="SZF">Samsun Çarşamba</option><option value="MLX">Malatya</option><option value="EZS">Elazığ</option><option value="GNY">Şanlıurfa GAP</option><option value="HTY">Hatay</option><option value="DNZ">Denizli Çardak</option><option value="DLM">Dalaman</option><option value="BJV">Milas-Bodrum</option><option value="GZP">Gazipaşa-Alanya</option><option value="BAL">Batman</option><option value="MSR">Muş</option><option value="MQM">Mardin</option><option value="NKT">Şırnak Cizre</option><option value="AJI">Ağrı</option><option value="IGD">Iğdır</option><option value="KCM">Kahramanmaraş</option><option value="KSY">Kars Harakani</option><option value="EDO">Balıkesir Koca Seyit</option><option value="YEI">Bursa Yenişehir</option><option value="TEQ">Tekirdağ Çorlu</option><option value="AOE">Eskişehir Hasan Polatkan</option><option value="KZR">Kütahya Zafer</option><option value="ONQ">Zonguldak Çaycuma</option><option value="JED">Cidde Kral Abdülaziz</option><option value="MED">Medine Prens Muhammed</option><option value="RUH">Riyad Kral Halid</option><option value="DMM">Dammam Kral Fahd</option><option value="TIF">Taif</option><option value="AHB">Abha</option><option value="ELQ">Kasım</option><option value="TUU">Tebük</option><option value="GIZ">Cizan</option><option value="DXB">Dubai</option><option value="AUH">Abu Dabi</option><option value="DOH">Doha</option><option value="KWI">Kuveyt</option><option value="CAI">Kahire</option>
+                    </datalist>
                     <div class="table-wrap">
                         <table class="passenger-table wide" id="passengerTable">
                             <thead>
@@ -260,6 +267,31 @@
                         <p class="hint-text">Banner sırasını değiştirmek için listedeki ☰ işaretini mouse ile tutup yukarı-aşağı sürükleyebilirsin. Tek banner seçersen listedeki ilk banner görünür. Kaydıraçlı seçersen eklediğin bannerlar bu sırayla akar.</p>
                     </div>
 
+                    <div class="page-banner-admin-grid">
+                        <div class="banner-admin-box">
+                            <h2>Deneyimli Kadro Bannerı</h2>
+                            <label>Üst Etiket<input id="setStaffBannerKicker" placeholder="HAZEYN TURİZM" /></label>
+                            <label>Başlık<input id="setStaffBannerTitle" placeholder="Deneyimli Kadro" /></label>
+                            <label>Alt Yazı<textarea id="setStaffBannerSubtitle"></textarea></label>
+                            <div class="form-row two-col">
+                                <label>Görsel URL<input id="setStaffBannerImage" placeholder="https://... veya assets/hero.svg" /></label>
+                                <label>Veya Görsel Yükle<input id="staffBannerFile" type="file" accept="image/*" /></label>
+                            </div>
+                            <img id="staffBannerPreview" class="image-preview banner-preview" alt="Deneyimli Kadro banner ön izleme" />
+                        </div>
+                        <div class="banner-admin-box">
+                            <h2>Merak Edilenler Bannerı</h2>
+                            <label>Üst Etiket<input id="setBlogBannerKicker" placeholder="UMRE VE HAC REHBERİ" /></label>
+                            <label>Başlık<input id="setBlogBannerTitle" placeholder="Merak Edilenler" /></label>
+                            <label>Alt Yazı<textarea id="setBlogBannerSubtitle"></textarea></label>
+                            <div class="form-row two-col">
+                                <label>Görsel URL<input id="setBlogBannerImage" placeholder="https://... veya assets/hero.svg" /></label>
+                                <label>Veya Görsel Yükle<input id="blogBannerFile" type="file" accept="image/*" /></label>
+                            </div>
+                            <img id="blogBannerPreview" class="image-preview banner-preview" alt="Merak Edilenler banner ön izleme" />
+                        </div>
+                    </div>
+
                     <label>Admin Şifresi<input id="setAdminPassword" placeholder="1234" /></label>
                     <button class="btn btn-gold" type="submit">Ayarları Kaydet</button>
                 </form>
@@ -268,6 +300,6 @@
     </div>
     <script src="vendor/exceljs.min.js?v=4.4.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=20260801-ui6"></script>
+    <script src="app.js?v=20260802-ui8"></script>
 </body>
 </html>

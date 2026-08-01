@@ -13,6 +13,14 @@
             heroTitle: 'Kutsal Yolculuğunuzda Güvenilir Rehberiniz',
             heroSubtitle: 'Hac, Umre ve yurt içi turlarında profesyonel organizasyon.',
             heroMode: 'slider',
+            staffBannerKicker: 'HAZEYN TURİZM',
+            staffBannerTitle: 'Deneyimli Kadro',
+            staffBannerSubtitle: 'Hocalarımız, kafile sorumlularımız ve şirket çalışanlarımızı bu sayfadan tanıtabilirsiniz.',
+            staffBannerImage: 'assets/hero.svg',
+            blogBannerKicker: 'UMRE VE HAC REHBERİ',
+            blogBannerTitle: 'Merak Edilenler',
+            blogBannerSubtitle: 'İhram yasakları, vize işlemleri, hazırlık listesi ve yolculuk öncesi bilgilendirmeleri buradan yayınlayabilirsiniz.',
+            blogBannerImage: 'assets/hero.svg',
             heroBanners: [
                 { id: 'hb1', image: 'assets/hero.svg', title: 'Kutsal Yolculuğunuzda Güvenilir Rehberiniz', subtitle: 'Hac, Umre ve yurt içi turlarında profesyonel organizasyon.', textColor: '#ffffff', textPosition: 'left' }
             ],
@@ -60,10 +68,13 @@
     let tempStaffImage = '';
     let tempBlogImage = '';
     let tempHeroBannerImage = '';
+    let tempStaffBannerImage = '';
+    let tempBlogBannerImage = '';
     let heroSlideIndex = 0;
     let heroTimer = null;
     let currentGalleryIndex = 0;
     let revealObserver = null;
+    let publicRefreshInFlight = false;
     const surnameSortedLists = new Set();
 
     const page = document.body.dataset.page;
@@ -120,6 +131,10 @@
         return String(phone || '').replace(/[^0-9+]/g, '');
     }
 
+    function airportCode(value) {
+        return String(value || '').toLocaleUpperCase('tr-TR').replace(/[^A-Z]/g, '').slice(0, 3);
+    }
+
     function firstLine(text) {
         return String(text || '').split('\n')[0];
     }
@@ -153,6 +168,15 @@
         const flight = parseLocalDate(flightDate);
         if (!end || !flight) return false;
         return end < addCalendarMonths(flight, 6);
+    }
+
+    function isPassengerInfant(birthDate, flightDate) {
+        const birth = parseLocalDate(birthDate);
+        const flight = parseLocalDate(flightDate);
+        if (!birth || !flight || birth > flight) return false;
+        const secondBirthday = new Date(birth.getTime());
+        secondBirthday.setFullYear(secondBirthday.getFullYear() + 2);
+        return flight < secondBirthday;
     }
 
     function getListFlightDate(list) {
@@ -430,28 +454,55 @@
         return valid[0];
     }
 
+    async function fetchRemoteData() {
+        if (location.protocol === 'file:') return null;
+        try {
+            const res = await fetch(`/api/data?ts=${Date.now()}`, {
+                cache: 'no-store',
+                headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' }
+            });
+            if (!res.ok) return null;
+            return await res.json();
+        } catch (e) {
+            return null;
+        }
+    }
+
+    async function cacheDataLocally(data) {
+        await idbSet('hazeynData', data);
+        try { localStorage.setItem('hazeynData', JSON.stringify(data)); } catch (e) { }
+    }
+
     async function loadData() {
         const local = parseJson(localStorage.getItem('hazeynData'));
         const indexed = await idbGet('hazeynData');
-        let remote = null;
+        const remote = await fetchRemoteData();
 
-        if (location.protocol !== 'file:') {
-            try {
-                const res = await fetch('/api/data', { cache: 'no-store' });
-                if (res.ok) remote = await res.json();
-            } catch (e) { }
-        }
-
-        const selected = chooseBestData([indexed, local, remote]);
-
-        await idbSet('hazeynData', selected);
-        try { localStorage.setItem('hazeynData', JSON.stringify(selected)); } catch (e) { }
-
-        if (location.protocol !== 'file:' && dataScore(selected) > dataScore(remote) && getAdminPassword()) {
-            try { await fetch('/api/data', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': getAdminPassword() }, body: JSON.stringify(selected) }); } catch (e) { }
-        }
+        // Cihazlar arası senkronizasyonda sunucu tek doğru kaynaktır. Yerel kayıtlar
+        // sadece internet/sunucu erişimi yoksa yedek olarak kullanılır.
+        const selected = remote ? mergeDefaults(remote) : chooseBestData([indexed, local]);
+        await cacheDataLocally(selected);
 
         return selected;
+    }
+
+    async function refreshPublicData() {
+        if (page !== 'public' || publicRefreshInFlight || document.body.classList.contains('modal-open')) return;
+        publicRefreshInFlight = true;
+        try {
+            const remote = await fetchRemoteData();
+            if (!remote) return;
+            const incoming = mergeDefaults(remote);
+            const currentStamp = Number(state?._meta?.updatedAt || 0);
+            const incomingStamp = Number(incoming?._meta?.updatedAt || 0);
+            if (incomingStamp !== currentStamp || JSON.stringify(incoming.settings) !== JSON.stringify(state?.settings)) {
+                state = incoming;
+                await cacheDataLocally(state);
+                renderPublic();
+            }
+        } finally {
+            publicRefreshInFlight = false;
+        }
     }
 
     function mergeDefaults(data) {
@@ -554,6 +605,27 @@
         restartHeroTimer();
     }
 
+    function applyPageHeroSettings() {
+        const s = state.settings || {};
+        const staffHero = $('staffPageHero');
+        if (staffHero) {
+            const image = String(s.staffBannerImage || DEFAULT_DATA.settings.staffBannerImage).replace(/["\\\n\r]/g, '');
+            staffHero.style.backgroundImage = `linear-gradient(135deg,rgba(8,8,10,.9),rgba(22,22,24,.55)),url("${image}")`;
+            if ($('staffBannerKicker')) $('staffBannerKicker').textContent = s.staffBannerKicker || DEFAULT_DATA.settings.staffBannerKicker;
+            if ($('staffBannerTitle')) $('staffBannerTitle').textContent = s.staffBannerTitle || DEFAULT_DATA.settings.staffBannerTitle;
+            if ($('staffBannerSubtitle')) $('staffBannerSubtitle').textContent = s.staffBannerSubtitle || DEFAULT_DATA.settings.staffBannerSubtitle;
+        }
+
+        const blogHero = $('blogPageHero');
+        if (blogHero) {
+            const image = String(s.blogBannerImage || DEFAULT_DATA.settings.blogBannerImage).replace(/["\\\n\r]/g, '');
+            blogHero.style.backgroundImage = `linear-gradient(135deg,rgba(8,8,10,.9),rgba(72,48,10,.58)),url("${image}")`;
+            if ($('blogBannerKicker')) $('blogBannerKicker').textContent = s.blogBannerKicker || DEFAULT_DATA.settings.blogBannerKicker;
+            if ($('blogBannerTitle')) $('blogBannerTitle').textContent = s.blogBannerTitle || DEFAULT_DATA.settings.blogBannerTitle;
+            if ($('blogBannerSubtitle')) $('blogBannerSubtitle').textContent = s.blogBannerSubtitle || DEFAULT_DATA.settings.blogBannerSubtitle;
+        }
+    }
+
     function applySettings() {
         const s = state.settings;
         document.querySelectorAll('.phone-link').forEach(a => { a.href = 'tel:' + normalizePhone(s.phone); });
@@ -569,6 +641,7 @@
         if (footerInstagramText) footerInstagramText.textContent = '@' + instagramUser;
 
         renderHeroBanners();
+        applyPageHeroSettings();
 
         const phoneText = $('phoneText');
         if (phoneText) phoneText.textContent = s.phone;
@@ -647,14 +720,36 @@
         modal.classList.toggle('open', Boolean(open));
         modal.setAttribute('aria-hidden', open ? 'false' : 'true');
         document.body.classList.toggle('modal-open', Boolean(open));
+        if (!open) {
+            const card = modal.querySelector('.modal-card');
+            if (card) card.classList.remove('gallery-modal-card', 'blog-modal-card', 'tour-detail-modal-card');
+        }
+    }
+
+    function setModalMode(mode) {
+        const card = $('tourModal')?.querySelector('.modal-card');
+        if (!card) return;
+        card.classList.remove('gallery-modal-card', 'blog-modal-card', 'tour-detail-modal-card');
+        if (mode) card.classList.add(`${mode}-modal-card`);
     }
 
     function openBlogModal(id) {
         const list = state.blogs && state.blogs.length ? state.blogs : DEFAULT_DATA.blogs;
         const b = list.find(x => x.id === id);
         if (!b) return;
+        setModalMode('blog');
         $('modalBody').innerHTML = `<div class="modal-content blog-modal">${b.image ? `<img src="${escapeHtml(b.image)}" alt="${escapeHtml(b.title)}" onerror="this.style.display='none'">` : ''}<div><span class="section-kicker">${escapeHtml(b.category || 'Merak Edilenler')}</span><h2>${escapeHtml(b.title || '')}</h2><p class="blog-summary">${escapeHtml(b.summary || '')}</p><div class="blog-content">${escapeHtml(b.content || '').replace(/\n/g, '<br>')}</div></div></div>`;
         setModalOpen(true);
+    }
+
+    function fitGalleryStageToImage(image) {
+        const stage = image?.closest('.gallery-stage');
+        if (!stage || !image.naturalWidth || !image.naturalHeight) return;
+        const maxWidth = Math.min(window.innerWidth * 0.94, 1280);
+        const maxHeight = Math.min(window.innerHeight * 0.88, 860);
+        const scale = Math.min(maxWidth / image.naturalWidth, maxHeight / image.naturalHeight, 1);
+        stage.style.width = `${Math.max(280, Math.round(image.naturalWidth * scale))}px`;
+        stage.style.height = `${Math.max(220, Math.round(image.naturalHeight * scale))}px`;
     }
 
     function openGalleryModal(index) {
@@ -666,16 +761,21 @@
         const prev = list[(currentGalleryIndex - 1 + list.length) % list.length];
         const next = list[(currentGalleryIndex + 1) % list.length];
         if (!g) return;
+        setModalMode('gallery');
         $('modalBody').innerHTML = `<div class="image-viewer gallery-viewer">
         <div class="gallery-stage">
             <div class="gallery-strip">
-                ${[prev, g, next].map(item => `<div class="gallery-slide"><img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.title)}" draggable="false" onerror="this.src='assets/hero.svg'"></div>`).join('')}
+                ${[prev, g, next].map((item, itemIndex) => `<div class="gallery-slide"><img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.title)}" draggable="false" ${itemIndex === 1 ? 'data-gallery-current' : ''} onerror="this.src='assets/hero.svg'"></div>`).join('')}
             </div>
             <button class="gallery-nav gallery-prev" type="button" data-gallery-prev aria-label="Önceki görsel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
             <button class="gallery-nav gallery-next" type="button" data-gallery-next aria-label="Sonraki görsel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
         </div>
-        <div class="gallery-viewer-footer"><h2>${escapeHtml(g.title)}</h2><span>${currentGalleryIndex + 1} / ${list.length}</span></div>
     </div>`;
+        const currentImage = $('modalBody').querySelector('[data-gallery-current]');
+        if (currentImage) {
+            currentImage.addEventListener('load', () => fitGalleryStageToImage(currentImage), { once: true });
+            if (currentImage.complete) fitGalleryStageToImage(currentImage);
+        }
         setModalOpen(true);
     }
 
@@ -793,8 +893,9 @@
         const program = String(t.program || 'Program detayı yakında eklenecek.');
         const programPreview = program.length > 145 ? program.slice(0, 145).trim() + '…' : program;
         const coverImage = t.image || 'assets/hotel.svg';
+        setModalMode('tour-detail');
         $('modalBody').innerHTML = `<div class="modal-content">
-        <div class="tour-modal-cover" style="background-image:url('${escapeHtml(coverImage)}')"><img src="${escapeHtml(coverImage)}" alt="${escapeHtml(t.title)}" onerror="this.src='assets/hotel.svg'"></div>
+        <div class="tour-modal-cover"><img src="${escapeHtml(coverImage)}" alt="${escapeHtml(t.title)}" onerror="this.src='assets/hotel.svg'"></div>
         <div>
             <span class="section-kicker">${escapeHtml(t.tag || '')}</span>
             <h2>${escapeHtml(t.title)}</h2>
@@ -842,6 +943,53 @@
         });
     }
 
+    function initMobileNavigation() {
+        const toggle = $('menuToggle');
+        const sourceLinks = $('navLinks');
+        const sourceActions = document.querySelector('.site-header .nav-actions');
+        if (!toggle || !sourceLinks || !sourceActions) return;
+
+        let overlay = $('mobileNavOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'mobileNavOverlay';
+            overlay.className = 'mobile-nav-overlay';
+            overlay.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(overlay);
+        }
+
+        overlay.innerHTML = `<div class="mobile-nav-shell"><nav class="mobile-nav-links">${sourceLinks.innerHTML}</nav><div class="mobile-nav-actions">${sourceActions.innerHTML}</div></div>`;
+        overlay.querySelectorAll('.mobile-nav-links a').forEach((link, index) => link.style.setProperty('--menu-index', index));
+        overlay.querySelectorAll('.mobile-nav-actions a').forEach((link, index) => link.style.setProperty('--menu-index', index + 8));
+
+        const closeMenu = () => {
+            overlay.classList.remove('open');
+            overlay.setAttribute('aria-hidden', 'true');
+            toggle.classList.remove('open');
+            toggle.setAttribute('aria-expanded', 'false');
+            toggle.setAttribute('aria-label', 'Menüyü aç');
+            document.body.classList.remove('mobile-menu-open');
+        };
+        const openMenu = () => {
+            overlay.classList.add('open');
+            overlay.setAttribute('aria-hidden', 'false');
+            toggle.classList.add('open');
+            toggle.setAttribute('aria-expanded', 'true');
+            toggle.setAttribute('aria-label', 'Menüyü kapat');
+            document.body.classList.add('mobile-menu-open');
+        };
+
+        toggle.innerHTML = '<span></span><span></span>';
+        if (toggle.dataset.mobileMenuBound !== '1') {
+            toggle.dataset.mobileMenuBound = '1';
+            toggle.setAttribute('aria-expanded', 'false');
+            toggle.addEventListener('click', () => overlay.classList.contains('open') ? closeMenu() : openMenu());
+            document.addEventListener('keydown', event => { if (event.key === 'Escape') closeMenu(); });
+        }
+        overlay.onclick = event => { if (event.target.closest('a')) closeMenu(); };
+        applySettings();
+    }
+
     function renderPublic() {
         applySettings();
         renderTourGroup('umre', 'umreTours', 4);
@@ -853,8 +1001,11 @@
         renderBlogs();
         renderTravelHub();
         bindPublicSwipeInteractions();
+        initMobileNavigation();
         requestAnimationFrame(initScrollReveals);
 
+        if (document.body.dataset.publicEventsBound !== '1') {
+        document.body.dataset.publicEventsBound = '1';
         document.addEventListener('click', (e) => {
             const tourBtn = e.target.closest('[data-tour]');
             if (tourBtn) openTourModal(tourBtn.dataset.tour);
@@ -875,8 +1026,9 @@
                 const blogBtn = e.target.closest && e.target.closest('[data-blog]');
                 if (blogBtn) openBlogModal(blogBtn.dataset.blog);
             }
-            if (e.key === 'ArrowLeft' && $('tourModal')?.classList.contains('open')) moveGalleryModal(-1);
-            if (e.key === 'ArrowRight' && $('tourModal')?.classList.contains('open')) moveGalleryModal(1);
+            const galleryIsOpen = $('tourModal')?.querySelector('.modal-card')?.classList.contains('gallery-modal-card');
+            if (e.key === 'ArrowLeft' && galleryIsOpen) moveGalleryModal(-1);
+            if (e.key === 'ArrowRight' && galleryIsOpen) moveGalleryModal(1);
             if (e.key === 'Escape') {
                 setModalOpen(false);
             }
@@ -886,12 +1038,6 @@
         if (close) close.onclick = () => setModalOpen(false);
         const modal = $('tourModal');
         if (modal) modal.addEventListener('click', e => { if (e.target === modal) setModalOpen(false); });
-        const menuToggle = $('menuToggle');
-        if (menuToggle) {
-            menuToggle.onclick = () => {
-                $('navLinks').classList.toggle('open');
-                document.querySelector('.nav-actions').classList.toggle('open');
-            };
         }
     }
 
@@ -1247,13 +1393,40 @@
         if ($('setInstagram')) $('setInstagram').value = s.instagram || 'hazeynturizm';
         $('setAddress').value = s.address || ''; $('setHeroTitle').value = s.heroTitle || ''; $('setHeroSubtitle').value = s.heroSubtitle || '';
         if ($('setHeroMode')) $('setHeroMode').value = s.heroMode || 'single';
+        if ($('setStaffBannerKicker')) $('setStaffBannerKicker').value = s.staffBannerKicker || DEFAULT_DATA.settings.staffBannerKicker;
+        if ($('setStaffBannerTitle')) $('setStaffBannerTitle').value = s.staffBannerTitle || DEFAULT_DATA.settings.staffBannerTitle;
+        if ($('setStaffBannerSubtitle')) $('setStaffBannerSubtitle').value = s.staffBannerSubtitle || DEFAULT_DATA.settings.staffBannerSubtitle;
+        if ($('setStaffBannerImage')) $('setStaffBannerImage').value = s.staffBannerImage && !String(s.staffBannerImage).startsWith('data:') ? s.staffBannerImage : '';
+        tempStaffBannerImage = s.staffBannerImage || '';
+        if ($('staffBannerPreview')) $('staffBannerPreview').src = s.staffBannerImage || DEFAULT_DATA.settings.staffBannerImage;
+        if ($('setBlogBannerKicker')) $('setBlogBannerKicker').value = s.blogBannerKicker || DEFAULT_DATA.settings.blogBannerKicker;
+        if ($('setBlogBannerTitle')) $('setBlogBannerTitle').value = s.blogBannerTitle || DEFAULT_DATA.settings.blogBannerTitle;
+        if ($('setBlogBannerSubtitle')) $('setBlogBannerSubtitle').value = s.blogBannerSubtitle || DEFAULT_DATA.settings.blogBannerSubtitle;
+        if ($('setBlogBannerImage')) $('setBlogBannerImage').value = s.blogBannerImage && !String(s.blogBannerImage).startsWith('data:') ? s.blogBannerImage : '';
+        tempBlogBannerImage = s.blogBannerImage || '';
+        if ($('blogBannerPreview')) $('blogBannerPreview').src = s.blogBannerImage || DEFAULT_DATA.settings.blogBannerImage;
         $('setAdminPassword').value = s.adminPassword || '1234';
         renderHeroBannerAdmin();
     }
 
     async function saveSettings(e) {
         e.preventDefault();
-        state.settings = { ...state.settings, phone: $('setPhone').value.trim(), phone2: $('setPhone2').value.trim(), whatsapp: $('setWhatsapp').value.trim(), email: $('setEmail').value.trim(), website: $('setWebsite').value.trim(), instagram: ($('setInstagram') ? $('setInstagram').value.trim().replace('@', '') : (state.settings.instagram || 'hazeynturizm')), address: $('setAddress').value.trim(), heroTitle: $('setHeroTitle').value.trim(), heroSubtitle: $('setHeroSubtitle').value.trim(), heroMode: ($('setHeroMode') ? $('setHeroMode').value : (state.settings.heroMode || 'single')), adminPassword: $('setAdminPassword').value.trim() || '1234' };
+        state.settings = {
+            ...state.settings,
+            phone: $('setPhone').value.trim(), phone2: $('setPhone2').value.trim(), whatsapp: $('setWhatsapp').value.trim(), email: $('setEmail').value.trim(), website: $('setWebsite').value.trim(),
+            instagram: ($('setInstagram') ? $('setInstagram').value.trim().replace('@', '') : (state.settings.instagram || 'hazeynturizm')),
+            address: $('setAddress').value.trim(), heroTitle: $('setHeroTitle').value.trim(), heroSubtitle: $('setHeroSubtitle').value.trim(),
+            heroMode: ($('setHeroMode') ? $('setHeroMode').value : (state.settings.heroMode || 'single')),
+            staffBannerKicker: $('setStaffBannerKicker')?.value.trim() || DEFAULT_DATA.settings.staffBannerKicker,
+            staffBannerTitle: $('setStaffBannerTitle')?.value.trim() || DEFAULT_DATA.settings.staffBannerTitle,
+            staffBannerSubtitle: $('setStaffBannerSubtitle')?.value.trim() || DEFAULT_DATA.settings.staffBannerSubtitle,
+            staffBannerImage: tempStaffBannerImage || $('setStaffBannerImage')?.value.trim() || state.settings.staffBannerImage || DEFAULT_DATA.settings.staffBannerImage,
+            blogBannerKicker: $('setBlogBannerKicker')?.value.trim() || DEFAULT_DATA.settings.blogBannerKicker,
+            blogBannerTitle: $('setBlogBannerTitle')?.value.trim() || DEFAULT_DATA.settings.blogBannerTitle,
+            blogBannerSubtitle: $('setBlogBannerSubtitle')?.value.trim() || DEFAULT_DATA.settings.blogBannerSubtitle,
+            blogBannerImage: tempBlogBannerImage || $('setBlogBannerImage')?.value.trim() || state.settings.blogBannerImage || DEFAULT_DATA.settings.blogBannerImage,
+            adminPassword: $('setAdminPassword').value.trim() || '1234'
+        };
         await saveData(); toast('Ayarlar kaydedildi.');
     }
 
@@ -1376,6 +1549,8 @@
 
     function clearPassengerForm() {
         $('listId').value = ''; $('listTourId').value = ''; $('listTourSelect').value = ''; $('listTitle').value = ''; $('listDate').value = ''; $('listLeader').value = ''; $('listNotes').value = '';
+        if ($('listOriginAirport')) $('listOriginAirport').value = '';
+        if ($('listDestinationAirport')) $('listDestinationAirport').value = '';
         $('passengerTable').querySelector('tbody').innerHTML = '';
         passengerRow(); passengerRow(); renderPassengerTourSelect();
     }
@@ -1407,7 +1582,13 @@
         if (!passengers.length) { toast('En az 1 yolcu ekle.'); return; }
 
         const id = $('listId').value || uid('l');
-        const item = { id, tourId, title: $('listTitle').value.trim(), date: $('listDate').value, leader: $('listLeader').value.trim(), notes: $('listNotes').value.trim(), passengers, createdAt: new Date().toISOString() };
+        const item = {
+            id, tourId, title: $('listTitle').value.trim(), date: $('listDate').value,
+            leader: $('listLeader').value.trim(), notes: $('listNotes').value.trim(),
+            originAirport: airportCode($('listOriginAirport')?.value),
+            destinationAirport: airportCode($('listDestinationAirport')?.value),
+            passengers, createdAt: new Date().toISOString()
+        };
 
         const idx = state.passengerLists.findIndex(x => x.id === id);
         if (idx > -1) state.passengerLists[idx] = item; else state.passengerLists.unshift(item);
@@ -1420,6 +1601,8 @@
         if (!l) return; switchTab('passengers');
         renderPassengerTourSelect(l.tourId || '');
         $('listId').value = l.id; $('listTourId').value = l.tourId || ''; $('listTourSelect').value = l.tourId || ''; $('listTitle').value = l.title || ''; $('listDate').value = l.date || ''; $('listLeader').value = l.leader || ''; $('listNotes').value = l.notes || '';
+        if ($('listOriginAirport')) $('listOriginAirport').value = l.originAirport || '';
+        if ($('listDestinationAirport')) $('listDestinationAirport').value = l.destinationAirport || '';
         $('passengerTable').querySelector('tbody').innerHTML = '';
         (l.passengers || []).forEach(passengerRow); ensurePassengerRows(); window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -1496,12 +1679,13 @@
         const females = (l.passengers || []).filter(p => p.gender === 'Kadın').length;
         const flightDate = getListFlightDate(l);
         const expiringCount = (l.passengers || []).filter(p => isPassportExpiring(p.passportEnd, flightDate)).length;
+        const route = [airportCode(l.originAirport), airportCode(l.destinationAirport)].filter(Boolean).join('-') || '-';
 
         return `<div class="passenger-list-card" data-list-card="${escapeHtml(l.id)}">
         <div class="passenger-list-top">
             <div>
                 <h3>${escapeHtml(l.title)} <small>${escapeHtml(l.date || '')}</small></h3>
-                <p><b>Tur:</b> ${escapeHtml(tourTitle)} &nbsp; <b>Uçuş:</b> ${escapeHtml(formatDateTR(flightDate) || '-')} &nbsp; <b>Rehber:</b> ${escapeHtml(l.leader || '-')}</p>
+                <p><b>Tur:</b> ${escapeHtml(tourTitle)} &nbsp; <b>Uçuş:</b> ${escapeHtml(formatDateTR(flightDate) || '-')} &nbsp; <b>Parkur:</b> ${escapeHtml(route)} &nbsp; <b>Rehber:</b> ${escapeHtml(l.leader || '-')}</p>
                 <p><b>Toplam Yolcu:</b> ${total} &nbsp; <b>Erkek:</b> ${males} &nbsp; <b>Kadın:</b> ${females} &nbsp; <b style="color:#d32f2f">Pasaportu 6 Aydan Az Kalan:</b> <span style="color:#d32f2f; font-weight:bold">${expiringCount}</span></p>
                 ${l.notes ? `<p><b>Liste Notu:</b> ${escapeHtml(l.notes)}</p>` : ''}
                 <p class="hint-text"><b>Manuel sıra korunur:</b> ☰ işaretinden yolcuyu taşıyabilirsin. İstersen soyad düğmesiyle geçici olarak aynı soyadları yan yana görebilirsin.</p>
@@ -1510,6 +1694,7 @@
                 <button class="icon-btn" data-edit-list="${escapeHtml(l.id)}">Düzenle</button>
                 <button class="icon-btn surname-toggle-btn ${surnameSortedLists.has(l.id) ? 'active' : ''}" data-surname-toggle="${escapeHtml(l.id)}">${surnameSortedLists.has(l.id) ? 'Manuel Sıraya Dön' : 'Soyada Göre Grupla'}</button>
                 <button class="icon-btn excel-btn" data-excel-list="${escapeHtml(l.id)}">Excel Oda Listesi</button>
+                <button class="icon-btn flight-excel-btn" data-flight-excel-list="${escapeHtml(l.id)}">Excel Uçuş Listesi</button>
                 <button class="icon-btn" data-print-list="${escapeHtml(l.id)}" data-ori="portrait">PDF (Dikey)</button>
                 <button class="icon-btn" data-print-list="${escapeHtml(l.id)}" data-ori="landscape">PDF (Yatay)</button>
                 <button class="icon-btn danger" data-delete-list="${escapeHtml(l.id)}">Sil</button>
@@ -1631,7 +1816,7 @@
             if (currentRow < 3) return;
             row.eachCell({ includeEmpty: true }, cell => {
                 const isRoomCell = cell.column === 4 || cell.column === 5;
-                cell.font = { name: 'Calibri', size: 11, color: { argb: isRoomCell ? 'FFFF0000' : 'FF111111' }, bold: true };
+                cell.font = { name: 'Calibri', size: 11, color: { argb: isRoomCell ? 'FF8B0000' : 'FF111111' }, bold: true };
                 cell.alignment = { vertical: 'middle', horizontal: [1, 4, 5, 6, 7].includes(cell.column) ? 'center' : 'left' };
                 cell.border = thinBorder;
             });
@@ -1657,6 +1842,127 @@
         } catch (error) {
             console.error('Excel dosyası hazırlanamadı.', error);
             toast('Excel dosyası hazırlanamadı.');
+        }
+    }
+
+    async function exportFlightExcel(id) {
+        const list = state.passengerLists.find(item => item.id === id);
+        if (!list) return;
+        if (!window.ExcelJS) {
+            toast('Excel hazırlama bileşeni yüklenemedi. Sayfayı yenileyip tekrar deneyin.');
+            return;
+        }
+
+        const workbook = new window.ExcelJS.Workbook();
+        workbook.creator = 'Hazeyn Turizm';
+        workbook.created = new Date();
+        const sheet = workbook.addWorksheet('Uçuş Listesi', { views: [{ showGridLines: false, state: 'frozen', ySplit: 5 }] });
+        sheet.pageSetup = {
+            orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9,
+            margins: { left: 0.25, right: 0.25, top: 0.35, bottom: 0.35, header: 0.15, footer: 0.15 }
+        };
+
+        const flightDate = getListFlightDate(list);
+        const parsedFlightDate = parseLocalDate(flightDate);
+        const dateLabel = parsedFlightDate
+            ? parsedFlightDate.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' }).toLocaleUpperCase('tr-TR')
+            : String(list.title || 'UÇUŞ').toLocaleUpperCase('tr-TR');
+        const route = [airportCode(list.originAirport), airportCode(list.destinationAirport)].filter(Boolean).join('-') || '-';
+
+        sheet.mergeCells('A2:G4');
+        sheet.getCell('A2').value = `${dateLabel} UÇAK LİSTESİ`;
+        sheet.getCell('A2').font = { name: 'Times New Roman', size: 25, bold: true, color: { argb: 'FF000000' } };
+        sheet.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.mergeCells('H2:I4');
+        sheet.getCell('H2').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF111318' } };
+
+        try {
+            const logoResponse = await fetch(new URL('assets/logo.png', location.href), { cache: 'no-store' });
+            if (!logoResponse.ok) throw new Error('Logo alınamadı');
+            const logoBytes = new Uint8Array(await logoResponse.arrayBuffer());
+            const logoId = workbook.addImage({ buffer: logoBytes, extension: 'png' });
+            sheet.addImage(logoId, { tl: { col: 7.08, row: 1.12 }, ext: { width: 185, height: 72 } });
+        } catch (error) {
+            sheet.getCell('H2').value = 'HAZEYN';
+            sheet.getCell('H2').font = { name: 'Calibri', size: 20, bold: true, color: { argb: 'FFFFFFFF' } };
+            sheet.getCell('H2').alignment = { horizontal: 'center', vertical: 'middle' };
+        }
+
+        const headers = ['NO', 'İSİM', 'SOY İSİM', 'PAS NO', 'BİTİŞ TARİHİ', 'TC NO', 'D.TARİHİ', 'CİNSİYET', 'PARKUR'];
+        sheet.getRow(5).values = headers;
+        sheet.getRow(5).height = 23;
+
+        const passengers = passengersForList(list);
+        passengers.forEach((passenger, index) => {
+            const name = splitPassengerName(passenger.name);
+            const infant = isPassengerInfant(passenger.birthDate, flightDate);
+            const endDate = parseLocalDate(passenger.passportEnd);
+            const birthDate = parseLocalDate(passenger.birthDate);
+            const row = sheet.addRow([
+                index + 1,
+                name.firstName.toLocaleUpperCase('tr-TR'),
+                name.surname.toLocaleUpperCase('tr-TR'),
+                String(passenger.passportNo || '').toLocaleUpperCase('tr-TR'),
+                endDate || '',
+                String(passenger.tc || ''),
+                birthDate || '',
+                infant ? 'BEBEK' : String(passenger.gender || '').toLocaleUpperCase('tr-TR'),
+                route
+            ]);
+            row.height = 25;
+            row.getCell(4).numFmt = '@';
+            row.getCell(6).numFmt = '@';
+            row.getCell(5).numFmt = 'dd.mm.yyyy';
+            row.getCell(7).numFmt = 'dd.mm.yyyy';
+            if (infant) {
+                row.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE699' } };
+                row.getCell(8).font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF7F6000' } };
+                row.getCell(8).alignment = { horizontal: 'center', vertical: 'middle' };
+            }
+        });
+
+        const thinBorder = {
+            top: { style: 'thin', color: { argb: 'FF111111' } }, left: { style: 'thin', color: { argb: 'FF111111' } },
+            bottom: { style: 'thin', color: { argb: 'FF111111' } }, right: { style: 'thin', color: { argb: 'FF111111' } }
+        };
+        for (let rowNumber = 2; rowNumber <= Math.max(5, 5 + passengers.length); rowNumber += 1) {
+            const row = sheet.getRow(rowNumber);
+            row.eachCell({ includeEmpty: true }, cell => { cell.border = thinBorder; });
+        }
+        sheet.getRow(5).eachCell({ includeEmpty: true }, cell => {
+            cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF385D8A' } };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            cell.border = thinBorder;
+        });
+        for (let rowNumber = 6; rowNumber <= 5 + passengers.length; rowNumber += 1) {
+            const row = sheet.getRow(rowNumber);
+            row.eachCell({ includeEmpty: true }, cell => {
+                if (cell.col === 8 && cell.value === 'BEBEK') return;
+                cell.font = { name: 'Calibri', size: 11, bold: cell.col <= 3, color: { argb: 'FF111111' } };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7F7FC' } };
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                cell.border = thinBorder;
+            });
+        }
+        [6, 17, 19, 15, 16, 16, 15, 14, 14].forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
+        sheet.printArea = `A2:I${Math.max(5, 5 + passengers.length)}`;
+
+        try {
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${safeFileName(list.title)}-ucus-listesi.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1500);
+            toast('Excel uçuş listesi .xlsx olarak indirildi.');
+        } catch (error) {
+            console.error('Excel uçuş listesi hazırlanamadı.', error);
+            toast('Excel uçuş listesi hazırlanamadı.');
         }
     }
 
@@ -1754,6 +2060,8 @@
         $('blogForm').addEventListener('submit', saveBlog); $('blogReset').onclick = resetBlogForm; $('blogFile').addEventListener('change', e => previewFile(e.target, src => { tempBlogImage = src; $('blogPreview').src = src; }));
         $('settingsForm').addEventListener('submit', saveSettings);
         if ($('heroBannerFile')) $('heroBannerFile').addEventListener('change', e => previewFile(e.target, src => { tempHeroBannerImage = src; $('heroBannerPreview').src = src; }));
+        if ($('staffBannerFile')) $('staffBannerFile').addEventListener('change', e => previewFile(e.target, src => { tempStaffBannerImage = src; $('staffBannerPreview').src = src; }));
+        if ($('blogBannerFile')) $('blogBannerFile').addEventListener('change', e => previewFile(e.target, src => { tempBlogBannerImage = src; $('blogBannerPreview').src = src; }));
         if ($('saveHeroBanner')) $('saveHeroBanner').onclick = saveHeroBanner;
         if ($('resetHeroBanner')) $('resetHeroBanner').onclick = resetHeroBannerForm;
 
@@ -1769,6 +2077,8 @@
                 $('listDate').value = savedList.date || t?.departureDate || '';
                 $('listLeader').value = savedList.leader || '';
                 $('listNotes').value = savedList.notes || '';
+                if ($('listOriginAirport')) $('listOriginAirport').value = savedList.originAirport || '';
+                if ($('listDestinationAirport')) $('listDestinationAirport').value = savedList.destinationAirport || '';
                 $('passengerTable').querySelector('tbody').innerHTML = '';
                 (savedList.passengers || []).forEach(passengerRow);
                 ensurePassengerRows();
@@ -1779,6 +2089,8 @@
             $('listId').value = '';
             $('listLeader').value = '';
             $('listNotes').value = '';
+            if ($('listOriginAirport')) $('listOriginAirport').value = 'SAW';
+            if ($('listDestinationAirport')) $('listDestinationAirport').value = t && (t.type === 'umre' || t.type === 'hac') ? 'JED' : '';
             $('passengerTable').querySelector('tbody').innerHTML = '';
             passengerRow();
             passengerRow();
@@ -1786,6 +2098,9 @@
                 $('listTitle').value = t.title;
                 $('listDate').value = t.departureDate || '';
             }
+        });
+        ['listOriginAirport', 'listDestinationAirport'].forEach(id => {
+            if ($(id)) $(id).addEventListener('input', event => { event.target.value = airportCode(event.target.value); });
         });
         $('addPassengerRow').onclick = () => passengerRow();
         $('savePassengerList').onclick = savePassengerList;
@@ -1872,6 +2187,8 @@
             if (printListBtn) printList(printListBtn.dataset.printList, printListBtn.dataset.ori);
             const excelListBtn = e.target.closest('[data-excel-list]');
             if (excelListBtn) exportRoomingExcel(excelListBtn.dataset.excelList);
+            const flightExcelBtn = e.target.closest('[data-flight-excel-list]');
+            if (flightExcelBtn) exportFlightExcel(flightExcelBtn.dataset.flightExcelList);
 
             const delList = e.target.closest('[data-delete-list]');
             if (delList && confirm('Yolcu listesi silinsin mi?')) { surnameSortedLists.delete(delList.dataset.deleteList); state.passengerLists = state.passengerLists.filter(x => x.id !== delList.dataset.deleteList); await saveData(); renderPassengerAdmin(); renderDashboard(); toast('Liste silindi.'); }
@@ -1887,7 +2204,14 @@
         }
 
         state = await loadData();
-        if (page === 'public') renderPublic();
+        if (page === 'public') {
+            renderPublic();
+            window.addEventListener('focus', refreshPublicData);
+            window.addEventListener('pageshow', refreshPublicData);
+            window.addEventListener('storage', event => { if (event.key === 'hazeynData') refreshPublicData(); });
+            document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshPublicData(); });
+            window.setInterval(refreshPublicData, 30000);
+        }
         if (page === 'admin') renderAdmin();
     });
 
