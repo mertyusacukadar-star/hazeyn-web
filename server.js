@@ -1,7 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { BUCKET, supabaseAdmin, ensureBucket } = require('./api/_supabase');
+const { TABLE, ROW_ID, BUCKET, supabaseAdmin, ensureBucket } = require('./api/_supabase');
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
@@ -15,8 +15,8 @@ const mime = {
   '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml; charset=utf-8', '.webp': 'image/webp', '.ico': 'image/x-icon'
 };
 
-function send(res, code, body, type='text/plain; charset=utf-8'){
-  res.writeHead(code, {'Content-Type': type, 'Cache-Control':'no-store'});
+function send(res, code, body, type='text/plain; charset=utf-8', headers={}){
+  res.writeHead(code, {'Content-Type': type, 'Cache-Control':'no-store', ...headers});
   res.end(body);
 }
 
@@ -31,7 +31,7 @@ function ensureDb(){
   if(!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, JSON.stringify({settings:{},tours:[],reviews:[],gallery:[],passengerLists:[]}, null, 2));
 }
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   ensureDb();
   const requestUrl = new URL(req.url, 'http://localhost');
   const pathname = requestUrl.pathname;
@@ -55,7 +55,23 @@ const server = http.createServer((req, res) => {
     return;
   }
   if(pathname === '/api/data' && req.method === 'GET'){
-    return send(res, 200, fs.readFileSync(DB_PATH, 'utf8'), 'application/json; charset=utf-8');
+    if(requestUrl.searchParams.get('action') === 'upload-config'){
+      return send(res, 200, JSON.stringify({
+        url: process.env.SUPABASE_URL || '',
+        anonKey: process.env.SUPABASE_ANON_KEY || '',
+        bucket: BUCKET
+      }), 'application/json; charset=utf-8');
+    }
+    try {
+      const client = supabaseAdmin();
+      const { data, error } = await client.from(TABLE).select('data').eq('id', ROW_ID).maybeSingle();
+      if(error) throw error;
+      const payload = data && data.data ? data.data : JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+      return send(res, 200, JSON.stringify(payload), 'application/json; charset=utf-8', {'X-Hazeyn-Data-Source':'supabase'});
+    } catch(error) {
+      console.error('Supabase veri okuma hatası:', error);
+      return send(res, 502, JSON.stringify({ok:false, error:'Merkezi veriye ulaşılamadı.'}), 'application/json; charset=utf-8');
+    }
   }
   if(pathname === '/api/media-upload' && req.method === 'POST'){
     if(String(req.headers['x-admin-password'] || '') !== String(ADMIN_PASSWORD)){
@@ -100,13 +116,21 @@ const server = http.createServer((req, res) => {
       body += chunk;
       if(body.length > 700 * 1024 * 1024){ req.destroy(); }
     });
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const data = JSON.parse(body || '{}');
+        const client = supabaseAdmin();
+        const { error } = await client.from(TABLE).upsert({
+          id: ROW_ID,
+          data,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+        if(error) throw error;
         fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
-        send(res, 200, JSON.stringify({ok:true}), 'application/json; charset=utf-8');
+        send(res, 200, JSON.stringify({ok:true, source:'supabase'}), 'application/json; charset=utf-8');
       } catch(e) {
-        send(res, 400, JSON.stringify({ok:false, error:'JSON kaydı yapılamadı.'}), 'application/json; charset=utf-8');
+        console.error('Supabase veri kayıt hatası:', e);
+        send(res, 502, JSON.stringify({ok:false, error:'Merkezi veri kaydı yapılamadı.'}), 'application/json; charset=utf-8');
       }
     });
     return;
