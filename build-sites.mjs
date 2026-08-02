@@ -45,12 +45,22 @@ const DEFAULT_DATA = ${JSON.stringify(defaultData)};
 const SCHEMA = "CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at INTEGER NOT NULL DEFAULT 0)";
 const MEDIA_SCHEMA = "CREATE TABLE IF NOT EXISTS app_media (id TEXT PRIMARY KEY, content_type TEXT NOT NULL, body BLOB NOT NULL, updated_at INTEGER NOT NULL DEFAULT 0)";
 
+function envValue(env, key) {
+  if (env && env[key] != null && String(env[key]) !== "") return env[key];
+  if (typeof process !== "undefined" && process.env && process.env[key] != null) return process.env[key];
+  return "";
+}
+
+function databaseBinding(env) {
+  return env && env.DB && typeof env.DB.prepare === "function" ? env.DB : null;
+}
+
 function supabaseConfig(env) {
-  const url = String(env.SUPABASE_URL || "").replace(/\\/$/, "");
-  const key = String(env.SUPABASE_SERVICE_ROLE_KEY || "");
-  const table = String(env.SUPABASE_TABLE || "hazeyn_data").replace(/[^a-z0-9_]/gi, "") || "hazeyn_data";
-  const rowId = String(env.SUPABASE_ROW_ID || "main");
-  const bucket = String(env.SUPABASE_BUCKET || "hazeyn").replace(/[^a-z0-9_.-]/gi, "") || "hazeyn";
+  const url = String(envValue(env, "SUPABASE_URL") || "").replace(/\\/$/, "");
+  const key = String(envValue(env, "SUPABASE_SERVICE_ROLE_KEY") || "");
+  const table = String(envValue(env, "SUPABASE_TABLE") || "hazeyn_data").replace(/[^a-z0-9_]/gi, "") || "hazeyn_data";
+  const rowId = String(envValue(env, "SUPABASE_ROW_ID") || "main");
+  const bucket = String(envValue(env, "SUPABASE_BUCKET") || "hazeyn").replace(/[^a-z0-9_.-]/gi, "") || "hazeyn";
   return { url, key, table, rowId, bucket, ready: Boolean(url && key) };
 }
 
@@ -90,8 +100,10 @@ function json(data, status = 200) {
 }
 
 async function ensureLocalState(env) {
-  await env.DB.prepare(SCHEMA).run();
-  const row = await env.DB.prepare("SELECT payload FROM app_state WHERE key = ?").bind("main").first();
+  const db = databaseBinding(env);
+  if (!db) return DEFAULT_DATA;
+  await db.prepare(SCHEMA).run();
+  const row = await db.prepare("SELECT payload FROM app_state WHERE key = ?").bind("main").first();
   if (row && row.payload) {
     try {
       const oldData = JSON.parse(row.payload);
@@ -103,13 +115,13 @@ async function ensureLocalState(env) {
         && gallery.some(item => item?.image === "assets/hotel.svg")
         && gallery.some(item => item?.image === "assets/yurtici.svg");
       if (!isEmptyLegacyDefault) return row.payload;
-      await env.DB.prepare("UPDATE app_state SET payload = ?, updated_at = ? WHERE key = ?").bind(DEFAULT_DATA, Date.now(), "main").run();
+      await db.prepare("UPDATE app_state SET payload = ?, updated_at = ? WHERE key = ?").bind(DEFAULT_DATA, Date.now(), "main").run();
       return DEFAULT_DATA;
     } catch {
       return row.payload;
     }
   }
-  await env.DB.prepare("INSERT OR IGNORE INTO app_state (key, payload, updated_at) VALUES (?, ?, ?)").bind("main", DEFAULT_DATA, Date.now()).run();
+  await db.prepare("INSERT OR IGNORE INTO app_state (key, payload, updated_at) VALUES (?, ?, ?)").bind("main", DEFAULT_DATA, Date.now()).run();
   return DEFAULT_DATA;
 }
 
@@ -131,7 +143,7 @@ function decodeBase64(value) {
 }
 
 async function currentPassword(env) {
-  const configured = String(env.HAZEYN_ADMIN_PASSWORD || env.ADMIN_PASSWORD || "");
+  const configured = String(envValue(env, "HAZEYN_ADMIN_PASSWORD") || envValue(env, "ADMIN_PASSWORD") || "");
   if (configured) return configured;
   try {
     const data = JSON.parse((await ensureState(env)).payload);
@@ -145,13 +157,19 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/media/") && request.method === "GET") {
-      await env.DB.prepare(MEDIA_SCHEMA).run();
+      const db = databaseBinding(env);
+      if (!db) return new Response("Görsel bulunamadı", { status: 404 });
+      await db.prepare(MEDIA_SCHEMA).run();
       const id = url.pathname.slice("/media/".length).replace(/[^a-z0-9-]/gi, "");
-      const row = id ? await env.DB.prepare("SELECT content_type, body FROM app_media WHERE id = ?").bind(id).first() : null;
+      const row = id ? await db.prepare("SELECT content_type, body FROM app_media WHERE id = ?").bind(id).first() : null;
       if (!row || !row.body) return new Response("Görsel bulunamadı", { status: 404 });
       return new Response(row.body, { headers: { "content-type": row.content_type, "cache-control": "public, max-age=31536000, immutable" } });
     }
     if (url.pathname === "/api/data" && request.method === "GET") {
+      if (url.searchParams.get("action") === "upload-config") {
+        const config = supabaseConfig(env);
+        return json({ url: config.url, anonKey: String(envValue(env, "SUPABASE_ANON_KEY") || ""), bucket: config.bucket });
+      }
       const state = await ensureState(env);
       return new Response(state.payload, { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-hazeyn-data-source": state.source } });
     }
@@ -182,8 +200,10 @@ export default {
         if (!upload.ok) return json({ ok: false, error: "Gorsel Supabase'e yuklenemedi (" + upload.status + ")." }, 502);
         return json({ ok: true, url: config.url + "/storage/v1/object/public/" + config.bucket + "/" + objectPath });
       }
-      await env.DB.prepare(MEDIA_SCHEMA).run();
-      await env.DB.prepare("INSERT INTO app_media (id, content_type, body, updated_at) VALUES (?, ?, ?, ?)").bind(id, contentType, body, Date.now()).run();
+      const db = databaseBinding(env);
+      if (!db) return json({ ok: false, error: "Görsel depolama ayarı bulunamadı." }, 503);
+      await db.prepare(MEDIA_SCHEMA).run();
+      await db.prepare("INSERT INTO app_media (id, content_type, body, updated_at) VALUES (?, ?, ?, ?)").bind(id, contentType, body, Date.now()).run();
       return json({ ok: true, url: "/media/" + id });
     }
     if (url.pathname === "/api/data" && request.method === "POST") {
@@ -193,8 +213,11 @@ export default {
       try {
         if (await writeSupabaseState(env, payload)) {
           try {
-            await env.DB.prepare(SCHEMA).run();
-            await env.DB.prepare("INSERT INTO app_state (key, payload, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at").bind("main", payload, Date.now()).run();
+            const db = databaseBinding(env);
+            if (db) {
+              await db.prepare(SCHEMA).run();
+              await db.prepare("INSERT INTO app_state (key, payload, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at").bind("main", payload, Date.now()).run();
+            }
           } catch (error) {
             console.error("Yerel yedek kaydi basarisiz.", error);
           }
@@ -204,7 +227,9 @@ export default {
         console.error("Supabase kaydi basarisiz.", error);
         return json({ ok: false, error: "Merkezi veri kaydi yapilamadi." }, 502);
       }
-      await env.DB.prepare("INSERT INTO app_state (key, payload, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at").bind("main", payload, Date.now()).run();
+      const db = databaseBinding(env);
+      if (!db) return json({ ok: false, error: "Merkezi veri kaydı yapılandırılmamış." }, 503);
+      await db.prepare("INSERT INTO app_state (key, payload, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at").bind("main", payload, Date.now()).run();
       return json({ ok: true });
     }
     if (url.pathname.startsWith("/api/")) return json({ ok: false, error: "Bu işlem bu sürümde kullanılamıyor." }, 404);
