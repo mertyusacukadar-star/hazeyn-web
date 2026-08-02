@@ -126,7 +126,13 @@ const server = http.createServer(async (req, res) => {
           updated_at: new Date().toISOString()
         }, { onConflict: 'id' });
         if(error) throw error;
-        fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
+        try {
+          fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
+        } catch(localBackupError) {
+          // Vercel çalışma dizini salt okunurdur; merkezi Supabase kaydı başarılıysa
+          // yerel yedek hatası kullanıcı kaydını başarısız göstermemelidir.
+          if(localBackupError && localBackupError.code !== 'EROFS') console.warn('Yerel veri yedeği yazılamadı:', localBackupError);
+        }
         send(res, 200, JSON.stringify({ok:true, source:'supabase'}), 'application/json; charset=utf-8');
       } catch(e) {
         console.error('Supabase veri kayıt hatası:', e);
