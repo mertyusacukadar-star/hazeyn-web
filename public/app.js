@@ -147,6 +147,13 @@
         return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
     }
 
+    function formatDateDMY(value) {
+        const text = String(value || '').trim();
+        if (!text) return '';
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+        return match ? `${match[3]}.${match[2]}.${match[1]}` : text;
+    }
+
     /* PASAPORT KONTROLÜ: uçuş tarihinde en az 6 ay geçerlilik */
     function parseLocalDate(value) {
         if (!value) return null;
@@ -1705,9 +1712,9 @@
         <td>${escapeHtml(p.tc)}</td>
         <td>${escapeHtml(p.phone)}</td>
         <td>${escapeHtml(p.passportNo)}</td>
-        <td>${escapeHtml(p.birthDate)}</td>
-        <td>${escapeHtml(p.passportStart)}</td>
-        <td>${escapeHtml(p.passportEnd)}<span class="passport-status ${status.level}">${escapeHtml(status.label)}</span></td>
+        <td>${escapeHtml(formatDateDMY(p.birthDate))}</td>
+        <td>${escapeHtml(formatDateDMY(p.passportStart))}</td>
+        <td>${escapeHtml(formatDateDMY(p.passportEnd))}<span class="passport-status ${status.level}">${escapeHtml(status.label)}</span></td>
         <td><select class="inline-room-people" data-list-id="${escapeHtml(listId)}" data-room-people-index="${originalIndex}">${['', '1', '2', '3', '4', '5+'].map(v => `<option value="${v}" ${String(p.roomPeople || p.room || '') === v ? 'selected' : ''}>${v ? v + ' Kişilik' : 'Seç'}</option>`).join('')}</select></td>
         <td><input class="inline-room-no" data-list-id="${escapeHtml(listId)}" data-room-field="mekkeRoomNo" data-room-no-index="${originalIndex}" value="${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}" placeholder="Mekke"></td>
         <td><input class="inline-room-no" data-list-id="${escapeHtml(listId)}" data-room-field="medineRoomNo" data-room-no-index="${originalIndex}" value="${escapeHtml(p.medineRoomNo || p.roomNo || '')}" placeholder="Medine"></td>
@@ -1747,7 +1754,7 @@
             const shared = index === 0 ? `<td rowspan="${room.occupants.length}" class="rooming-shared">${room.roomSequence}</td><td rowspan="${room.occupants.length}" class="rooming-shared rooming-type">${escapeHtml(room.roomingLabel)}</td>` : '';
             const mekkeRoomNo = p.mekkeRoomNo || p.roomNo || room.mekkeRoomNo || '';
             const medineRoomNo = p.medineRoomNo || room.medineRoomNo || '';
-            return `<tr class="${rowClass}"><td>${p.sheetNo}</td><td>${escapeHtml(name.firstName)}</td><td>${escapeHtml(name.surname)}</td>${shared}<td>${escapeHtml(mekkeRoomNo)}</td><td>${escapeHtml(medineRoomNo)}</td><td><span class="passport-status ${status.level}">${escapeHtml(status.label)}</span><small>${escapeHtml(p.passportEnd || '-')}</small></td></tr>`;
+            return `<tr class="${rowClass}"><td>${p.sheetNo}</td><td>${escapeHtml(name.firstName)}</td><td>${escapeHtml(name.surname)}</td>${shared}<td>${escapeHtml(mekkeRoomNo)}</td><td>${escapeHtml(medineRoomNo)}</td><td><span class="passport-status ${status.level}">${escapeHtml(status.label)}</span><small>${escapeHtml(formatDateDMY(p.passportEnd) || '-')}</small></td></tr>`;
         }).join('')).join('');
         return `<div class="rooming-preview">
             <div class="rooming-preview-head"><div><span>HAZEYN</span><strong>${escapeHtml(l.title)} ODALAMA YERLEŞKESİ</strong></div><small>Excel çıktısıyla aynı düzen</small></div>
@@ -2087,7 +2094,7 @@
             const rows = group.items.map((p, i) => {
                 const roomBand = Math.floor(i / capacity) % 2 === 0 ? 'room-band-blue' : 'room-band-gold';
                 const warningClass = isPassportExpiring(p.passportEnd, flightDate) ? ' passport-print-warning' : '';
-                return `<tr class="${roomBand}${warningClass}"><td>${i + 1}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.gender)}</td><td>${escapeHtml(p.tc)}</td><td>${escapeHtml(p.phone)}</td><td>${escapeHtml(p.passportNo)}</td><td>${escapeHtml(p.birthDate)}</td><td>${escapeHtml(p.passportStart)}</td><td>${escapeHtml(p.passportEnd)}</td><td>${escapeHtml(p.roomPeople || p.room)}</td><td>${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}</td><td>${escapeHtml(p.medineRoomNo || p.roomNo || '')}</td><td>${escapeHtml(p.note)}</td></tr>`;
+                return `<tr class="${roomBand}${warningClass}"><td>${i + 1}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.gender)}</td><td>${escapeHtml(p.tc)}</td><td>${escapeHtml(p.phone)}</td><td>${escapeHtml(p.passportNo)}</td><td>${escapeHtml(formatDateDMY(p.birthDate))}</td><td>${escapeHtml(formatDateDMY(p.passportStart))}</td><td>${escapeHtml(formatDateDMY(p.passportEnd))}</td><td>${escapeHtml(p.roomPeople || p.room)}</td><td>${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}</td><td>${escapeHtml(p.medineRoomNo || p.roomNo || '')}</td><td>${escapeHtml(p.note)}</td></tr>`;
             }).join('');
             return `<div class="room-group-block"><h2 class="print-room-title">${escapeHtml(group.title)} (${group.items.length} yolcu)</h2><table><thead><tr><th>No</th><th>Ad Soyad</th><th>Cinsiyet</th><th>TC No</th><th>Telefon</th><th>Pasaport No</th><th>Doğum Tarihi</th><th>Pasaport Başlangıç</th><th>Pasaport Bitiş</th><th>Oda Kişilik</th><th>Mekke</th><th>Medine</th><th>Not</th></tr></thead><tbody>${rows}</tbody></table></div>`;
         }).join('') || '<p>Bu listede yolcu bilgisi yok.</p>';
