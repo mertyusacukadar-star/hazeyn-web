@@ -1,22 +1,44 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { TABLE, ROW_ID, BUCKET, supabaseAdmin, ensureBucket } = require('./api/_supabase');
+const {
+  TABLE, ROW_ID, BUCKET,
+  supabaseAdmin, ensureBucket,
+  checkAdmin, verifyAdminCredential,
+  sanitizeAdminState, sanitizePublicState
+} = require('./api/_supabase');
+const {
+  slugify,
+  normalizeTour,
+  normalizeBlog,
+  requiredBlogs,
+  renderProgramPage,
+  renderPricesPage,
+  renderArticlePage,
+  renderLocalPage,
+  renderSitemap,
+  renderRobots
+} = require('./site-render');
+const { renderHomePage } = require('./home-render');
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const DATA_DIR = path.join(ROOT, 'data');
 const DB_PATH = path.join(DATA_DIR, 'db.json');
-const ADMIN_PASSWORD = process.env.HAZEYN_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Hazeyn_2026_!x9';
-
 const mime = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'application/javascript; charset=utf-8',
-  '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml; charset=utf-8', '.webp': 'image/webp', '.ico': 'image/x-icon'
+  '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml; charset=utf-8', '.webp': 'image/webp', '.avif': 'image/avif', '.ico': 'image/x-icon'
 };
 
 function send(res, code, body, type='text/plain; charset=utf-8', headers={}){
-  res.writeHead(code, {'Content-Type': type, 'Cache-Control':'no-store', ...headers});
+  res.writeHead(code, {
+    'Content-Type': type,
+    'Cache-Control':'no-store',
+    'X-Content-Type-Options':'nosniff',
+    'Referrer-Policy':'strict-origin-when-cross-origin',
+    ...headers
+  });
   res.end(body);
 }
 
@@ -29,6 +51,37 @@ function safeJoin(base, reqPath){
 function ensureDb(){
   if(!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, {recursive:true});
   if(!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, JSON.stringify({settings:{},tours:[],reviews:[],gallery:[],passengerLists:[]}, null, 2));
+}
+
+function readLocalState(){
+  try { return JSON.parse(fs.readFileSync(DB_PATH, 'utf8')); }
+  catch(e) { return {settings:{}, tours:[], reviews:[], gallery:[], staff:[], blogs:[], passengerLists:[]}; }
+}
+
+async function readCentralState(){
+  try {
+    const client = supabaseAdmin();
+    const { data, error } = await client.from(TABLE).select('data').eq('id', ROW_ID).maybeSingle();
+    if(error) throw error;
+    return data && data.data ? data.data : readLocalState();
+  } catch(error) {
+    console.error('Supabase veri okuma hatası:', error);
+    return readLocalState();
+  }
+}
+
+function cleanFileName(name){
+  const ext = path.extname(String(name || '')).toLowerCase() || '.jpg';
+  const base = path.basename(String(name || 'image'), ext).replace(/[^a-z0-9-_]/gi, '-').slice(0, 60) || 'image';
+  return `${base}-${Date.now()}-${Math.random().toString(36).slice(2,8)}${ext}`;
+}
+
+function siteOrigin(req){
+  const forwarded = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  const protocol = forwarded || (req.socket && req.socket.encrypted ? 'https' : 'http');
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || 'www.hazeynturizm.com').split(',')[0].trim();
+  if(/^(www\.)?hazeynturizm\.com(?::\d+)?$/i.test(host)) return 'https://www.hazeynturizm.com';
+  return `${protocol}://${host}`.replace(/\/$/, '');
 }
 
 const server = http.createServer(async (req, res) => {
@@ -44,7 +97,7 @@ const server = http.createServer(async (req, res) => {
     req.on('end', () => {
       try {
         const data = JSON.parse(body || '{}');
-        if(String(data.password || '') === String(ADMIN_PASSWORD)){
+        if(verifyAdminCredential(data.password)){
           return send(res, 200, JSON.stringify({ok:true}), 'application/json; charset=utf-8');
         }
         return send(res, 401, JSON.stringify({ok:false, error:'Şifre hatalı.'}), 'application/json; charset=utf-8');
@@ -55,26 +108,26 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if(pathname === '/api/data' && req.method === 'GET'){
+    const wantsAdmin = requestUrl.searchParams.get('scope') === 'admin';
+    if(wantsAdmin && !checkAdmin(req)){
+      return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
+    }
     if(requestUrl.searchParams.get('action') === 'upload-config'){
+      if(!checkAdmin(req)){
+        return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
+      }
       return send(res, 200, JSON.stringify({
         url: process.env.SUPABASE_URL || '',
         anonKey: process.env.SUPABASE_ANON_KEY || '',
         bucket: BUCKET
       }), 'application/json; charset=utf-8');
     }
-    try {
-      const client = supabaseAdmin();
-      const { data, error } = await client.from(TABLE).select('data').eq('id', ROW_ID).maybeSingle();
-      if(error) throw error;
-      const payload = data && data.data ? data.data : JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-      return send(res, 200, JSON.stringify(payload), 'application/json; charset=utf-8', {'X-Hazeyn-Data-Source':'supabase'});
-    } catch(error) {
-      console.error('Supabase veri okuma hatası:', error);
-      return send(res, 502, JSON.stringify({ok:false, error:'Merkezi veriye ulaşılamadı.'}), 'application/json; charset=utf-8');
-    }
+    const rawState = await readCentralState();
+    const payload = checkAdmin(req) ? sanitizeAdminState(rawState) : sanitizePublicState(rawState);
+    return send(res, 200, JSON.stringify(payload), 'application/json; charset=utf-8', {'X-Hazeyn-Data-Source':'supabase'});
   }
   if(pathname === '/api/media-upload' && req.method === 'POST'){
-    if(String(req.headers['x-admin-password'] || '') !== String(ADMIN_PASSWORD)){
+    if(!checkAdmin(req)){
       return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
     }
     const chunks = [];
@@ -108,8 +161,31 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if(pathname === '/api/data' && req.method === 'POST'){
-    if(String(req.headers['x-admin-password'] || '') !== String(ADMIN_PASSWORD)){
+    if(!checkAdmin(req)){
       return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
+    }
+    if(requestUrl.searchParams.get('action') === 'signed-upload'){
+      let uploadBody = '';
+      req.on('data', chunk => {
+        uploadBody += chunk;
+        if(uploadBody.length > 1024 * 1024) req.destroy();
+      });
+      req.on('end', async () => {
+        try {
+          const input = JSON.parse(uploadBody || '{}');
+          const folder = String(input.folder || 'uploads').replace(/[^a-z0-9-_\/]/gi, '').replace(/^\/+/, '').slice(0, 80) || 'uploads';
+          const objectPath = `${folder}/${cleanFileName(input.filename || 'image.jpg')}`;
+          const client = supabaseAdmin();
+          await ensureBucket(client);
+          const { data, error } = await client.storage.from(BUCKET).createSignedUploadUrl(objectPath);
+          if(error) throw error;
+          return send(res, 200, JSON.stringify({ok:true, bucket:BUCKET, path:objectPath, token:data.token, signedUrl:data.signedUrl}), 'application/json; charset=utf-8');
+        } catch(error) {
+          console.error('İmzalı görsel yükleme bağlantısı hatası:', error);
+          return send(res, 500, JSON.stringify({ok:false, error:'Yükleme bağlantısı oluşturulamadı.'}), 'application/json; charset=utf-8');
+        }
+      });
+      return;
     }
     let body = '';
     req.on('data', chunk => {
@@ -118,7 +194,7 @@ const server = http.createServer(async (req, res) => {
     });
     req.on('end', async () => {
       try {
-        const data = JSON.parse(body || '{}');
+        const data = sanitizeAdminState(JSON.parse(body || '{}'));
         const client = supabaseAdmin();
         const { error } = await client.from(TABLE).upsert({
           id: ROW_ID,
@@ -142,6 +218,49 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  const origin = siteOrigin(req);
+  if(pathname === '/' || pathname === '/tr' || pathname === '/tr/'){
+    const state = await readCentralState();
+    return send(res, 200, renderHomePage(state), 'text/html; charset=utf-8', {'Cache-Control':'public, max-age=60, stale-while-revalidate=300'});
+  }
+  if(pathname === '/robots.txt'){
+    return send(res, 200, renderRobots(origin), 'text/plain; charset=utf-8', {'Cache-Control':'public, max-age=3600, stale-while-revalidate=86400'});
+  }
+  if(pathname === '/sitemap.xml'){
+    const state = await readCentralState();
+    return send(res, 200, renderSitemap(state, origin), 'application/xml; charset=utf-8', {'Cache-Control':'public, max-age=900, stale-while-revalidate=86400'});
+  }
+  if(pathname === '/umre-fiyatlari' || pathname === '/umre-fiyatlari/'){
+    const state = await readCentralState();
+    return send(res, 200, renderPricesPage(state, origin), 'text/html; charset=utf-8', {'Cache-Control':'public, max-age=300, stale-while-revalidate=900'});
+  }
+  if(pathname === '/umraniye-umre-turu' || pathname === '/umraniye-umre-turu/'){
+    const state = await readCentralState();
+    return send(res, 200, renderLocalPage(state, origin), 'text/html; charset=utf-8', {'Cache-Control':'public, max-age=300, stale-while-revalidate=900'});
+  }
+
+  if(pathname.startsWith('/rehber/') && !path.extname(pathname)){
+    const state = await readCentralState();
+    const requestedSlug = slugify(decodeURIComponent(pathname.slice('/rehber/'.length)).replace(/\/$/, ''));
+    const savedBlogs = (state.blogs || []).map(normalizeBlog);
+    const knownBlogs = new Set(savedBlogs.map(item => item.slug));
+    const blogs = [...savedBlogs, ...requiredBlogs.filter(item => !knownBlogs.has(item.slug)).map(normalizeBlog)];
+    const blog = blogs.find(item => item.slug === requestedSlug);
+    if(blog) return send(res, 200, renderArticlePage(state, blog, origin), 'text/html; charset=utf-8', {'Cache-Control':'public, max-age=300, stale-while-revalidate=900'});
+    const legacyBlog = blogs.find(item => slugify(item.title) === requestedSlug || (Array.isArray(item.legacySlugs) && item.legacySlugs.map(slugify).includes(requestedSlug)));
+    if(legacyBlog) return send(res, 301, '', 'text/plain; charset=utf-8', {Location:`/rehber/${legacyBlog.slug}`, 'Cache-Control':'public, max-age=86400'});
+  }
+
+  if(pathname !== '/' && !path.extname(pathname) && !['/tr','/tr/','/admin','/deneyimli-kadro','/merak-edilenler'].includes(pathname)){
+    const state = await readCentralState();
+    const requestedSlug = slugify(decodeURIComponent(pathname).replace(/^\/+|\/+$/g, ''));
+    const tours = (state.tours || []).map(normalizeTour);
+    const tour = tours.find(item => item.slug === requestedSlug && item.status !== 'draft');
+    if(tour) return send(res, 200, renderProgramPage(state, tour, origin), 'text/html; charset=utf-8', {'Cache-Control':'public, max-age=300, stale-while-revalidate=900'});
+    const legacyTour = tours.find(item => item.status !== 'draft' && (slugify(item.title) === requestedSlug || (Array.isArray(item.legacySlugs) && item.legacySlugs.map(slugify).includes(requestedSlug))));
+    if(legacyTour) return send(res, 301, '', 'text/plain; charset=utf-8', {Location:`/${legacyTour.slug}`, 'Cache-Control':'public, max-age=86400'});
+  }
+
   let reqPath = pathname;
   if(reqPath === '/') reqPath = '/index.html';
   if(reqPath === '/tr' || reqPath === '/tr/') reqPath = '/index.html';
@@ -154,7 +273,12 @@ const server = http.createServer(async (req, res) => {
   fs.readFile(filePath, (err, data) => {
     if(err) return send(res, 404, 'Dosya bulunamadı');
     const ext = path.extname(filePath).toLowerCase();
-    send(res, 200, data, mime[ext] || 'application/octet-stream');
+    const cache = ext === '.html'
+      ? 'no-cache'
+      : ['.png','.jpg','.jpeg','.svg','.webp','.ico'].includes(ext)
+        ? 'public, max-age=31536000, immutable'
+        : 'public, max-age=300, stale-while-revalidate=86400';
+    send(res, 200, data, mime[ext] || 'application/octet-stream', {'Cache-Control':cache});
   });
 });
 

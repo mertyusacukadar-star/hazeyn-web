@@ -1,5 +1,10 @@
 const path = require('path');
-const { TABLE, ROW_ID, BUCKET, supabaseAdmin, checkAdmin, readDefaultData, ensureBucket } = require('./_supabase');
+const {
+  TABLE, ROW_ID, BUCKET,
+  supabaseAdmin, checkAdmin,
+  sanitizeAdminState, sanitizePublicState,
+  readDefaultData, ensureBucket
+} = require('./_supabase');
 
 function cleanFileName(name){
   const ext = path.extname(String(name || '')).toLowerCase() || '.jpg';
@@ -12,7 +17,10 @@ module.exports = async function handler(req, res){
   const action = String(req.query && req.query.action || '');
 
   if(req.method === 'GET'){
+    const wantsAdmin = String(req.query && req.query.scope || '') === 'admin';
+    if(wantsAdmin && !checkAdmin(req)) return res.status(401).json({ok:false, error:'Yetkisiz.'});
     if(action === 'upload-config'){
+      if(!checkAdmin(req)) return res.status(401).json({ok:false, error:'Yetkisiz.'});
       return res.status(200).json({
         url: process.env.SUPABASE_URL || '',
         anonKey: process.env.SUPABASE_ANON_KEY || '',
@@ -23,10 +31,12 @@ module.exports = async function handler(req, res){
       const client = supabaseAdmin();
       const { data, error } = await client.from(TABLE).select('data').eq('id', ROW_ID).maybeSingle();
       if(error) throw error;
-      return res.status(200).json(data && data.data ? data.data : readDefaultData());
+      const rawState = data && data.data ? data.data : readDefaultData();
+      return res.status(200).json(checkAdmin(req) ? sanitizeAdminState(rawState) : sanitizePublicState(rawState));
     } catch(err){
       console.error(err);
-      return res.status(200).json(readDefaultData());
+      res.setHeader('Retry-After', '30');
+      return res.status(503).json({ok:false, error:'Merkezi veriye geçici olarak ulaşılamadı.'});
     }
   }
 
@@ -51,7 +61,7 @@ module.exports = async function handler(req, res){
     try{
       const client = supabaseAdmin();
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-      const dataToSave = body.data || body;
+      const dataToSave = sanitizeAdminState(body.data || body);
       const { error } = await client.from(TABLE).upsert({id: ROW_ID, data: dataToSave, updated_at: new Date().toISOString()}, {onConflict:'id'});
       if(error) throw error;
       return res.status(200).json({ok:true});

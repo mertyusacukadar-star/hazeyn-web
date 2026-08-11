@@ -1,17 +1,21 @@
-const { TABLE, ROW_ID, supabaseAdmin, checkAdmin, readDefaultData } = require('./_supabase');
+const { TABLE, ROW_ID, supabaseAdmin, checkAdmin, sanitizeAdminState, sanitizePublicState, readDefaultData } = require('./_supabase');
 
 module.exports = async function handler(req, res){
   res.setHeader('Cache-Control', 'no-store');
 
   if(req.method === 'GET'){
+    const wantsAdmin = String(req.query && req.query.scope || '') === 'admin';
+    if(wantsAdmin && !checkAdmin(req)) return res.status(401).json({ok:false, error:'Yetkisiz.'});
     try{
       const client = supabaseAdmin();
       const { data, error } = await client.from(TABLE).select('data').eq('id', ROW_ID).maybeSingle();
       if(error) throw error;
-      return res.status(200).json(data && data.data ? data.data : readDefaultData());
+      const raw = data && data.data ? data.data : readDefaultData();
+      return res.status(200).json(checkAdmin(req) ? sanitizeAdminState(raw) : sanitizePublicState(raw));
     } catch(err){
       console.error(err);
-      return res.status(200).json(readDefaultData());
+      const fallback = readDefaultData();
+      return res.status(200).json(checkAdmin(req) ? sanitizeAdminState(fallback) : sanitizePublicState(fallback));
     }
   }
 
@@ -20,7 +24,7 @@ module.exports = async function handler(req, res){
     try{
       const client = supabaseAdmin();
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-      const dataToSave = body.data || body;
+      const dataToSave = sanitizeAdminState(body.data || body);
       const { error } = await client.from(TABLE).upsert({id: ROW_ID, data: dataToSave, updated_at: new Date().toISOString()}, {onConflict:'id'});
       if(error) throw error;
       return res.status(200).json({ok:true});

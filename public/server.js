@@ -7,7 +7,8 @@ const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const DATA_DIR = path.join(ROOT, 'data');
 const DB_PATH = path.join(DATA_DIR, 'db.json');
-const ADMIN_PASSWORD = process.env.HAZEYN_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '1234';
+const ADMIN_PASSWORD = process.env.HAZEYN_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '';
+const PUBLIC_SETTING_KEYS = ['brand','phone','phone2','whatsapp','email','website','instagram','address','heroTitle','heroSubtitle','heroMode','heroBanners','staffBannerKicker','staffBannerTitle','staffBannerSubtitle','staffBannerImage','blogBannerKicker','blogBannerTitle','blogBannerSubtitle','blogBannerImage','searchConsoleVerification','googleMapsEmbedUrl','officeImages','ga4MeasurementId','metaPixelId','googleAdsId','googleAdsWhatsappLabel','googleAdsPhoneLabel','googleAdsFormLabel'];
 
 const mime = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'application/javascript; charset=utf-8',
@@ -30,6 +31,25 @@ function ensureDb(){
   if(!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, JSON.stringify({settings:{},tours:[],reviews:[],gallery:[],passengerLists:[]}, null, 2));
 }
 
+function isAdmin(value){
+  return Boolean(ADMIN_PASSWORD) && String(value || '') === String(ADMIN_PASSWORD);
+}
+
+function sanitizeAdminState(input){
+  const state = JSON.parse(JSON.stringify(input || {}));
+  delete state.adminPassword;
+  if(state.settings){ delete state.settings.adminPassword; delete state.settings.password; }
+  return state;
+}
+
+function sanitizePublicState(input){
+  const state = sanitizeAdminState(input);
+  const settings = {};
+  PUBLIC_SETTING_KEYS.forEach(key => { if(Object.prototype.hasOwnProperty.call(state.settings || {}, key)) settings[key] = state.settings[key]; });
+  const items = key => (Array.isArray(state[key]) ? state[key] : []).filter(item => !(item && (item.status === 'draft' || item.published === false)));
+  return {_meta:{updatedAt:Number(state._meta && state._meta.updatedAt || 0)}, settings, tours:items('tours'), reviews:items('reviews'), gallery:items('gallery'), staff:items('staff'), blogs:items('blogs')};
+}
+
 const server = http.createServer((req, res) => {
   ensureDb();
   if(req.url === '/api/login' && req.method === 'POST'){
@@ -41,7 +61,7 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       try {
         const data = JSON.parse(body || '{}');
-        if(String(data.password || '') === String(ADMIN_PASSWORD)){
+        if(isAdmin(data.password)){
           return send(res, 200, JSON.stringify({ok:true}), 'application/json; charset=utf-8');
         }
         return send(res, 401, JSON.stringify({ok:false, error:'Şifre hatalı.'}), 'application/json; charset=utf-8');
@@ -51,11 +71,17 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
-  if(req.url === '/api/data' && req.method === 'GET'){
-    return send(res, 200, fs.readFileSync(DB_PATH, 'utf8'), 'application/json; charset=utf-8');
+  if(req.url.split('?')[0] === '/api/data' && req.method === 'GET'){
+    const requestUrl = new URL(req.url, 'http://localhost');
+    if(requestUrl.searchParams.get('scope') === 'admin' && !isAdmin(req.headers['x-admin-password'])){
+      return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
+    }
+    const raw = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+    const payload = isAdmin(req.headers['x-admin-password']) ? sanitizeAdminState(raw) : sanitizePublicState(raw);
+    return send(res, 200, JSON.stringify(payload), 'application/json; charset=utf-8');
   }
   if(req.url === '/api/data' && req.method === 'POST'){
-    if(String(req.headers['x-admin-password'] || '') !== String(ADMIN_PASSWORD)){
+    if(!isAdmin(req.headers['x-admin-password'])){
       return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
     }
     let body = '';
@@ -65,7 +91,7 @@ const server = http.createServer((req, res) => {
     });
     req.on('end', () => {
       try {
-        const data = JSON.parse(body || '{}');
+        const data = sanitizeAdminState(JSON.parse(body || '{}'));
         fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
         send(res, 200, JSON.stringify({ok:true}), 'application/json; charset=utf-8');
       } catch(e) {

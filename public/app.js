@@ -25,7 +25,15 @@
                 { id: 'hb1', image: 'assets/gallery-medine.jpeg', title: 'Umre Pasaportla Değil, Niyetle Başlar', subtitle: 'Hazeyn Turizm ile manevi yolculuğunuzu güvenle planlayın.', textColor: '#ffffff', textPosition: 'left' },
                 { id: 'hb2', image: 'assets/gallery-kuba.jpeg', title: 'Umre Yolculuğunuz Hazeyn ile Başlasın', subtitle: "Mekke ve Medine'de konforlu konaklama, rehberlik ve güvenli organizasyon.", textColor: '#ffffff', textPosition: 'left' }
             ],
-            adminPassword: 'Hazeyn_2026_!x9'
+            searchConsoleVerification: '',
+            googleMapsEmbedUrl: '',
+            officeImages: [],
+            ga4MeasurementId: '',
+            metaPixelId: '',
+            googleAdsId: '',
+            googleAdsWhatsappLabel: '',
+            googleAdsPhoneLabel: '',
+            googleAdsFormLabel: ''
         },
         tours: [
             { id: 't1', type: 'umre', title: 'Şevval Umresi', tag: 'Kesin Kalkışlı', departureDate: '2026-05-14', image: 'assets/hotel.svg', roomPrices: { '1': '1.650 USD', '2': '1.450 USD', '3': '1.350 USD', '4': '1.250 USD', '5+': '1.150 USD' }, nights: '11 Gece Mekke / 3 Gece Medine', hotels: 'Mekke: Voco Hotel\nMedine: Emaar Royal', airline: 'Türk Hava Yolları', price: '1.250 USD', program: '1. Gün: İstanbul çıkış ve Medineye varış.\n2-3. Gün: Medine ziyaretleri.\n4. Gün: Mekkeye geçiş ve umre ibadeti.\nSon Gün: Dönüş hazırlığı ve İstanbul uçuşu.' },
@@ -57,11 +65,24 @@
         passengerLists: []
     };
 
+    const SEO_DEFAULT_BLOGS = [
+        { id: 'seo-evraklar', slug: 'umre-icin-gerekli-evraklar', category: 'Umre Rehberi', title: 'Umre için gerekli evraklar', summary: 'Pasaport, fotoğraf, kimlik ve başvuru sürecinde gereken temel belgeler.', content: 'Umre yolculuğu için geçerli pasaport, kimlik bilgileri, biyometrik fotoğraf ve güncel başvuru koşullarına göre istenen belgeler hazırlanmalıdır. Evrak listenizi program tarihinden önce acentamızla kontrol ederek eksikleri tamamlayabilirsiniz.' },
+        { id: 'seo-2026-fiyatlari', slug: '2026-umre-fiyatlari', category: 'Umre Fiyatları', title: '2026 Umre fiyatları', summary: 'Oda tipi, tarih, uçuş ve otel seçiminin 2026 Umre fiyatlarına etkisi.', content: '2026 Umre fiyatları; program süresi, uçuş şehri, havayolu, Mekke ve Medine otelleri ile oda tipine göre değişir. Güncel ikili, üçlü ve dörtlü oda fiyatlarını aktif program sayfalarımızdan karşılaştırabilirsiniz.' },
+        { id: 'seo-ilk-umre', slug: 'ilk-defa-umreye-gidecekler-icin-rehber', category: 'Umre Rehberi', title: 'İlk defa Umreye gidecekler için rehber', summary: 'İlk Umre yolculuğunuz öncesinde bilmeniz gereken temel adımlar.', content: 'İlk kez Umreye gidecek misafirlerimiz evrak, valiz, ihram, ibadet ve ziyaret hazırlıklarını yolculuktan önce planlamalıdır. Rehberlerimiz program boyunca havalimanından konaklamaya kadar kafileye eşlik eder.' },
+        { id: 'seo-valiz', slug: 'umre-valizinde-neler-olmali', category: 'Hazırlık', title: 'Umre valizinde neler olmalı?', summary: 'Rahat ve düzenli bir yolculuk için pratik Umre valizi listesi.', content: 'Umre valizinde mevsime uygun rahat kıyafet, terlik, kişisel ilaçlar, küçük ibadet çantası, şarj cihazı ve gerekli evraklar bulunmalıdır. Sıvı ve bagaj kurallarını uçuş öncesinde kontrol etmeyi unutmayın.' },
+        { id: 'seo-ihram', slug: 'ihrama-nasil-girilir', category: 'Umre Rehberi', title: 'İhrama nasıl girilir?', summary: 'Niyet, telbiye ve ihrama giriş sürecinin kısa anlatımı.', content: 'İhrama girmeden önce kişisel hazırlıklar tamamlanır, uygun kıyafet giyilir ve mikat sınırından önce niyet edilerek telbiye getirilir. Kafile rehberiniz zamanlama ve uygulama adımlarını yolculuk sırasında ayrıntılı olarak anlatır.' },
+        { id: 'seo-ravza', slug: 'ravza-randevusu-nasil-alinir', category: 'Medine Rehberi', title: 'Ravza randevusu nasıl alınır?', summary: 'Ravza ziyareti için güncel randevu ve hazırlık adımları.', content: 'Ravza ziyareti için Suudi Arabistan tarafından kullanılan resmî uygulamadaki güncel randevu adımları takip edilir. Kurallar zaman içinde değişebildiği için hareket öncesinde kafile sorumlusunun bilgilendirmesini esas alın.' },
+        { id: 'seo-sure', slug: 'umre-kac-gun-surer', category: 'Umre Rehberi', title: 'Umre kaç gün sürer?', summary: 'Farklı Umre program süreleri ve konaklama dağılımları.', content: 'Umre programları uçuş ve konaklama planına göre farklı gün ve gece seçenekleriyle hazırlanır. Mekke ve Medine konaklama dağılımını, ziyaret günlerini ve dönüş tarihini program detay sayfasında görebilirsiniz.' },
+        { id: 'seo-otel', slug: 'mekke-ve-medinede-otel-secimi', category: 'Konaklama', title: 'Mekke ve Medine’de otel seçimi', summary: 'Harem mesafesi, servis ve oda özelliklerine göre otel seçimi.', content: 'Otel seçiminde Harem ve Mescid-i Nebevî mesafesi, servis imkânı, oda tipi ve program bütçesi birlikte değerlendirilmelidir. Her aktif programın otel adı ve mesafe bilgileri kendi detay sayfasında sunulur.' },
+        { id: 'seo-yaslilar', slug: 'yaslilar-umreye-tek-basina-gidebilir-mi', category: 'Umre Rehberi', title: 'Yaşlılar Umreye tek başına gidebilir mi?', summary: 'İleri yaştaki misafirler için refakat, sağlık ve program seçimi önerileri.', content: 'İleri yaştaki misafirlerin sağlık durumu, hareket kabiliyeti ve ihtiyaç duyduğu destek program seçerken dikkate alınmalıdır. Uygun otel mesafesi ve kafile desteği için yolculuk öncesinde acentamızla görüşebilirsiniz.' }
+    ];
+
     let state = null;
     let adminLoggedIn = false;
     let tempTourImage = '';
     let tempHotelMekkeImages = [];
     let tempHotelMedineImages = [];
+    let tempTourGroupImages = [];
     let dragPassengerInfo = null;
     let dragHeroBannerInfo = null;
     let tempGalleryImage = '';
@@ -75,7 +96,6 @@
     let currentGalleryIndex = 0;
     let revealObserver = null;
     let publicRefreshInFlight = false;
-    let pendingLegacySync = false;
     const surnameSortedLists = new Set();
 
     const page = document.body.dataset.page;
@@ -83,6 +103,148 @@
 
     function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
     function uid(prefix) { return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+    function slugifyTR(value) {
+        const map = { 'ç': 'c', 'Ç': 'c', 'ğ': 'g', 'Ğ': 'g', 'ı': 'i', 'I': 'i', 'İ': 'i', 'ö': 'o', 'Ö': 'o', 'ş': 's', 'Ş': 's', 'ü': 'u', 'Ü': 'u' };
+        return String(value || '').replace(/[çÇğĞıIİöÖşŞüÜ]/g, ch => map[ch] || ch).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 100);
+    }
+
+    function dateSlug(value) {
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
+        if (!match) return '';
+        const months = ['ocak', 'subat', 'mart', 'nisan', 'mayis', 'haziran', 'temmuz', 'agustos', 'eylul', 'ekim', 'kasim', 'aralik'];
+        const month = months[Number(match[2]) - 1];
+        return month ? `${Number(match[3])}-${month}-${match[1]}` : '';
+    }
+
+    function defaultTourSlug(t) {
+        const dated = dateSlug(t && t.departureDate);
+        const type = String(t && t.type || 'umre');
+        if (dated && type === 'umre') return `${dated}-umre-programi`;
+        return slugifyTR([dated, t && t.title, type === 'umre' ? 'umre-programi' : ''].filter(Boolean).join('-')) || 'program';
+    }
+
+    function uniqueTourSlug(value, currentId) {
+        const base = slugifyTR(value) || 'umre-programi';
+        const used = new Set((state?.tours || []).filter(t => t.id !== currentId).map(t => slugifyTR(t.slug || defaultTourSlug(t))).filter(Boolean));
+        if (!used.has(base)) return base;
+        let suffix = 2;
+        while (used.has(`${base}-${suffix}`)) suffix += 1;
+        return `${base}-${suffix}`;
+    }
+
+    function normalizeDepartureCities(value) {
+        const raw = Array.isArray(value) ? value : String(value || '').split(/[,/;+]/);
+        const result = [];
+        raw.forEach(item => {
+            const key = slugifyTR(item);
+            if ((key.includes('istanbul') || key === 'ist') && !result.includes('istanbul')) result.push('istanbul');
+            if ((key.includes('konya') || key === 'kny') && !result.includes('konya')) result.push('konya');
+        });
+        return result.length ? ['istanbul', 'konya'].filter(city => result.includes(city)) : ['istanbul'];
+    }
+
+    function departureCityLabel(t) {
+        const cities = normalizeDepartureCities(t && (t.departureCities || t.departureCity));
+        const labels = cities.map(city => city === 'konya' ? 'Konya' : 'İstanbul');
+        return `${labels.join(' / ')} çıkışlı`;
+    }
+
+    function normalizedTourStatus(t) {
+        const raw = String(t && t.status || '').toLowerCase();
+        if (raw === 'upcoming') return 'active';
+        if (['active', 'completed', 'draft'].includes(raw)) return raw;
+        const departure = parseLocalDate(t && t.departureDate);
+        if (!departure) return 'active';
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return departure < today ? 'completed' : 'active';
+    }
+
+    function positiveInteger(value) {
+        if (value === null || value === undefined || String(value).trim() === '') return '';
+        const n = Number(value);
+        return Number.isFinite(n) && n >= 0 ? Math.round(n) : '';
+    }
+
+    function durationLabel(t) {
+        const days = positiveInteger(t && (t.durationDays ?? t.dayCount ?? t.days));
+        const nights = positiveInteger(t && (t.durationNights ?? t.nightCount));
+        if (days !== '') return nights !== '' ? `${days} Gün / ${nights} Gece` : `${days} Gün`;
+        return String(t && t.nights || '').trim();
+    }
+
+    function legacyHotelName(text, city) {
+        const line = String(text || '').split(/\n+/).find(item => slugifyTR(item).startsWith(slugifyTR(city)));
+        return line ? line.replace(/^[^:]+:\s*/, '').trim() : '';
+    }
+
+    function textBlock(value) {
+        if (Array.isArray(value)) return value.map(item => String(item || '').trim()).filter(Boolean).join('\n');
+        return String(value || '').trim();
+    }
+
+    function normalizeTour(t, seenSlugs) {
+        const source = t || {};
+        let slug = slugifyTR(source.slug || defaultTourSlug(source));
+        if (seenSlugs) {
+            const base = slug || 'umre-programi';
+            let suffix = 2;
+            slug = base;
+            while (seenSlugs.has(slug)) slug = `${base}-${suffix++}`;
+            seenSlugs.add(slug);
+        }
+        return {
+            ...source,
+            slug,
+            status: normalizedTourStatus(source),
+            departureCities: normalizeDepartureCities(source.departureCities || source.departureCity),
+            durationDays: positiveInteger(source.durationDays ?? source.dayCount ?? source.days),
+            durationNights: positiveInteger(source.durationNights ?? source.nightCount),
+            mekkeHotelName: String(source.mekkeHotelName || legacyHotelName(source.hotels, 'Mekke')).trim(),
+            mekkeDistanceService: String(source.mekkeDistanceService || '').trim(),
+            medineHotelName: String(source.medineHotelName || legacyHotelName(source.hotels, 'Medine')).trim(),
+            medineDistanceService: String(source.medineDistanceService || '').trim(),
+            flightDetails: String(source.flightDetails || '').trim(),
+            includedServices: textBlock(source.includedServices),
+            excludedServices: textBlock(source.excludedServices),
+            visitProgram: textBlock(source.visitProgram),
+            capacity: String(source.capacity || '').trim(),
+            capacityStatus: ['available', 'limited', 'full', 'waitlist'].includes(source.capacityStatus) ? source.capacityStatus : 'available',
+            groupImages: normalizeImageArray(source.groupImages),
+            seoTitle: String(source.seoTitle || '').trim(),
+            seoDescription: String(source.seoDescription || '').trim()
+        };
+    }
+
+    function normalizeTours(items) {
+        const seen = new Set();
+        return (Array.isArray(items) ? items : []).map(t => normalizeTour(t, seen));
+    }
+
+    function normalizeBlog(b) {
+        const source = b || {};
+        return { ...source, slug: slugifyTR(source.slug || source.title || source.id) };
+    }
+
+    function mergeSeoDefaultBlogs(items) {
+        const list = (Array.isArray(items) ? items : []).map(normalizeBlog);
+        const keys = new Set(list.flatMap(b => [slugifyTR(b.slug), slugifyTR(b.title)]).filter(Boolean));
+        SEO_DEFAULT_BLOGS.forEach(item => {
+            const normalized = normalizeBlog(item);
+            if (keys.has(normalized.slug) || keys.has(slugifyTR(normalized.title))) return;
+            list.push(normalized);
+            keys.add(normalized.slug);
+            keys.add(slugifyTR(normalized.title));
+        });
+        return list;
+    }
+
+    function syncTourSlugField(force) {
+        const input = $('tourSlug');
+        if (!input || (!force && input.dataset.manual === '1')) return;
+        input.value = defaultTourSlug({ type: $('tourType')?.value, title: $('tourTitle')?.value, departureDate: $('tourDepartureDate')?.value });
+    }
 
     function openHazeynDb() {
         return new Promise((resolve) => {
@@ -252,6 +414,16 @@
         return formatPerPersonPrice(t.price || '');
     }
 
+    function startingPriceValue(t) {
+        const priced = roomPriceEntries(t).map(entry => ({ ...entry, amount: Number(String(entry.value).replace(/[^0-9]/g, '')) })).filter(entry => Number.isFinite(entry.amount) && entry.amount > 0).sort((a, b) => a.amount - b.amount);
+        return priced[0]?.value || String(t && t.price || '').trim() || 'Fiyat Sorunuz';
+    }
+
+    function capacityLabel(t) {
+        const labels = { available: 'Müsait', limited: 'Sınırlı Kontenjan', full: 'Kontenjan Dolu', waitlist: 'Yedek Liste' };
+        return String(t && t.capacity || '').trim() || labels[t && t.capacityStatus] || '';
+    }
+
     function priceTableHtml(t) {
         const entries = roomPriceEntries(t);
         if (entries.length) {
@@ -302,16 +474,20 @@
                 console.warn('Sunucu şifre kontrolü yapılamadı, yerel kontrol deneniyor.', e);
             }
         }
-        const ok = password === (state.settings.adminPassword || '1234');
-        if (ok) sessionStorage.setItem('hazeynAdminPassword', password);
-        return ok;
+        // Yonetici sifresi yalnizca sunucudaki ortam degiskeni / sunucu dogrulamasi
+        // ile kontrol edilir; site verisi veya istemci paketi icinde tutulmaz.
+        return false;
     }
 
     async function getUploadConfig() {
         if (getUploadConfig.cache) return getUploadConfig.cache;
         if (location.protocol === 'file:') return null;
         try {
-            const res = await fetch('/api/data?action=upload-config', { cache: 'no-store' });
+            const password = getAdminPassword();
+            const res = await fetch('/api/data?action=upload-config', {
+                cache: 'no-store',
+                headers: password ? { 'x-admin-password': password } : {}
+            });
             if (!res.ok) return null;
             const cfg = await res.json();
             if (cfg && cfg.url && cfg.anonKey && cfg.bucket) {
@@ -328,15 +504,20 @@
         const password = getAdminPassword();
         if (!password) return null;
 
+        const prepared = await prepareImageBlob(file);
+        const originalName = file.name || 'image.jpg';
+        const uploadName = prepared.type === 'image/webp'
+            ? originalName.replace(/\.[^.]+$/, '') + '.webp'
+            : originalName;
+
         if (location.protocol !== 'file:') {
             try {
-                const prepared = await prepareImageBlob(file);
                 const direct = await fetch('/api/media-upload', {
                     method: 'POST',
                     headers: {
                         'Content-Type': prepared.type || 'image/jpeg',
                         'x-admin-password': password,
-                        'x-file-name': file.name || 'image.jpg',
+                        'x-file-name': uploadName,
                         'x-upload-folder': folder || 'uploads'
                     },
                     body: prepared
@@ -360,14 +541,14 @@
         const signed = await fetch('/api/data?action=signed-upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
-            body: JSON.stringify({ filename: file.name, type: file.type, size: file.size, folder: folder || 'uploads' })
+            body: JSON.stringify({ filename: uploadName, type: prepared.type, size: prepared.size, folder: folder || 'uploads' })
         });
         if (!signed.ok) throw new Error('Yükleme izni alınamadı. Admin şifreni tekrar gir.');
 
         const info = await signed.json();
         const client = window.supabase.createClient(cfg.url, cfg.anonKey);
 
-        const { error } = await client.storage.from(info.bucket || cfg.bucket).uploadToSignedUrl(info.path, info.token, file, { contentType: file.type || 'image/jpeg' });
+        const { error } = await client.storage.from(info.bucket || cfg.bucket).uploadToSignedUrl(info.path, info.token, prepared, { contentType: prepared.type || 'image/jpeg' });
         if (error) throw error;
 
         const pub = client.storage.from(info.bucket || cfg.bucket).getPublicUrl(info.path);
@@ -375,14 +556,16 @@
     }
 
     function prepareImageBlob(file) {
-        if (!file || !String(file.type || '').startsWith('image/') || file.size <= 1400 * 1024) {
+        const imageType = String(file && file.type || '').toLowerCase();
+        const convertible = imageType === 'image/jpeg' || imageType === 'image/png';
+        if (!file || !convertible || file.size <= 350 * 1024) {
             return Promise.resolve(file);
         }
         return new Promise((resolve, reject) => {
             const objectUrl = URL.createObjectURL(file);
             const image = new Image();
             image.onload = () => {
-                const maxSide = 1600;
+                const maxSide = 1920;
                 const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
                 const width = Math.max(1, Math.round(image.naturalWidth * scale));
                 const height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -390,11 +573,9 @@
                 canvas.width = width;
                 canvas.height = height;
                 const context = canvas.getContext('2d');
-                context.fillStyle = '#ffffff';
-                context.fillRect(0, 0, width, height);
                 context.drawImage(image, 0, 0, width, height);
                 URL.revokeObjectURL(objectUrl);
-                canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Görsel hazırlanamadı.')), 'image/jpeg', 0.78);
+                canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Görsel hazırlanamadı.')), 'image/webp', 0.84);
             };
             image.onerror = () => {
                 URL.revokeObjectURL(objectUrl);
@@ -425,11 +606,9 @@
                 canvas.width = width;
                 canvas.height = height;
                 const context = canvas.getContext('2d');
-                context.fillStyle = '#ffffff';
-                context.fillRect(0, 0, width, height);
                 context.drawImage(image, 0, 0, width, height);
                 URL.revokeObjectURL(objectUrl);
-                resolve(canvas.toDataURL('image/jpeg', 0.84));
+                resolve(canvas.toDataURL('image/webp', 0.84));
             };
             image.onerror = () => {
                 URL.revokeObjectURL(objectUrl);
@@ -458,73 +637,26 @@
     function chooseBestData(items) {
         const valid = items.filter(Boolean).map(mergeDefaults);
         if (!valid.length) return clone(DEFAULT_DATA);
-        valid.sort((a, b) => dataScore(b) - dataScore(a));
+        valid.sort((a, b) => {
+            const stampDifference = Number(b?._meta?.updatedAt || 0) - Number(a?._meta?.updatedAt || 0);
+            return stampDifference || (dataScore(b) - dataScore(a));
+        });
         return valid[0];
     }
 
-    function passengerListIdentity(list) {
-        const tour = String(list?.tourId || list?.tourTitle || list?.title || '').trim().toLocaleLowerCase('tr-TR');
-        const date = String(list?.flightDate || list?.departureDate || list?.date || '').trim();
-        return `${tour}|${date}`;
-    }
-
-    function mergeRecoveredPassengerLists(remoteLists, localLists) {
-        const merged = (Array.isArray(remoteLists) ? remoteLists : []).map(clone);
-        const positions = new Map(merged.map((list, index) => [passengerListIdentity(list), index]));
-        let changed = false;
-        (Array.isArray(localLists) ? localLists : []).forEach(localList => {
-            const key = passengerListIdentity(localList);
-            const position = positions.get(key);
-            if (position == null) {
-                positions.set(key, merged.length);
-                merged.push(clone(localList));
-                changed = true;
-                return;
-            }
-            const remoteCount = Array.isArray(merged[position]?.passengers) ? merged[position].passengers.length : 0;
-            const localCount = Array.isArray(localList?.passengers) ? localList.passengers.length : 0;
-            if (localCount > remoteCount) {
-                merged[position] = clone(localList);
-                changed = true;
-            }
-        });
-        return { lists: merged, changed };
-    }
-
-    function customMediaCount(items) {
-        return (Array.isArray(items) ? items : []).filter(item => /^(https?:|data:|\/media\/)/i.test(String(item?.image || ''))).length;
-    }
-
-    function recoverLegacyLocalData(remote, local) {
-        const selected = mergeDefaults(remote || local);
-        if (!local || !remote) return { data: selected, changed: false };
-        let changed = false;
-        const recoveredLists = mergeRecoveredPassengerLists(selected.passengerLists, local.passengerLists);
-        selected.passengerLists = recoveredLists.lists;
-        changed = recoveredLists.changed;
-
-        const remoteBanners = selected.settings?.heroBanners || [];
-        const localBanners = local.settings?.heroBanners || [];
-        if (customMediaCount(localBanners) > customMediaCount(remoteBanners)) {
-            selected.settings.heroBanners = clone(localBanners);
-            changed = true;
-        }
-        if (customMediaCount(local.gallery) > customMediaCount(selected.gallery)) {
-            selected.gallery = clone(local.gallery);
-            changed = true;
-        }
-        if (changed) {
-            selected._meta = { ...(selected._meta || {}), updatedAt: Math.max(Number(selected._meta?.updatedAt || 0), Number(local._meta?.updatedAt || 0)) };
-        }
-        return { data: selected, changed };
-    }
-
-    async function fetchRemoteData() {
+    async function fetchRemoteData(options = {}) {
         if (location.protocol === 'file:') return null;
         try {
-            const res = await fetch(`/api/data?ts=${Date.now()}`, {
+            const headers = { 'Cache-Control': 'no-cache', Pragma: 'no-cache' };
+            if (options.admin === true) {
+                const password = getAdminPassword();
+                if (!password) return null;
+                headers['x-admin-password'] = password;
+            }
+            const query = options.admin === true ? `scope=admin&ts=${Date.now()}` : `ts=${Date.now()}`;
+            const res = await fetch(`/api/data?${query}`, {
                 cache: 'no-store',
-                headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' }
+                headers
             });
             if (!res.ok) return null;
             return await res.json();
@@ -538,27 +670,38 @@
         try { localStorage.setItem('hazeynData', JSON.stringify(data)); } catch (e) { }
     }
 
+    function shouldPreserveUnsyncedLocal(remote, local) {
+        const remoteStamp = Number(remote?._meta?.updatedAt || 0);
+        const localStamp = Number(local?._meta?.updatedAt || 0);
+        return Boolean(local?._meta?.pendingSync === true && localStamp > remoteStamp);
+    }
+
     async function loadData() {
         const local = parseJson(localStorage.getItem('hazeynData'));
         const indexed = await idbGet('hazeynData');
         const remote = await fetchRemoteData();
-
-        // Zaman damgası olan sunucu kaydı cihazlar arasında tek doğru kaynaktır.
-        // Eski, boş sunucu kaydı varsa yalnızca gerçekten kaydedilmiş yerel yönetim
-        // verisini koru; tarayıcının eski örnek verisi yeni site içeriğini ezmesin.
-        const remoteStamp = Number(remote?._meta?.updatedAt || 0);
         const bestLocal = chooseBestData([indexed, local]);
-        const localStamp = Number(bestLocal?._meta?.updatedAt || 0);
-        const recovered = recoverLegacyLocalData(remote, bestLocal);
-        const selected = remoteStamp > 0
-            ? recovered.data
-            : localStamp > 0
-                ? chooseBestData([remote, bestLocal])
-                : mergeDefaults(remote || bestLocal);
-        pendingLegacySync = remoteStamp > 0 && recovered.changed;
+        // Sunucu verisi cihazlar arasındaki tek ana kaynaktır. Yalnızca sunucudan
+        // daha yeni olduğu kanıtlanan çevrimdışı bir yönetim kaydı geçici olarak
+        // korunur; eski cihaz kayıtları merkezi silmeleri geri getiremez.
+        const preserveUnsyncedLocal = shouldPreserveUnsyncedLocal(remote, bestLocal);
+        const selected = remote
+            ? mergeDefaults(preserveUnsyncedLocal ? bestLocal : remote)
+            : mergeDefaults(bestLocal);
         await cacheDataLocally(selected);
 
         return selected;
+    }
+
+    async function loadAuthenticatedAdminData() {
+        const remote = await fetchRemoteData({ admin: true });
+        if (!remote) return false;
+        const local = parseJson(localStorage.getItem('hazeynData'));
+        const indexed = await idbGet('hazeynData');
+        const bestLocal = chooseBestData([indexed, local]);
+        state = mergeDefaults(shouldPreserveUnsyncedLocal(remote, bestLocal) ? bestLocal : remote);
+        await cacheDataLocally(state);
+        return true;
     }
 
     async function refreshPublicData() {
@@ -570,6 +713,7 @@
             const incoming = mergeDefaults(remote);
             const currentStamp = Number(state?._meta?.updatedAt || 0);
             const incomingStamp = Number(incoming?._meta?.updatedAt || 0);
+            if (state?._meta?.pendingSync === true && currentStamp > incomingStamp) return;
             if (incomingStamp === 0 && currentStamp > 0) return;
             if (incomingStamp !== currentStamp || JSON.stringify(incoming.settings) !== JSON.stringify(state?.settings)) {
                 state = incoming;
@@ -584,34 +728,41 @@
     function mergeDefaults(data) {
         const d = clone(DEFAULT_DATA);
         data = data || {};
+        const settings = { ...d.settings, ...(data.settings || {}) };
+        delete settings.adminPassword;
+        delete settings.password;
         return {
             _meta: { ...d._meta, ...(data._meta || {}) },
-            settings: { ...d.settings, ...(data.settings || {}) },
-            tours: Array.isArray(data.tours) ? data.tours : d.tours,
+            settings,
+            tours: normalizeTours(Array.isArray(data.tours) ? data.tours : d.tours),
             reviews: Array.isArray(data.reviews) ? data.reviews : d.reviews,
             gallery: Array.isArray(data.gallery) ? data.gallery : d.gallery,
             staff: Array.isArray(data.staff) ? data.staff : d.staff,
-            blogs: Array.isArray(data.blogs) ? data.blogs : d.blogs,
+            blogs: mergeSeoDefaultBlogs(Array.isArray(data.blogs) ? data.blogs : d.blogs),
             passengerLists: Array.isArray(data.passengerLists) ? data.passengerLists : []
         };
     }
 
     async function saveData() {
-        state._meta = { ...(state._meta || {}), updatedAt: Date.now() };
-        await idbSet('hazeynData', state);
-        try { localStorage.setItem('hazeynData', JSON.stringify(state)); } catch (e) {
-            console.warn('Tarayıcı localStorage kotası dolu olabilir. IndexedDB kaydı kullanıldı.', e);
+        if (state && state.settings) {
+            delete state.settings.adminPassword;
+            delete state.settings.password;
         }
+        state._meta = { ...(state._meta || {}), updatedAt: Date.now(), pendingSync: true };
+        await cacheDataLocally(state);
 
         if (location.protocol !== 'file:') {
             try {
                 const password = getAdminPassword();
-                const res = await fetch('/api/data', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': password }, body: JSON.stringify(state) });
+                const syncedState = clone(state);
+                syncedState._meta = { ...(syncedState._meta || {}), pendingSync: false };
+                const res = await fetch('/api/data', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': password }, body: JSON.stringify(syncedState) });
                 if (!res.ok) {
                     const details = await res.json().catch(() => ({}));
                     throw new Error(details.error || 'Sunucu kaydı başarısız');
                 }
-                pendingLegacySync = false;
+                state = syncedState;
+                await cacheDataLocally(state);
                 return true;
             } catch (e) {
                 console.warn('Sunucu kaydı yapılamadı; IndexedDB kaydı kullanıldı.', e);
@@ -710,8 +861,35 @@
         }
     }
 
+    function sanitizeSearchConsoleVerification(value) {
+        const raw = String(value || '').trim();
+        const pastedMetaContent = raw.match(/content\s*=\s*(["'])(.*?)\1/i);
+        const token = pastedMetaContent ? pastedMetaContent[2] : raw;
+        return token.replace(/[^A-Za-z0-9._:=+\/-]/g, '').slice(0, 256);
+    }
+
+    function applySearchConsoleVerification() {
+        const normalizedPath = (location.pathname.replace(/\/+$/, '') || '/').toLowerCase();
+        if (!['/', '/tr', '/index.html'].includes(normalizedPath)) return;
+
+        const token = sanitizeSearchConsoleVerification(state?.settings?.searchConsoleVerification);
+        let meta = document.head.querySelector('meta[name="google-site-verification"]');
+        if (!token) {
+            if (meta?.dataset.hazeynRuntime === '1') meta.remove();
+            return;
+        }
+        if (!meta) {
+            meta = document.createElement('meta');
+            meta.name = 'google-site-verification';
+            meta.dataset.hazeynRuntime = '1';
+            document.head.appendChild(meta);
+        }
+        meta.content = token;
+    }
+
     function applySettings() {
         const s = state.settings;
+        applySearchConsoleVerification();
         document.querySelectorAll('.phone-link').forEach(a => { a.href = 'tel:' + normalizePhone(s.phone); });
         document.querySelectorAll('.whatsapp-link').forEach(a => { a.href = 'https://wa.me/' + normalizePhone(s.whatsapp); });
 
@@ -738,15 +916,20 @@
     }
 
     function tourCard(t) {
+        t = normalizeTour(t);
         const departure = formatDateTR(t.departureDate);
-        const cardText = String(t.cardText || '').trim() || pricePreview(t);
-        return `<article class="tour-card reveal">
-        <div class="tour-img"><img src="${escapeHtml(t.image || 'assets/hotel.svg')}" alt="${escapeHtml(t.title)}" onerror="this.src='assets/hotel.svg'"><span class="tour-tag">${escapeHtml(t.tag || 'Program')}</span></div>
+        const duration = durationLabel(t);
+        const departureLabel = departureCityLabel(t);
+        const cardText = t.type === 'umre' ? formatPerPersonPrice(startingPriceValue(t)) : (String(t.cardText || '').trim() || pricePreview(t));
+        const hotelText = [t.mekkeHotelName ? `Mekke: ${t.mekkeHotelName}` : '', t.medineHotelName ? `Medine: ${t.medineHotelName}` : ''].filter(Boolean).join('\n') || t.hotels || '';
+        const slug = t.slug || defaultTourSlug(t);
+        return `<article class="tour-card reveal" data-program-id="${escapeHtml(t.id)}" data-program-title="${escapeHtml(t.title)}" data-program-slug="${escapeHtml(slug)}">
+        <div class="tour-img"><img src="${escapeHtml(t.image || 'assets/hotel.svg')}" alt="${escapeHtml(t.title)}" loading="lazy" decoding="async" onerror="this.src='assets/hotel.svg'"><span class="tour-tag">${escapeHtml(t.tag || capacityLabel(t) || 'Program')}</span></div>
         <div class="tour-body">
             <h3>${escapeHtml(t.title)}</h3>
-            <div class="tour-meta"><span>◷ ${escapeHtml(t.nights || '')}</span><span>✈ ${escapeHtml(t.airline || '')}</span>${departure ? `<span>📅 ${escapeHtml(departure)}</span>` : ''}</div>
-            <div class="tour-hotels">${escapeHtml(t.hotels || '')}</div>
-            <div class="tour-bottom"><span class="price">${escapeHtml(cardText)}</span><button class="small-btn" data-tour="${escapeHtml(t.id)}">İncele</button></div>
+            <div class="tour-meta">${departure ? `<span>📅 ${escapeHtml(departure)}</span>` : ''}${duration ? `<span>◷ ${escapeHtml(duration)}</span>` : ''}<span>✈ ${escapeHtml(departureLabel)}</span></div>
+            <div class="tour-hotels">${escapeHtml(hotelText)}</div>
+            <div class="tour-bottom"><span class="price">${t.type === 'umre' ? '<small>Başlangıç fiyatı</small><br>' : ''}${escapeHtml(cardText)}</span><a class="small-btn" data-program-link data-track="program_click" data-program-id="${escapeHtml(t.id)}" data-program-title="${escapeHtml(t.title)}" data-program-slug="${escapeHtml(slug)}" href="/${escapeHtml(slug)}">Programı İncele</a></div>
         </div>
     </article>`;
     }
@@ -754,13 +937,13 @@
     function renderTourGroup(type, targetId, limit) {
         const target = $(targetId);
         if (!target) return;
-        const list = state.tours.filter(t => t.type === type).slice(0, limit || 50);
+        const list = state.tours.filter(t => t.type === type && normalizedTourStatus(t) !== 'draft' && (type !== 'umre' || normalizedTourStatus(t) === 'active')).sort((a, b) => String(a.departureDate || '9999-12-31').localeCompare(String(b.departureDate || '9999-12-31'))).slice(0, limit || 50);
         target.innerHTML = list.map(tourCard).join('');
         const optionalGroup = target.closest('.optional-tour-group');
         if (optionalGroup) optionalGroup.hidden = list.length === 0;
         const extraTours = $('extraToursSection');
         if (extraTours) {
-            const visibleCount = ['hac', 'yurtici'].filter(groupType => state.tours.some(t => t.type === groupType)).length;
+            const visibleCount = ['hac', 'yurtici'].filter(groupType => state.tours.some(t => t.type === groupType && normalizedTourStatus(t) !== 'draft')).length;
             extraTours.hidden = visibleCount === 0;
             extraTours.classList.toggle('single-tour-group', visibleCount === 1);
         }
@@ -780,7 +963,7 @@
         if (!target) return;
         const list = state.gallery.length ? state.gallery : DEFAULT_DATA.gallery;
         target.classList.add('gallery-marquee');
-        const cards = list.map((g, i) => `<figure class="gallery-item reveal" data-gallery-index="${i}" tabindex="0" role="button" aria-label="${escapeHtml(g.title)} görselini büyüt"><img src="${escapeHtml(g.image)}" alt="${escapeHtml(g.title)}" onerror="this.src='assets/hero.svg'"><span>${escapeHtml(g.title)}</span></figure>`).join('');
+        const cards = list.map((g, i) => `<figure class="gallery-item reveal" data-gallery-index="${i}" tabindex="0" role="button" aria-label="${escapeHtml(g.title)} görselini büyüt"><img src="${escapeHtml(g.image)}" alt="${escapeHtml(g.title)}" loading="lazy" decoding="async" onerror="this.src='assets/hero.svg'"><span>${escapeHtml(g.title)}</span></figure>`).join('');
         target.innerHTML = `<div class="gallery-track">${cards}${cards}</div>`;
     }
 
@@ -788,14 +971,14 @@
         const target = $('staffGrid');
         if (!target) return;
         const list = state.staff && state.staff.length ? state.staff : DEFAULT_DATA.staff;
-        target.innerHTML = list.map(s => `<article class="staff-card reveal"><div class="staff-photo"><img src="${escapeHtml(s.image || 'assets/icon.png')}" alt="${escapeHtml(s.name)}" onerror="this.src='assets/icon.png'"></div><div><span>${escapeHtml(s.role || 'Hâzeyn Ekibi')}</span><h3>${escapeHtml(s.name || '')}</h3><p>${escapeHtml(s.bio || '')}</p></div></article>`).join('');
+        target.innerHTML = list.map(s => `<article class="staff-card reveal"><div class="staff-photo"><img src="${escapeHtml(s.image || 'assets/icon.png')}" alt="${escapeHtml(s.name)}" loading="lazy" decoding="async" onerror="this.src='assets/icon.png'"></div><div><span>${escapeHtml(s.role || 'Hâzeyn Ekibi')}</span><h3>${escapeHtml(s.name || '')}</h3><p>${escapeHtml(s.bio || '')}</p></div></article>`).join('');
     }
 
     function renderBlogs() {
         const target = $('blogGrid');
         if (!target) return;
-        const list = state.blogs && state.blogs.length ? state.blogs : DEFAULT_DATA.blogs;
-        target.innerHTML = list.map(b => `<article class="blog-card reveal" data-blog="${escapeHtml(b.id)}" tabindex="0" role="button"><span>${escapeHtml(b.category || 'Merak Edilenler')}</span><h3>${escapeHtml(b.title || '')}</h3><p>${escapeHtml(b.summary || firstLine(b.content) || '')}</p><button class="text-btn" type="button">Devamını Oku →</button></article>`).join('');
+        const list = mergeSeoDefaultBlogs(state.blogs && state.blogs.length ? state.blogs : DEFAULT_DATA.blogs);
+        target.innerHTML = list.map(normalizeBlog).map(b => `<a class="blog-card reveal" href="/rehber/${escapeHtml(b.slug)}"><span>${escapeHtml(b.category || 'Merak Edilenler')}</span><h3>${escapeHtml(b.title || '')}</h3><p>${escapeHtml(b.summary || firstLine(b.content) || '')}</p><span class="text-btn">Devamını Oku →</span></a>`).join('');
     }
 
     function setModalOpen(open) {
@@ -1272,6 +1455,14 @@
         };
     }
 
+    function getTourGroupImages(t) {
+        return uniqueList([
+            ...normalizeImageArray(t && t.groupImages),
+            ...normalizeImageArray(t && t.groupImage),
+            ...normalizeImageArray(t && t.passengerImages)
+        ]);
+    }
+
     function linesToList(value) {
         return uniqueList(String(value || '').split(/\n+/));
     }
@@ -1280,7 +1471,7 @@
         const el = $(id);
         if (!el) return;
         const list = uniqueList(images);
-        el.innerHTML = list.length ? list.map((src, i) => `<figure><img src="${escapeHtml(src)}" alt="Otel görseli ${i + 1}" onerror="this.closest('figure').style.display='none'"><figcaption>${i + 1}</figcaption></figure>`).join('') : '<span>Henüz görsel yok</span>';
+        el.innerHTML = list.length ? list.map((src, i) => `<figure><img src="${escapeHtml(src)}" alt="Program görseli ${i + 1}" loading="lazy" decoding="async" onerror="this.closest('figure').style.display='none'"><figcaption>${i + 1}</figcaption></figure>`).join('') : '<span>Henüz görsel yok</span>';
     }
 
     function hotelGalleryHtml(t) {
@@ -1288,8 +1479,10 @@
         const blocks = [];
         h.mekke.forEach((src, i) => blocks.push({ src, title: h.mekke.length > 1 ? `Mekke Oteli ${i + 1}` : 'Mekke Oteli' }));
         h.medine.forEach((src, i) => blocks.push({ src, title: h.medine.length > 1 ? `Medine Oteli ${i + 1}` : 'Medine Oteli' }));
+        const groupImages = getTourGroupImages(t);
+        groupImages.forEach((src, i) => blocks.push({ src, title: groupImages.length > 1 ? `Kafile Görseli ${i + 1}` : 'Kafile Görseli' }));
         if (!blocks.length) return '';
-        return `<div class="hotel-modal-gallery"><h3>Otel Görselleri</h3><div>${blocks.map(b => `<figure><img src="${escapeHtml(b.src)}" alt="${escapeHtml(b.title)}" onerror="this.closest('figure').style.display='none'"><figcaption>${escapeHtml(b.title)}</figcaption></figure>`).join('')}</div></div>`;
+        return `<div class="hotel-modal-gallery"><h3>Otel ve Kafile Görselleri</h3><div>${blocks.map(b => `<figure><img src="${escapeHtml(b.src)}" alt="${escapeHtml(b.title)}" loading="lazy" decoding="async" onerror="this.closest('figure').style.display='none'"><figcaption>${escapeHtml(b.title)}</figcaption></figure>`).join('')}</div></div>`;
     }
 
     function resetTourForm() {
@@ -1298,51 +1491,125 @@
         tempTourImage = '';
         tempHotelMekkeImages = [];
         tempHotelMedineImages = [];
+        tempTourGroupImages = [];
+        if ($('tourSlug')) {
+            $('tourSlug').value = '';
+            delete $('tourSlug').dataset.manual;
+        }
+        if ($('tourStatus')) $('tourStatus').value = 'active';
+        if ($('tourDepartureCities')) $('tourDepartureCities').value = 'istanbul';
+        if ($('tourCapacityStatus')) $('tourCapacityStatus').value = 'available';
         const coverPreview = $('tourPreview');
         if (coverPreview) coverPreview.removeAttribute('src');
         renderMultiPreview('tourHotelMekkePreview', []);
         renderMultiPreview('tourHotelMedinePreview', []);
+        renderMultiPreview('tourGroupPreview', []);
     }
 
     function renderTourAdmin() {
         const list = $('tourAdminList');
         if (!list) return;
-        list.innerHTML = state.tours.map(t => `<div class="admin-item">
-        <div><h3>${escapeHtml(t.title)} <small>(${escapeHtml(t.type === 'umre' ? 'Umre' : t.type === 'hac' ? 'Hac' : 'Yurt İçi')})</small></h3><p>${t.departureDate ? 'Kalkış: ' + escapeHtml(formatDateTR(t.departureDate)) + '\n' : ''}${escapeHtml(t.nights || '')}\n${escapeHtml(firstLine(t.hotels))}\n${escapeHtml(String(t.cardText || '').trim() || pricePreview(t))}</p></div>
-        <div class="admin-item-actions"><button class="icon-btn" data-edit-tour="${escapeHtml(t.id)}">Düzenle</button><button class="icon-btn danger" data-delete-tour="${escapeHtml(t.id)}">Sil</button></div>
+        const statusLabels = { active: 'Aktif', completed: 'Sona Ermiş', draft: 'Taslak' };
+        list.innerHTML = state.tours.map(t => normalizeTour(t)).map(t => `<div class="admin-item">
+        <div><h3>${escapeHtml(t.title)} <small>(${escapeHtml(t.type === 'umre' ? 'Umre' : t.type === 'hac' ? 'Hac' : 'Yurt İçi')} · ${escapeHtml(statusLabels[t.status] || t.status)})</small></h3><p>${t.departureDate ? 'Kalkış: ' + escapeHtml(formatDateTR(t.departureDate)) + '\n' : ''}${escapeHtml(durationLabel(t))}\n${escapeHtml(departureCityLabel(t))}\n/${escapeHtml(t.slug)}\n${escapeHtml(capacityLabel(t))}\n${escapeHtml(String(t.cardText || '').trim() || pricePreview(t))}</p></div>
+        <div class="admin-item-actions"><button class="icon-btn" data-edit-tour="${escapeHtml(t.id)}">Düzenle</button>${t.status === 'completed' ? '' : `<button class="icon-btn danger" data-delete-tour="${escapeHtml(t.id)}">${t.status === 'draft' ? 'Taslağı Sil' : 'Sona Erdir'}</button>`}</div>
     </div>`).join('');
     }
 
     function editTour(id) {
-        const t = state.tours.find(x => x.id === id);
-        if (!t) return;
+        const found = state.tours.find(x => x.id === id);
+        if (!found) return;
+        const t = normalizeTour(found);
         switchTab('tours');
         $('tourId').value = t.id; $('tourType').value = t.type; $('tourTitle').value = t.title || ''; $('tourTag').value = t.tag || '';
+        $('tourSlug').value = t.slug || defaultTourSlug(t); $('tourSlug').dataset.manual = '1';
+        $('tourStatus').value = t.status || 'active';
+        $('tourDepartureCities').value = normalizeDepartureCities(t.departureCities).join(',');
+        $('tourCapacityStatus').value = t.capacityStatus || 'available';
+        $('tourCapacity').value = t.capacity || '';
+        $('tourDurationDays').value = t.durationDays;
+        $('tourDurationNights').value = t.durationNights;
         $('tourImage').value = (t.image && !t.image.startsWith('data:')) ? t.image : '';
         tempTourImage = t.image || '';
         const hotelImages = getHotelImageArrays(t);
         tempHotelMekkeImages = hotelImages.mekke.slice(); tempHotelMedineImages = hotelImages.medine.slice();
+        const groupImages = getTourGroupImages(t);
+        tempTourGroupImages = groupImages.slice();
         $('tourHotelMekkeImage').value = hotelImages.mekke.filter(src => !src.startsWith('data:')).join('\n');
         $('tourHotelMedineImage').value = hotelImages.medine.filter(src => !src.startsWith('data:')).join('\n');
+        $('tourGroupImage').value = groupImages.filter(src => !src.startsWith('data:')).join('\n');
         $('tourDepartureDate').value = t.departureDate || '';
         if ($('tourCardText')) $('tourCardText').value = t.cardText || '';
         const roomPrices = getRoomPrices(t);
         $('tourPrice1').value = roomPrices['1']; $('tourPrice2').value = roomPrices['2']; $('tourPrice3').value = roomPrices['3']; $('tourPrice4').value = roomPrices['4']; $('tourPrice5plus').value = roomPrices['5+'];
         $('tourNights').value = t.nights || ''; $('tourHotels').value = t.hotels || ''; $('tourAirline').value = t.airline || ''; $('tourPrice').value = t.price || ''; $('tourProgram').value = t.program || '';
+        $('tourMekkeHotelName').value = t.mekkeHotelName || '';
+        $('tourMekkeDistanceService').value = t.mekkeDistanceService || '';
+        $('tourMedineHotelName').value = t.medineHotelName || '';
+        $('tourMedineDistanceService').value = t.medineDistanceService || '';
+        $('tourFlightDetails').value = t.flightDetails || '';
+        $('tourIncludedServices').value = textBlock(t.includedServices);
+        $('tourExcludedServices').value = textBlock(t.excludedServices);
+        $('tourVisitProgram').value = textBlock(t.visitProgram);
+        $('tourSeoTitle').value = t.seoTitle || '';
+        $('tourSeoDescription').value = t.seoDescription || '';
         $('tourPreview').src = t.image || '';
         renderMultiPreview('tourHotelMekkePreview', hotelImages.mekke);
         renderMultiPreview('tourHotelMedinePreview', hotelImages.medine);
+        renderMultiPreview('tourGroupPreview', groupImages);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     async function saveTour(e) {
         e.preventDefault();
         const id = $('tourId').value || uid('t');
+        const existing = state.tours.find(x => x.id === id) || {};
         const image = tempTourImage || $('tourImage').value.trim() || ($('tourType').value === 'yurtici' ? 'assets/yurtici.svg' : 'assets/hotel.svg');
         const hotelImages = { mekke: uniqueList([...tempHotelMekkeImages, ...linesToList($('tourHotelMekkeImage')?.value)]), medine: uniqueList([...tempHotelMedineImages, ...linesToList($('tourHotelMedineImage')?.value)]) };
+        const groupImages = uniqueList([...tempTourGroupImages, ...linesToList($('tourGroupImage')?.value)]);
         const roomPrices = cleanRoomPrices({ '1': $('tourPrice1').value, '2': $('tourPrice2').value, '3': $('tourPrice3').value, '4': $('tourPrice4').value, '5+': $('tourPrice5plus').value });
 
-        const t = { id, type: $('tourType').value, title: $('tourTitle').value.trim(), tag: $('tourTag').value.trim(), departureDate: $('tourDepartureDate').value, cardText: $('tourCardText') ? $('tourCardText').value.trim() : '', image, hotelImages, roomPrices, nights: $('tourNights').value.trim(), hotels: $('tourHotels').value.trim(), airline: $('tourAirline').value.trim(), price: $('tourPrice').value.trim(), program: $('tourProgram').value.trim() };
+        const draft = { type: $('tourType').value, title: $('tourTitle').value.trim(), departureDate: $('tourDepartureDate').value };
+        const slug = uniqueTourSlug($('tourSlug').value.trim() || existing.slug || defaultTourSlug(draft), id);
+        const previousSlug = slugifyTR(existing.slug || '');
+        const legacySlugs = uniqueList([
+            ...(Array.isArray(existing.legacySlugs) ? existing.legacySlugs : []),
+            ...(previousSlug && previousSlug !== slug ? [previousSlug] : [])
+        ]).map(slugifyTR).filter(Boolean);
+        const t = normalizeTour({
+            ...existing,
+            id,
+            ...draft,
+            slug,
+            legacySlugs,
+            status: $('tourStatus').value,
+            departureCities: normalizeDepartureCities($('tourDepartureCities').value),
+            durationDays: positiveInteger($('tourDurationDays').value),
+            durationNights: positiveInteger($('tourDurationNights').value),
+            capacityStatus: $('tourCapacityStatus').value,
+            capacity: $('tourCapacity').value.trim(),
+            tag: $('tourTag').value.trim(),
+            cardText: $('tourCardText') ? $('tourCardText').value.trim() : '',
+            image,
+            hotelImages,
+            groupImages,
+            roomPrices,
+            nights: $('tourNights').value.trim(),
+            hotels: $('tourHotels').value.trim(),
+            mekkeHotelName: $('tourMekkeHotelName').value.trim(),
+            mekkeDistanceService: $('tourMekkeDistanceService').value.trim(),
+            medineHotelName: $('tourMedineHotelName').value.trim(),
+            medineDistanceService: $('tourMedineDistanceService').value.trim(),
+            airline: $('tourAirline').value.trim(),
+            flightDetails: $('tourFlightDetails').value.trim(),
+            price: $('tourPrice').value.trim(),
+            program: $('tourProgram').value.trim(),
+            includedServices: $('tourIncludedServices').value.trim(),
+            excludedServices: $('tourExcludedServices').value.trim(),
+            visitProgram: $('tourVisitProgram').value.trim(),
+            seoTitle: $('tourSeoTitle').value.trim(),
+            seoDescription: $('tourSeoDescription').value.trim()
+        });
 
         const idx = state.tours.findIndex(x => x.id === id);
         if (idx > -1) state.tours[idx] = t; else state.tours.unshift(t);
@@ -1407,7 +1674,7 @@
     function renderBlogAdmin() {
         const list = $('blogAdminList');
         if (!list) return;
-        list.innerHTML = (state.blogs || []).map(b => `<div class="admin-item"><div><h3>${escapeHtml(b.title)} <small>${escapeHtml(b.category || 'Merak Edilenler')}</small></h3><p>${escapeHtml(b.summary || firstLine(b.content) || '')}</p></div><div class="admin-item-actions"><button class="icon-btn" data-edit-blog="${escapeHtml(b.id)}">Düzenle</button><button class="icon-btn danger" data-delete-blog="${escapeHtml(b.id)}">Sil</button></div></div>`).join('') || '<p>Henüz yazı eklenmedi.</p>';
+        list.innerHTML = (state.blogs || []).map(normalizeBlog).map(b => `<div class="admin-item"><div><h3>${escapeHtml(b.title)} <small>${escapeHtml(b.category || 'Merak Edilenler')}</small></h3><p>/${escapeHtml(b.slug)}\n${escapeHtml(b.summary || firstLine(b.content) || '')}</p></div><div class="admin-item-actions"><button class="icon-btn" data-edit-blog="${escapeHtml(b.id)}">Düzenle</button><button class="icon-btn danger" data-delete-blog="${escapeHtml(b.id)}">Sil</button></div></div>`).join('') || '<p>Henüz yazı eklenmedi.</p>';
     }
     function editBlog(id) {
         const b = (state.blogs || []).find(x => x.id === id);
@@ -1419,7 +1686,9 @@
     async function saveBlog(e) {
         e.preventDefault();
         const id = $('blogId').value || uid('b');
-        const item = { id, category: $('blogCategory').value.trim(), title: $('blogTitle').value.trim(), summary: $('blogSummary').value.trim(), image: tempBlogImage || $('blogImage').value.trim(), content: $('blogContent').value.trim() };
+        const existing = (state.blogs || []).find(x => x.id === id) || {};
+        const title = $('blogTitle').value.trim();
+        const item = normalizeBlog({ ...existing, id, slug: existing.slug || slugifyTR(title), category: $('blogCategory').value.trim(), title, summary: $('blogSummary').value.trim(), image: tempBlogImage || $('blogImage').value.trim(), content: $('blogContent').value.trim() });
         if (!Array.isArray(state.blogs)) state.blogs = [];
         const idx = state.blogs.findIndex(x => x.id === id);
         if (idx > -1) state.blogs[idx] = item; else state.blogs.unshift(item);
@@ -1495,7 +1764,15 @@
         if ($('setBlogBannerImage')) $('setBlogBannerImage').value = s.blogBannerImage && !String(s.blogBannerImage).startsWith('data:') ? s.blogBannerImage : '';
         tempBlogBannerImage = s.blogBannerImage || '';
         if ($('blogBannerPreview')) $('blogBannerPreview').src = s.blogBannerImage || DEFAULT_DATA.settings.blogBannerImage;
-        $('setAdminPassword').value = s.adminPassword || '1234';
+        if ($('setSearchConsoleVerification')) $('setSearchConsoleVerification').value = s.searchConsoleVerification || '';
+        if ($('setGoogleMapsEmbedUrl')) $('setGoogleMapsEmbedUrl').value = s.googleMapsEmbedUrl || '';
+        if ($('setOfficeImages')) $('setOfficeImages').value = normalizeImageArray(s.officeImages).join('\n');
+        if ($('setGa4MeasurementId')) $('setGa4MeasurementId').value = s.ga4MeasurementId || '';
+        if ($('setMetaPixelId')) $('setMetaPixelId').value = s.metaPixelId || '';
+        if ($('setGoogleAdsId')) $('setGoogleAdsId').value = s.googleAdsId || '';
+        if ($('setGoogleAdsWhatsappLabel')) $('setGoogleAdsWhatsappLabel').value = s.googleAdsWhatsappLabel || '';
+        if ($('setGoogleAdsPhoneLabel')) $('setGoogleAdsPhoneLabel').value = s.googleAdsPhoneLabel || '';
+        if ($('setGoogleAdsFormLabel')) $('setGoogleAdsFormLabel').value = s.googleAdsFormLabel || '';
         renderHeroBannerAdmin();
     }
 
@@ -1515,7 +1792,15 @@
             blogBannerTitle: $('setBlogBannerTitle')?.value.trim() || DEFAULT_DATA.settings.blogBannerTitle,
             blogBannerSubtitle: $('setBlogBannerSubtitle')?.value.trim() || DEFAULT_DATA.settings.blogBannerSubtitle,
             blogBannerImage: tempBlogBannerImage || $('setBlogBannerImage')?.value.trim() || state.settings.blogBannerImage || DEFAULT_DATA.settings.blogBannerImage,
-            adminPassword: $('setAdminPassword').value.trim() || '1234'
+            searchConsoleVerification: $('setSearchConsoleVerification')?.value.trim() || '',
+            googleMapsEmbedUrl: $('setGoogleMapsEmbedUrl')?.value.trim() || '',
+            officeImages: linesToList($('setOfficeImages')?.value),
+            ga4MeasurementId: $('setGa4MeasurementId')?.value.trim() || '',
+            metaPixelId: $('setMetaPixelId')?.value.trim() || '',
+            googleAdsId: $('setGoogleAdsId')?.value.trim() || '',
+            googleAdsWhatsappLabel: $('setGoogleAdsWhatsappLabel')?.value.trim() || '',
+            googleAdsPhoneLabel: $('setGoogleAdsPhoneLabel')?.value.trim() || '',
+            googleAdsFormLabel: $('setGoogleAdsFormLabel')?.value.trim() || ''
         };
         await saveData(); toast('Ayarlar kaydedildi.');
     }
@@ -2132,12 +2417,14 @@
             const password = $('adminPassword').value;
             const ok = await validateAdminPassword(password);
             if (ok) {
-                adminLoggedIn = true;
                 $('adminPassword').value = '';
-                if (pendingLegacySync && state) {
-                    const synced = await saveData();
-                    if (synced) toast('Bu cihazdaki eski yolcu ve görsel kayıtları merkezi sisteme geri aktarıldı.');
+                const loaded = await loadAuthenticatedAdminData();
+                if (!loaded) {
+                    sessionStorage.removeItem('hazeynAdminPassword');
+                    alert('Yonetici verileri guvenli sekilde yuklenemedi. Lutfen baglantini kontrol edip tekrar dene.');
+                    return;
                 }
+                adminLoggedIn = true;
                 renderAdmin();
             } else { alert('Şifre hatalı.'); }
         };
@@ -2151,6 +2438,13 @@
         $('tourImageFile').addEventListener('change', e => previewFile(e.target, src => { tempTourImage = src; $('tourPreview').src = src; }));
         $('tourHotelMekkeFile').addEventListener('change', e => previewFiles(e.target, srcs => { tempHotelMekkeImages = uniqueList([...tempHotelMekkeImages, ...srcs]); renderMultiPreview('tourHotelMekkePreview', tempHotelMekkeImages); }));
         $('tourHotelMedineFile').addEventListener('change', e => previewFiles(e.target, srcs => { tempHotelMedineImages = uniqueList([...tempHotelMedineImages, ...srcs]); renderMultiPreview('tourHotelMedinePreview', tempHotelMedineImages); }));
+        $('tourGroupFile').addEventListener('change', e => previewFiles(e.target, srcs => { tempTourGroupImages = uniqueList([...tempTourGroupImages, ...srcs]); renderMultiPreview('tourGroupPreview', tempTourGroupImages); }));
+        ['tourTitle', 'tourDepartureDate', 'tourType'].forEach(id => $(id).addEventListener(id === 'tourType' ? 'change' : 'input', () => syncTourSlugField(false)));
+        $('tourSlug').addEventListener('input', e => {
+            if (e.target.value.trim()) e.target.dataset.manual = '1';
+            else delete e.target.dataset.manual;
+        });
+        $('tourSlug').addEventListener('blur', e => { e.target.value = slugifyTR(e.target.value); });
 
         $('reviewForm').addEventListener('submit', saveReview); $('reviewReset').onclick = resetReviewForm;
         $('galleryForm').addEventListener('submit', saveGallery); $('galleryFile').addEventListener('change', e => previewFile(e.target, src => { tempGalleryImage = src; $('galleryPreview').src = src; }));
@@ -2249,7 +2543,17 @@
 
         document.addEventListener('click', async (e) => {
             const delTour = e.target.closest('[data-delete-tour]');
-            if (delTour && confirm('Tur silinsin mi?')) { state.tours = state.tours.filter(x => x.id !== delTour.dataset.deleteTour); await saveData(); renderTourAdmin(); renderPassengerTourSelect(); renderDashboard(); toast('Tur silindi.'); }
+            if (delTour) {
+                const tourId = delTour.dataset.deleteTour;
+                const foundTour = state.tours.find(x => x.id === tourId);
+                if (foundTour && normalizedTourStatus(foundTour) === 'draft' && confirm('Taslak program silinsin mi?')) {
+                    state.tours = state.tours.filter(x => x.id !== tourId);
+                    await saveData(); renderTourAdmin(); renderPassengerTourSelect(); renderDashboard(); toast('Taslak silindi.');
+                } else if (foundTour && normalizedTourStatus(foundTour) !== 'draft' && confirm('Program sona ermiş olarak arşivlensin mi? Sayfası ve Google bağlantısı korunacaktır.')) {
+                    foundTour.status = 'completed';
+                    await saveData(); renderTourAdmin(); renderPassengerTourSelect(); renderDashboard(); toast('Program arşivlendi; sayfası korunuyor.');
+                }
+            }
             const editTourBtn = e.target.closest('[data-edit-tour]'); if (editTourBtn) editTour(editTourBtn.dataset.editTour);
 
             const delReview = e.target.closest('[data-delete-review]');

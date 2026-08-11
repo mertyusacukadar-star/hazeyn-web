@@ -15,8 +15,7 @@
             heroMode: 'slider',
             heroBanners: [
                 { id: 'hb1', image: 'assets/hero.svg', title: 'Kutsal Yolculuğunuzda Güvenilir Rehberiniz', subtitle: 'Hac, Umre ve yurt içi turlarında profesyonel organizasyon.', textColor: '#ffffff', textPosition: 'left' }
-            ],
-            adminPassword: '1234'
+            ]
         },
         tours: [
             { id: 't1', type: 'umre', title: 'Şevval Umresi', tag: 'Kesin Kalkışlı', departureDate: '2026-05-14', image: 'assets/hotel.svg', roomPrices: { '1': '1.650 USD', '2': '1.450 USD', '3': '1.350 USD', '4': '1.250 USD', '5+': '1.150 USD' }, nights: '11 Gece Mekke / 3 Gece Medine', hotels: 'Mekke: Voco Hotel\nMedine: Emaar Royal', airline: 'Türk Hava Yolları', price: '1.250 USD', program: '1. Gün: İstanbul çıkış ve Medineye varış.\n2-3. Gün: Medine ziyaretleri.\n4. Gün: Mekkeye geçiş ve umre ibadeti.\nSon Gün: Dönüş hazırlığı ve İstanbul uçuşu.' },
@@ -242,9 +241,7 @@
                 console.warn('Sunucu şifre kontrolü yapılamadı, yerel kontrol deneniyor.', e);
             }
         }
-        const ok = password === (state.settings.adminPassword || '1234');
-        if (ok) sessionStorage.setItem('hazeynAdminPassword', password);
-        return ok;
+        return false;
     }
 
     async function getUploadConfig() {
@@ -915,13 +912,12 @@
         if ($('setInstagram')) $('setInstagram').value = s.instagram || 'hazeynturizm';
         $('setAddress').value = s.address || ''; $('setHeroTitle').value = s.heroTitle || ''; $('setHeroSubtitle').value = s.heroSubtitle || '';
         if ($('setHeroMode')) $('setHeroMode').value = s.heroMode || 'single';
-        $('setAdminPassword').value = s.adminPassword || '1234';
         renderHeroBannerAdmin();
     }
 
     async function saveSettings(e) {
         e.preventDefault();
-        state.settings = { ...state.settings, phone: $('setPhone').value.trim(), phone2: $('setPhone2').value.trim(), whatsapp: $('setWhatsapp').value.trim(), email: $('setEmail').value.trim(), website: $('setWebsite').value.trim(), instagram: ($('setInstagram') ? $('setInstagram').value.trim().replace('@', '') : (state.settings.instagram || 'hazeynturizm')), address: $('setAddress').value.trim(), heroTitle: $('setHeroTitle').value.trim(), heroSubtitle: $('setHeroSubtitle').value.trim(), heroMode: ($('setHeroMode') ? $('setHeroMode').value : (state.settings.heroMode || 'single')), adminPassword: $('setAdminPassword').value.trim() || '1234' };
+        state.settings = { ...state.settings, phone: $('setPhone').value.trim(), phone2: $('setPhone2').value.trim(), whatsapp: $('setWhatsapp').value.trim(), email: $('setEmail').value.trim(), website: $('setWebsite').value.trim(), instagram: ($('setInstagram') ? $('setInstagram').value.trim().replace('@', '') : (state.settings.instagram || 'hazeynturizm')), address: $('setAddress').value.trim(), heroTitle: $('setHeroTitle').value.trim(), heroSubtitle: $('setHeroSubtitle').value.trim(), heroMode: ($('setHeroMode') ? $('setHeroMode').value : (state.settings.heroMode || 'single')) };
         await saveData(); toast('Ayarlar kaydedildi.');
     }
 

@@ -16,6 +16,7 @@ const mimeTypes = {
   ".jpeg": "image/jpeg",
   ".svg": "image/svg+xml; charset=utf-8",
   ".webp": "image/webp",
+  ".avif": "image/avif",
   ".ico": "image/x-icon"
 };
 
@@ -142,15 +143,62 @@ function decodeBase64(value) {
   return bytes;
 }
 
-async function currentPassword(env) {
+const FALLBACK_ADMIN_PASSWORD_SHA256 = "4715441fb3d9f3ee5ce2f74cd2752f45e4fb0d5a381cd532e8cab562fd99d83a";
+const PUBLIC_SETTING_KEYS = ["brand","phone","phone2","whatsapp","email","website","instagram","address","heroTitle","heroSubtitle","heroMode","heroBanners","staffBannerKicker","staffBannerTitle","staffBannerSubtitle","staffBannerImage","blogBannerKicker","blogBannerTitle","blogBannerSubtitle","blogBannerImage","searchConsoleVerification","googleSiteVerification","googleMapsEmbedUrl","mapsEmbedUrl","mapUrl","officeImages","officePhotos","ga4MeasurementId","googleAnalyticsId","gaMeasurementId","metaPixelId","facebookPixelId","googleAdsId","googleAdsConversionId","googleAdsWhatsappLabel","whatsappConversionLabel","googleAdsPhoneLabel","phoneConversionLabel","googleAdsFormLabel","formConversionLabel","contactConversionLabel"];
+
+function constantTimeEqual(left, right) {
+  const a = String(left || "");
+  const b = String(right || "");
+  if (!a || a.length !== b.length) return false;
+  let difference = 0;
+  for (let i = 0; i < a.length; i += 1) difference |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return difference === 0;
+}
+
+async function sha256(value) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(value || "")));
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function verifyAdminCredential(env, value) {
+  const candidate = String(value || "");
+  if (!candidate) return false;
   const configured = String(envValue(env, "HAZEYN_ADMIN_PASSWORD") || envValue(env, "ADMIN_PASSWORD") || "");
-  if (configured) return configured;
-  try {
-    const data = JSON.parse((await ensureState(env)).payload);
-    return String(data?.settings?.adminPassword || "1234");
-  } catch {
-    return "1234";
+  if (configured) return constantTimeEqual(candidate, configured);
+  return constantTimeEqual(await sha256(candidate), String(envValue(env, "HAZEYN_ADMIN_PASSWORD_SHA256") || FALLBACK_ADMIN_PASSWORD_SHA256));
+}
+
+function requestCredential(request) {
+  const direct = String(request.headers.get("x-admin-password") || "");
+  const authorization = String(request.headers.get("authorization") || "");
+  return direct || (authorization.startsWith("Bearer ") ? authorization.slice(7) : "");
+}
+
+function sanitizeAdminState(input) {
+  const state = JSON.parse(JSON.stringify(input || {}));
+  delete state.adminPassword;
+  if (state.settings) {
+    delete state.settings.adminPassword;
+    delete state.settings.password;
+    delete state.settings.serviceRoleKey;
+    delete state.settings.privateKey;
+    delete state.settings.secret;
+    delete state.settings.accessToken;
+    delete state.settings.refreshToken;
   }
+  return state;
+}
+
+function sanitizePublicState(input) {
+  const state = sanitizeAdminState(input);
+  const settings = {};
+  PUBLIC_SETTING_KEYS.forEach(key => {
+    if (Object.prototype.hasOwnProperty.call(state.settings || {}, key)) settings[key] = state.settings[key];
+  });
+  const items = key => (Array.isArray(state[key]) ? state[key] : []).filter(item => !(item && (item.status === "draft" || item.published === false)));
+  const output = {_meta:{updatedAt:Number(state._meta?.updatedAt || 0)}, settings, tours:items("tours"), reviews:items("reviews"), gallery:items("gallery"), staff:items("staff"), blogs:items("blogs")};
+  if (Array.isArray(state.banners)) output.banners = items("banners");
+  return output;
 }
 
 export default {
@@ -166,19 +214,25 @@ export default {
       return new Response(row.body, { headers: { "content-type": row.content_type, "cache-control": "public, max-age=31536000, immutable" } });
     }
     if (url.pathname === "/api/data" && request.method === "GET") {
+      const isAdmin = await verifyAdminCredential(env, requestCredential(request));
+      const wantsAdmin = url.searchParams.get("scope") === "admin";
+      if (wantsAdmin && !isAdmin) return json({ ok: false, error: "Yetkisiz." }, 401);
       if (url.searchParams.get("action") === "upload-config") {
+        if (!isAdmin) return json({ ok: false, error: "Yetkisiz." }, 401);
         const config = supabaseConfig(env);
         return json({ url: config.url, anonKey: String(envValue(env, "SUPABASE_ANON_KEY") || ""), bucket: config.bucket });
       }
       const state = await ensureState(env);
-      return new Response(state.payload, { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-hazeyn-data-source": state.source } });
+      const parsed = JSON.parse(state.payload || "{}");
+      const payload = isAdmin ? sanitizeAdminState(parsed) : sanitizePublicState(parsed);
+      return new Response(JSON.stringify(payload), { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-hazeyn-data-source": state.source } });
     }
     if (url.pathname === "/api/login" && request.method === "POST") {
       const body = await request.json().catch(() => ({}));
-      return String(body.password || "") === await currentPassword(env) ? json({ ok: true }) : json({ ok: false, error: "Şifre hatalı." }, 401);
+      return await verifyAdminCredential(env, body.password) ? json({ ok: true }) : json({ ok: false, error: "Şifre hatalı." }, 401);
     }
     if (url.pathname === "/api/media-upload" && request.method === "POST") {
-      if (String(request.headers.get("x-admin-password") || "") !== await currentPassword(env)) return json({ ok: false, error: "Yetkisiz." }, 401);
+      if (!await verifyAdminCredential(env, requestCredential(request))) return json({ ok: false, error: "Yetkisiz." }, 401);
       const body = await request.arrayBuffer();
       if (!body.byteLength || body.byteLength > 1800000) return json({ ok: false, error: "Görsel en fazla 1,8 MB olabilir." }, 413);
       const contentType = String(request.headers.get("content-type") || "image/jpeg");
@@ -207,9 +261,10 @@ export default {
       return json({ ok: true, url: "/media/" + id });
     }
     if (url.pathname === "/api/data" && request.method === "POST") {
-      if (String(request.headers.get("x-admin-password") || "") !== await currentPassword(env)) return json({ ok: false, error: "Yetkisiz." }, 401);
-      const payload = await request.text();
-      try { JSON.parse(payload); } catch { return json({ ok: false, error: "Geçersiz veri." }, 400); }
+      if (!await verifyAdminCredential(env, requestCredential(request))) return json({ ok: false, error: "Yetkisiz." }, 401);
+      const rawPayload = await request.text();
+      let payload;
+      try { payload = JSON.stringify(sanitizeAdminState(JSON.parse(rawPayload))); } catch { return json({ ok: false, error: "Geçersiz veri." }, 400); }
       try {
         if (await writeSupabaseState(env, payload)) {
           try {
