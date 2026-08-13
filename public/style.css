@@ -717,6 +717,48 @@ body[data-page="public"] .section.container{
 .seo-page .seo-expired{border:1px solid rgba(224,180,90,.26);box-shadow:var(--seo-card-shadow)}
 .seo-page .seo-expired .btn{flex:none}
 
+/* Program detay sayfasi: kompakt otel kartlari, acik program akisi ve galeri */
+.seo-page .seo-hotel-media{
+    appearance:none;display:block;position:relative;width:100%;height:clamp(190px,19vw,235px);
+    margin:0;padding:0;border:0;overflow:hidden;background:#eee;cursor:zoom-in;text-align:left
+}
+.seo-page .seo-hotel-media img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .45s ease}
+.seo-page .seo-hotel-media:hover img,.seo-page .seo-hotel-media:focus-visible img{transform:scale(1.035)}
+.seo-page .seo-hotel-media:focus-visible{outline:3px solid var(--gold);outline-offset:-3px}
+.seo-page .seo-image-count{position:absolute;right:16px;bottom:14px;padding:7px 11px;border-radius:999px;background:rgba(12,12,14,.78);color:#fff;font-size:12px;font-weight:800;backdrop-filter:blur(8px)}
+.seo-page .seo-image-zoom{position:absolute;left:16px;bottom:14px;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.93);color:#191612;font-size:12px;font-weight:900;box-shadow:0 8px 24px rgba(0,0,0,.16)}
+.seo-page .seo-image-zoom:before{content:"↗";display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--gold);color:#fff}
+.seo-page .seo-detail-stack{display:grid;gap:20px}
+.seo-page .seo-detail-panel{padding:clamp(24px,3.5vw,38px)}
+.seo-page .seo-detail-panel-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding-bottom:20px;margin-bottom:22px;border-bottom:1px solid var(--line)}
+.seo-page .seo-detail-panel-head h2{font-size:clamp(26px,3vw,36px);margin:4px 0 0}
+.seo-page .seo-detail-panel-head>span:last-child{color:var(--muted);font-size:13px;font-weight:800}
+.seo-page .seo-detail-content-visible{max-width:1040px;line-height:1.82}
+.seo-page .seo-detail-content-visible p:last-child{margin-bottom:0}
+.seo-page .seo-program-flow{counter-reset:program-day}
+.seo-page .seo-program-day{display:flex;align-items:center;gap:13px;margin:34px 0 14px!important;padding-top:25px;border-top:1px solid var(--line);font-size:clamp(19px,2vw,24px)}
+.seo-page .seo-program-day:first-child{margin-top:0!important;padding-top:0;border-top:0}
+.seo-page .seo-program-day span{display:grid;place-items:center;width:36px;height:36px;flex:0 0 36px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#fff;font-size:14px;font-weight:900}
+.seo-page .seo-program-note{display:grid;grid-template-columns:minmax(150px,210px) 1fr;gap:16px;margin:0!important;padding:13px 0;border-bottom:1px solid var(--line)}
+.seo-page .seo-program-note strong{color:#1b1711}.seo-page .seo-program-note span{color:#514a42}
+.seo-page .seo-gallery{grid-template-columns:repeat(3,minmax(0,1fr))}
+.seo-page .seo-gallery-count-1{grid-template-columns:minmax(0,620px)}
+.seo-page .seo-gallery-count-2{grid-template-columns:repeat(2,minmax(0,520px))}
+.seo-page .seo-gallery-card{min-height:0!important;aspect-ratio:auto!important;background:#111;border-radius:20px;overflow:hidden}
+.seo-page .seo-gallery-button{appearance:none;display:block;position:relative;width:100%;aspect-ratio:4/3;padding:0;border:0;background:#111;cursor:zoom-in;overflow:hidden;text-align:left}
+.seo-page .seo-gallery-button img{display:block;width:100%;height:100%;min-height:0;object-fit:cover;transition:transform .45s ease,filter .45s ease}
+.seo-page .seo-gallery-button:hover img,.seo-page .seo-gallery-button:focus-visible img{transform:scale(1.035);filter:brightness(.88)}
+.seo-page .seo-gallery-button:focus-visible{outline:3px solid var(--gold);outline-offset:-3px}
+.seo-page .seo-gallery-label{position:absolute;inset:auto 0 0;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:44px 18px 16px;background:linear-gradient(transparent,rgba(0,0,0,.78));color:#fff}
+.seo-page .seo-gallery-label b{font-size:15px}.seo-page .seo-gallery-label span{font-size:12px;opacity:.82}
+.seo-lightbox{position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;padding:34px;background:rgba(7,7,9,.92);backdrop-filter:blur(14px)}
+.seo-lightbox.open{display:flex}.seo-lightbox-figure{position:relative;width:min(1180px,92vw);height:min(82vh,780px);margin:0;display:flex;flex-direction:column;background:#0e0e10;border:1px solid rgba(255,255,255,.14);border-radius:24px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.52)}
+.seo-lightbox-image-wrap{min-height:0;flex:1;display:grid;place-items:center;background:#08080a}.seo-lightbox img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;user-select:none}
+.seo-lightbox figcaption{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:17px 22px;color:#fff;background:#141416}.seo-lightbox figcaption b{font-size:16px}.seo-lightbox figcaption span{font-size:13px;color:rgba(255,255,255,.65)}
+.seo-lightbox-close,.seo-lightbox-nav{appearance:none;position:absolute;z-index:2;display:grid;place-items:center;border:1px solid rgba(255,255,255,.28);background:rgba(16,16,18,.74);color:#fff;cursor:pointer;backdrop-filter:blur(10px)}
+.seo-lightbox-close{right:22px;top:22px;width:48px;height:48px;border-radius:50%;font-size:28px}.seo-lightbox-nav{top:50%;transform:translateY(-50%);width:52px;height:52px;border-radius:50%;font-size:30px}.seo-lightbox-prev{left:24px}.seo-lightbox-next{right:24px}
+.seo-lightbox-close:hover,.seo-lightbox-nav:hover{background:var(--gold)}body.seo-lightbox-open{overflow:hidden}
+
 /* Fiyat karsilastirma ve program kartlari */
 .seo-page .seo-program-card{min-height:100%;padding:0;background:#fff}
 .seo-page .seo-program-card>img{height:230px;transition:transform .55s cubic-bezier(.2,.7,.2,1),filter .35s ease}
@@ -835,11 +877,17 @@ body[data-page="public"] .section.container{
     .seo-page .seo-section-head p{font-size:15px}
     .seo-page .seo-card{padding:22px}
     .seo-page .seo-hotel-card>div,.seo-page .seo-program-card-body{padding:22px}
+    .seo-page .seo-hotel-media{height:210px}
+    .seo-page .seo-detail-panel-head{align-items:flex-start;flex-direction:column}
+    .seo-page .seo-program-note{grid-template-columns:1fr;gap:4px}
     .seo-page .seo-program-card>img{height:210px}
     .seo-page .seo-program-prices{grid-template-columns:1fr}
     .seo-page .seo-price-card.featured:after{position:static;align-self:flex-start;order:-1}
-    .seo-page .seo-gallery figure{aspect-ratio:1.25/1}
-    .seo-page .seo-gallery figure,.seo-page .seo-gallery img{min-height:210px}
+    .seo-page .seo-gallery figure{aspect-ratio:auto}
+    .seo-page .seo-gallery figure,.seo-page .seo-gallery img{min-height:0}
+    .seo-page .seo-gallery-button{aspect-ratio:16/10}
+    .seo-lightbox{padding:12px}.seo-lightbox-figure{width:100%;height:min(82svh,680px);border-radius:18px}
+    .seo-lightbox-close{right:14px;top:14px;width:44px;height:44px}.seo-lightbox-nav{width:44px;height:44px}.seo-lightbox-prev{left:12px}.seo-lightbox-next{right:12px}.seo-lightbox figcaption{padding:14px 16px}
     .seo-page .seo-article>.seo-card{border-radius:22px}
     .seo-page .seo-article .seo-prose>p:first-of-type::first-letter{font-size:2.7em}
     .seo-page .seo-expired{padding:22px}
