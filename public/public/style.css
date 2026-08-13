@@ -91,6 +91,13 @@ a{color:inherit;text-decoration:none}img{max-width:100%;display:block}button,inp
 .site-header .nav-links{margin-left:6px}
 .site-header .nav-actions{margin-left:auto}
 .tour-bottom .price{font-size:19px;line-height:1.12;letter-spacing:-.02em;white-space:normal}
+.tour-card .tour-bottom{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px;padding-top:14px;border-top:1px solid var(--line)}
+.tour-card .tour-price-block{display:grid;gap:5px;min-width:0}
+.tour-card .tour-price-block small{font-size:10px;line-height:1;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:900}
+.tour-card .tour-price-block strong{font-size:16px;line-height:1.16;letter-spacing:-.025em}
+.tour-card .small-btn{min-height:44px;padding:11px 13px;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;background:linear-gradient(135deg,var(--gold),var(--gold2));box-shadow:0 10px 20px rgba(196,145,47,.2)}
+.tour-card .small-btn span{transition:transform .2s ease}.tour-card .small-btn:hover span{transform:translateX(3px)}
+@media(max-width:420px){.tour-card .tour-bottom{grid-template-columns:1fr}.tour-card .small-btn{width:100%}}
 @media(max-width:1100px){.site-header .logo-wrap{flex-basis:185px;width:185px}.site-header .logo{width:185px}.site-header .nav-links{gap:14px}.site-header .nav-actions .btn{padding:11px 16px}}
 @media(max-width:820px){.site-header .logo-wrap{flex-basis:178px;width:178px}.site-header .logo{width:178px;max-height:46px}.site-header .nav-links{margin-left:0}.site-header .nav-actions{margin-left:0}}
 
@@ -146,6 +153,156 @@ a{color:inherit;text-decoration:none}img{max-width:100%;display:block}button,inp
 
 .banner-admin-box{border:1px solid var(--line);border-radius:22px;padding:18px;margin:12px 0 18px;background:#fffaf2}.banner-editor{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0}.banner-preview{height:220px}.hero-banner-admin-list{margin-top:14px}.hero-banner-admin-item{grid-template-columns:38px 110px 1fr auto;align-items:center}.hero-banner-admin-item img{width:110px;height:72px;object-fit:cover;border-radius:13px;background:#111}.hint-text{color:var(--muted);font-size:13px;font-weight:700}
 @media(max-width:820px){.gallery-grid.gallery-marquee .gallery-item{flex-basis:88vw;min-width:88vw}.gallery-nav{width:44px;height:44px;font-size:34px}.gallery-viewer-footer{align-items:flex-start;flex-direction:column}.gallery-viewer-footer span{margin:0 0 18px 24px}.hero-banner-admin-item{grid-template-columns:38px 1fr}.hero-banner-admin-item img{grid-column:1/-1;width:100%;height:140px}.hero-copy.hero-pos-right{text-align:left;margin-left:0}.hero-copy.hero-pos-center{text-align:left;margin-inline:0}.hero-copy.hero-pos-center .hero-buttons,.hero-copy.hero-pos-right .hero-buttons{justify-content:flex-start}}
+
+/* 2026 responsive interaction and modal refinements */
+.site-header .nav{width:min(1500px,96vw)}
+.hero{touch-action:pan-y;cursor:grab}
+.hero.is-dragging,.gallery-viewer.is-dragging{cursor:grabbing}
+.hero.is-dragging *,.gallery-viewer.is-dragging *{user-select:none}
+
+.tour-modal{align-items:flex-start;overflow-y:auto;padding:clamp(18px,4vh,38px) 18px}
+.modal-card{width:min(820px,96vw);max-height:none;overflow:visible}
+.modal-close{
+    position:absolute;top:12px;right:12px;float:none;margin:0;padding:0;
+    width:44px;height:44px;display:grid;place-items:center;
+    line-height:1;font-family:Arial,sans-serif;font-size:30px;font-weight:400;
+    border:2px solid rgba(255,255,255,.28);z-index:20
+}
+.modal-content>img{height:clamp(230px,38vh,390px);object-fit:contain;background:#090a0d}
+.program-preview{margin:22px 0 16px;padding:17px 18px;background:#faf6ed;border:1px solid var(--line);border-radius:18px}
+.program-preview h3{margin:0 0 7px}
+.program-preview>p{margin:0 0 10px;color:#625b51;line-height:1.55}
+.program-preview details{border-top:1px solid var(--line);padding-top:10px}
+.program-preview summary{cursor:pointer;color:#9b6c16;font-weight:900}
+.program-preview pre{margin:12px 0 0;max-height:none}
+.tour-whatsapp-cta{width:100%}
+
+.modal-card:has(.gallery-viewer){width:min(1180px,96vw);overflow:hidden}
+.gallery-viewer{touch-action:pan-y;cursor:grab}
+.gallery-viewer img{
+    width:100%;height:min(72vh,720px);min-height:0;max-height:calc(100dvh - 150px);
+    object-fit:contain;background:#07080a
+}
+.gallery-viewer-footer h2{margin:0}
+
+@media(max-width:1350px){
+    .site-header .nav{gap:10px}
+    .site-header .nav{height:auto;min-height:72px;flex-wrap:wrap;padding:12px 0}
+    .site-header .menu-toggle{display:block;margin-left:auto}
+    .site-header .nav-links,.site-header .nav-actions{display:none;width:100%;margin-left:0}
+    .site-header .nav-links.open,.site-header .nav-actions.open{display:flex}
+    .site-header .nav-links.open,.site-header .nav-actions.open{background:rgba(10,10,12,.97);padding:14px;border-radius:16px}
+    .site-header .nav-links.open{flex-direction:column;align-items:stretch;gap:10px}
+    .site-header .nav-links.open a{padding:8px 2px}
+    .site-header .nav-actions.open{margin-bottom:10px;gap:10px;flex-wrap:wrap}
+}
+
+@media(max-width:720px){
+    .container{width:min(94vw,100%)}
+    .site-header .nav{padding:10px 0}
+    .site-header .logo-wrap{min-width:145px;width:145px;flex-basis:145px}
+    .site-header .logo{width:145px}
+    .hero{min-height:620px}
+    .hero-inner{padding-top:96px}
+    .hero h1{font-size:clamp(38px,12vw,58px)}
+    .floating-contact{right:8px;top:auto;bottom:12px;border-radius:18px;display:flex}
+    .float-item{width:82px;height:58px;font-size:10px;border-bottom:0;border-right:1px solid var(--line)}
+    .float-item:last-child{border-right:0}
+    .trust-panel{margin-top:-30px}
+    .tour-modal{padding:10px 7px}
+    .modal-card{width:100%;border-radius:20px}
+    .modal-close{top:9px;right:9px;width:42px;height:42px;font-size:28px}
+    .modal-content>img{height:min(34vh,280px)}
+    .modal-content>div{padding:22px 18px}
+    .modal-content h2{font-size:28px;padding-right:34px}
+    .program-preview{padding:15px}
+    .gallery-viewer img{height:calc(100dvh - 145px);max-height:none}
+    .gallery-viewer-footer{min-height:78px;gap:6px}
+    .gallery-viewer-footer h2{padding:14px 18px!important;font-size:22px}
+    .gallery-viewer-footer span{margin:0 0 14px 18px}
+    .gallery-nav{top:46%}
+    .gallery-prev{left:8px}.gallery-next{right:8px}
+    .passenger-list-top{align-items:stretch}
+    .passenger-list-top .admin-item-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+    .passenger-list-top .admin-item-actions .icon-btn{width:100%}
+}
+
+@media(max-width:430px){
+    .hero-buttons .btn{width:100%}
+    .passenger-list-top .admin-item-actions{grid-template-columns:1fr}
+}
+
+/* 2026-07 carousel, modal and layered-page refinements */
+body.modal-open{overflow:hidden;padding-right:var(--modal-scrollbar-compensation,0)}
+body[data-page="public"]{background:var(--soft)}
+body[data-page="public"] .hero{position:sticky;top:0;z-index:0}
+body[data-page="public"] .trust-panel,
+body[data-page="public"] .section,
+body[data-page="public"] .cta-strip,
+body[data-page="public"] .footer{position:relative;z-index:2}
+body[data-page="public"] .section.container{
+    background:var(--soft);
+    box-shadow:0 0 0 100vmax var(--soft);
+    clip-path:inset(0 -100vmax)
+}
+
+.hero-bg{--hero-drag-x:0px;transform:none;overflow:hidden}
+.hero-slide{
+    opacity:0;transform:translate3d(calc(100% + var(--hero-drag-x)),0,0) scale(1.015);
+    transition:transform .32s cubic-bezier(.22,.8,.22,1),opacity .12s ease
+}
+.hero-slide.active{opacity:1;transform:translate3d(var(--hero-drag-x),0,0) scale(1.015)}
+.hero-slide.prev{opacity:1;transform:translate3d(calc(-100% + var(--hero-drag-x)),0,0) scale(1.015)}
+.hero-slide.next{opacity:1;transform:translate3d(calc(100% + var(--hero-drag-x)),0,0) scale(1.015)}
+.hero-bg.is-dragging .hero-slide,.hero-bg.no-transition .hero-slide{transition:none}
+.hero-copy{max-width:700px;transform:translateY(14px)}
+.hero-copy.hero-pos-center{max-width:760px}
+.hero-copy.hero-pos-right{max-width:660px;margin-right:clamp(20px,5vw,90px)}
+
+.review-track{display:flex;gap:18px;will-change:transform;animation:reviewLoop 34s linear infinite}
+.review-group{display:flex;gap:18px;flex:none}
+.review-card{flex:0 0 330px}
+@keyframes reviewLoop{from{transform:translate3d(0,0,0)}to{transform:translate3d(calc(-50% - 9px),0,0)}}
+
+.tour-modal{overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.tour-modal .modal-card{overflow:visible}
+.tour-modal-cover{
+    position:relative;width:100%;height:clamp(260px,43vh,460px);overflow:hidden;
+    background-position:center;background-size:cover;background-repeat:no-repeat
+}
+.tour-modal-cover:before,.gallery-slide:before{
+    content:"";position:absolute;inset:0;background:rgba(8,8,10,.12);backdrop-filter:blur(14px);transform:scale(1.08)
+}
+.tour-modal-cover img{
+    position:relative;z-index:1;width:100%;height:100%;object-fit:contain;background:transparent
+}
+
+.gallery-stage{position:relative;overflow:hidden;background:#f4f1ea}
+.gallery-strip{
+    display:flex;width:300%;transform:translate3d(calc(-33.333333% + var(--gallery-drag-x,0px)),0,0);
+    transition:transform .28s cubic-bezier(.22,.8,.22,1);will-change:transform
+}
+.gallery-viewer.is-dragging .gallery-strip{transition:none}
+.gallery-slide{
+    position:relative;flex:0 0 33.333333%;height:min(72vh,720px);
+    background-position:center;background-size:cover;background-repeat:no-repeat;overflow:hidden
+}
+.gallery-slide img{
+    position:relative;z-index:1;width:100%;height:100%;min-height:0;max-height:none;
+    object-fit:contain;background:transparent;pointer-events:none
+}
+.gallery-nav{top:50%;padding:0;line-height:0}
+.gallery-nav svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.gallery-viewer-footer{position:relative;z-index:2}
+
+@media(max-width:720px){
+    body[data-page="public"] .hero{position:relative}
+    body[data-page="public"] .hero{min-height:820px;place-items:start center}
+    body[data-page="public"] .hero-inner{padding-top:128px;padding-bottom:72px}
+    .hero-copy{transform:none}
+    .tour-modal-cover{height:min(34vh,300px)}
+    .gallery-slide{height:calc(100dvh - 145px)}
+}
 /* Yolcu Listesi Renklendirme ve Pasaport Uyarısı */
 .passport-warning {
     background-color: rgba(211, 47, 47, 0.04) !important;
@@ -196,6 +353,509 @@ a{color:inherit;text-decoration:none}img{max-width:100%;display:block}button,inp
     color: #c62828;
     border-color: #ffcdd2;
 }
-.filter-expiring-cb:checked ~ .passenger-room-area .passenger-order-row:not(.passport-warning) {
+.filter-expiring-cb:checked ~ .passenger-room-area .passenger-order-row:not(.passport-warning):not(.passport-missing) {
     display: none !important;
+}
+
+/* Hazeyn operasyon ve yolculuk hazırlık arayüzü */
+.hero-proof{display:flex;gap:8px;flex-wrap:wrap;margin-top:26px}.hero-proof span{display:flex;align-items:center;gap:9px;padding:10px 13px;border-radius:14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);font-size:12px;font-weight:800;color:rgba(255,255,255,.84);backdrop-filter:blur(10px)}.hero-proof b{color:var(--gold2);font-size:11px}
+.travel-hub{padding-top:92px}.travel-hub .section-head{align-items:end}.section-intro{max-width:430px;margin:0;color:var(--muted);line-height:1.65}.travel-tool-grid{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:18px}.travel-tool{position:relative;min-height:430px;border:1px solid var(--line);border-radius:28px;padding:28px;background:#fff;box-shadow:0 18px 50px rgba(40,28,12,.08);overflow:hidden}.travel-tool:before{content:"";position:absolute;width:180px;height:180px;border-radius:50%;right:-75px;top:-85px;background:radial-gradient(circle,rgba(224,180,90,.22),transparent 68%)}.tool-number{display:inline-grid;place-items:center;width:42px;height:42px;border-radius:13px;background:#f5ead4;color:#8a6120;font-weight:950}.travel-tool h3{font-size:26px;letter-spacing:-.03em;margin:22px 0 10px}.travel-tool>p{color:var(--muted);line-height:1.6}.tool-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:20px 0 12px}.tool-form label{font-size:12px;font-weight:900;color:#544a3d}.tool-form input{display:block;width:100%;margin-top:7px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff}.passport-result{margin-top:12px;padding:13px;border-radius:13px;background:#f7f4ee;color:#6c6255;font-size:13px;line-height:1.45}.passport-result.ok{background:#e8f5e9;color:#1b5e20}.passport-result.danger{background:#ffebee;color:#b71c1c}.passport-result.missing{background:#fff4ce;color:#765200}.travel-checklist{display:grid;gap:9px;margin:18px 0}.travel-checklist label{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:12px;background:#faf8f4;font-weight:750;color:#493f33}.travel-checklist input{accent-color:var(--gold);width:17px;height:17px}.checklist-progress{height:8px;border-radius:999px;background:#eee8dd;overflow:hidden;margin:17px 0 10px}.checklist-progress span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--gold),var(--gold2));transition:width .25s ease}.next-tour-summary{margin:22px 0;padding:22px;border-radius:20px;background:linear-gradient(145deg,#171719,#2c2315);color:#fff}.next-tour-summary>span{color:var(--gold2);font-size:12px;text-transform:uppercase;letter-spacing:.12em;font-weight:900}.next-tour-summary h4{font-size:28px;line-height:1.05;margin:14px 0 8px}.next-tour-summary p{font-size:18px;font-weight:900;margin:0 0 8px}.next-tour-summary small{color:rgba(255,255,255,.68);line-height:1.45}.tool-link{display:block;margin-top:18px;text-align:center;color:var(--gold);font-weight:900;font-size:13px}
+.rooming-preview{border:2px solid #222;border-radius:2px;overflow:hidden;margin-bottom:16px;background:#fff}.rooming-preview-head{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:13px 15px;border-bottom:2px solid #222}.rooming-preview-head>div{display:flex;align-items:center;gap:34px}.rooming-preview-head span{font-weight:950;font-size:16px}.rooming-preview-head strong{font-size:18px}.rooming-preview-head small{color:var(--muted);font-weight:800}.rooming-table{width:100%;border-collapse:collapse;min-width:920px;font-size:13px}.rooming-table th,.rooming-table td{border:1px solid #222;padding:8px 9px;text-align:left}.rooming-table th{background:#e2f0d9;font-weight:950;text-align:center}.rooming-table th:nth-child(6){background:#222;color:#fff}.rooming-table th:nth-child(7){background:#7ed957;color:#111}.rooming-shared{text-align:center!important;font-weight:900;vertical-align:middle}.rooming-type{color:#d11b1b}.rooming-table .passport-status{margin:0 6px 3px 0}.rooming-table td small{display:block;color:inherit}.passenger-details{border:1px solid var(--line);border-radius:15px;background:#fff}.passenger-details summary{cursor:pointer;padding:14px 16px;font-weight:900;color:#5f4b25}.passport-status{display:block;width:max-content;margin-top:5px;padding:3px 7px;border-radius:999px;font-size:10px;font-weight:900}.passport-status.ok{background:#e8f5e9;color:#1b5e20}.passport-status.danger{background:#ffebee;color:#b71c1c}.passport-status.missing{background:#fff4ce;color:#765200}.passport-missing td{background:#fffaf0!important;color:#765200}.excel-btn{background:#e6f4ea!important;color:#137333!important;border-color:#a8dab5!important}
+.filter-expiring-cb:checked ~ .passenger-room-area .passenger-order-row:not(.passport-warning):not(.passport-missing){display:none!important}
+@media(max-width:1050px){.travel-tool-grid{grid-template-columns:1fr 1fr}.next-tour-tool{grid-column:1/-1;min-height:auto}.section-intro{display:none}}
+@media(max-width:720px){.hero-proof span{width:100%}.travel-tool-grid{grid-template-columns:1fr}.next-tour-tool{grid-column:auto}.travel-tool{min-height:auto;padding:22px}.tool-form{grid-template-columns:1fr}.rooming-preview-head{align-items:flex-start;flex-direction:column}.rooming-preview-head>div{align-items:flex-start;flex-direction:column;gap:5px}}
+
+/* 2026-08 arayüz ve çıktı iyileştirmeleri */
+[hidden]{display:none!important}
+.split-section.single-tour-group{grid-template-columns:1fr}
+
+.review-marquee:hover .review-track{animation-play-state:running}
+.review-track{animation:reviewLoop 46s linear infinite}
+.review-card{transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease;transform-origin:center}
+.review-card:hover{transform:translateY(-10px);box-shadow:0 22px 42px rgba(38,27,10,.14);border-color:rgba(196,145,47,.38)}
+
+.scroll-reveal{opacity:0;transform:translateY(34px) scale(.985);transition:opacity .68s ease,transform .68s cubic-bezier(.2,.75,.25,1);transition-delay:var(--reveal-delay,0ms);animation:none!important}
+.scroll-reveal.in-view{opacity:1;transform:none}
+
+.why-section{isolation:isolate}
+.why-card{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(420px,.95fr);gap:54px;padding:clamp(38px,5vw,68px);background:radial-gradient(circle at 12% 8%,rgba(230,181,79,.18),transparent 28%),linear-gradient(135deg,#0b0c10 0%,#181510 58%,#251a0c 100%);border:1px solid rgba(255,255,255,.08);box-shadow:0 28px 80px rgba(28,20,8,.2)}
+.why-card:before{content:"";position:absolute;right:-130px;top:-170px;width:440px;height:440px;border:1px solid rgba(230,181,79,.2);border-radius:50%;box-shadow:0 0 0 55px rgba(230,181,79,.045),0 0 0 110px rgba(230,181,79,.025);pointer-events:none}
+.why-card:after{content:"✦";position:absolute;right:42%;bottom:26px;color:rgba(230,181,79,.23);font-size:70px;line-height:1;pointer-events:none}
+.why-copy{position:relative;z-index:1;align-self:center}
+.why-copy h2{font-size:clamp(34px,4.4vw,58px);line-height:1.02;letter-spacing:-.045em;margin:0 0 22px;max-width:680px}
+.why-copy h2 em{font-style:normal;color:var(--gold2)}
+.why-copy p{font-size:17px;line-height:1.75;max-width:620px;margin:0}
+.why-link{display:inline-flex;align-items:center;gap:14px;margin-top:28px;color:#fff;font-weight:900;border-bottom:1px solid rgba(230,181,79,.45);padding-bottom:9px}
+.why-link span{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--gold);transition:transform .2s ease}
+.why-link:hover span{transform:translateX(5px)}
+.why-features{display:grid;grid-template-columns:1fr 1fr;gap:14px;position:relative;z-index:1}
+.why-features article{display:grid;grid-template-columns:auto 1fr;gap:15px;align-items:start;padding:22px;border:1px solid rgba(255,255,255,.11);border-radius:22px;background:rgba(255,255,255,.055);backdrop-filter:blur(10px);transition:border-color .2s ease,background .2s ease,transform .2s ease}
+.why-features article:hover{transform:translateY(-4px);border-color:rgba(230,181,79,.48);background:rgba(255,255,255,.09)}
+.why-features article>b{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:rgba(230,181,79,.16);color:var(--gold2);font-size:12px;letter-spacing:.08em}
+.why-features strong,.why-features span{display:block}.why-features strong{font-size:16px;margin:1px 0 7px}.why-features span{color:rgba(255,255,255,.64);font-size:13px;line-height:1.5}
+.why-section .watermark{right:-3%;bottom:3%;opacity:.035}
+
+.gallery-slide:before{display:none!important}
+.gallery-stage,.gallery-slide{background:#fff!important}
+.gallery-slide{height:min(68vh,680px);background-image:none!important}
+.gallery-slide img{object-fit:contain!important;background:#fff!important}
+.gallery-nav{top:50%;transform:translateY(-50%)}
+.gallery-nav svg{display:block;margin:auto}
+
+.cta-grid{grid-template-columns:minmax(300px,.82fr) minmax(680px,1.45fr)}
+.contact-cards{grid-template-columns:1.15fr .95fr 1.05fr .85fr;gap:12px}
+.contact-card{min-width:0;padding:20px 15px;justify-content:center}
+.contact-card>span{font-size:15px;line-height:1.45;overflow-wrap:anywhere}
+#phoneText{white-space:nowrap;overflow-wrap:normal;font-variant-numeric:tabular-nums}
+
+.surname-toggle-btn.active{background:#1f6e43;color:#fff;box-shadow:0 8px 18px rgba(31,110,67,.2)}
+.room-band-blue>td,.rooming-table tr.room-band-blue>td{background:#dff2ff!important}
+.room-band-gold>td,.rooming-table tr.room-band-gold>td{background:#fff1c7!important}
+
+@media(max-width:1180px){
+    .cta-grid{grid-template-columns:1fr}
+    .contact-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:980px){
+    .why-card{grid-template-columns:1fr;gap:34px}
+    .why-features{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:720px){
+    .review-card{flex-basis:84vw;width:84vw}
+    .why-card{padding:30px 22px;border-radius:26px}
+    .why-features{grid-template-columns:1fr}
+    .why-card:after{display:none}
+    .why-section .watermark{right:0;max-width:100%}
+    .contact-cards{grid-template-columns:1fr}
+    .gallery-slide{height:calc(100dvh - 180px);min-height:280px}
+    .gallery-nav{width:42px;height:42px}.gallery-prev{left:10px}.gallery-next{right:10px}
+}
+@media(prefers-reduced-motion:reduce){
+    .review-track,.gallery-track{animation:none!important}
+    .scroll-reveal{opacity:1;transform:none;transition:none}
+}
+
+/* Apple esintili tam ekran mobil menü */
+.mobile-nav-overlay{display:none}
+@media(max-width:1350px){
+    body.mobile-menu-open{overflow:hidden;touch-action:none}
+    body.mobile-menu-open .site-header{z-index:60;background:#0b0b0d;border-bottom-color:transparent;backdrop-filter:none}
+    .site-header .nav-links,.site-header .nav-actions{display:none!important}
+    .menu-toggle{position:relative;z-index:62;width:46px;height:46px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.08);display:grid;place-items:center;transition:background .28s ease}
+    .menu-toggle.open{background:rgba(255,255,255,.13)}
+    .menu-icon{position:absolute;inset:50% auto auto 50%;width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.85;stroke-linecap:round;stroke-linejoin:round;transform-origin:center;transition:opacity .24s ease,transform .4s cubic-bezier(.2,.8,.2,1)}
+    .menu-icon-bars{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0)}
+    .menu-icon-close{opacity:0;transform:translate(-50%,-50%) scale(.68) rotate(-45deg)}
+    .menu-toggle.open .menu-icon-bars{opacity:0;transform:translate(-50%,-50%) scale(.68) rotate(45deg)}
+    .menu-toggle.open .menu-icon-close{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0)}
+    .mobile-nav-overlay{display:block;position:fixed;inset:0;z-index:55;background:#0b0b0d;color:#fff;opacity:0;visibility:hidden;transform:translateY(-16px) scale(.985);transition:opacity .34s ease,transform .46s cubic-bezier(.2,.8,.2,1),visibility .46s;overflow-y:auto;overscroll-behavior:contain}
+    .mobile-nav-overlay.open{opacity:1;visibility:visible;transform:none}
+    .mobile-nav-shell{width:min(100% - 44px,620px);min-height:100%;margin:auto;padding:112px 0 max(34px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:38px}
+    .mobile-nav-links{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+    .mobile-nav-links a{width:100%;padding:10px 0;color:#f5f5f7;font-size:clamp(30px,8.8vw,46px);font-weight:600;line-height:1.08;letter-spacing:-.035em;opacity:0;transform:translateY(28px);transition:opacity .34s ease,transform .48s cubic-bezier(.2,.8,.2,1);transition-delay:calc(var(--menu-index,0) * 32ms)}
+    .mobile-nav-overlay.open .mobile-nav-links a{opacity:1;transform:none}
+    .mobile-nav-actions{margin-top:auto;padding:18px;border:1px solid rgba(255,255,255,.1);border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(230,181,79,.045));display:grid;gap:12px;opacity:0;transform:translateY(24px);transition:opacity .4s .24s ease,transform .48s .24s cubic-bezier(.2,.8,.2,1)}
+    .mobile-nav-overlay.open .mobile-nav-actions{opacity:1;transform:none}
+    .mobile-nav-actions .btn{width:100%;min-height:58px;font-size:17px;border-radius:999px}
+    .mobile-nav-actions .btn-gold{box-shadow:0 13px 30px rgba(196,145,47,.28)}
+    .mobile-nav-overlay{scrollbar-width:none}
+    .mobile-nav-overlay::-webkit-scrollbar{width:0;height:0}
+}
+@media(max-width:520px){
+    .mobile-nav-shell{width:calc(100% - 36px);padding:84px 0 max(12px,env(safe-area-inset-bottom));gap:20px}
+    .mobile-nav-links{gap:2px}
+    .mobile-nav-links a{padding:7px 0;font-size:clamp(29px,8vw,38px)}
+    .mobile-nav-actions{padding:14px;gap:10px;border-radius:24px}
+    .mobile-nav-actions .btn{min-height:52px;font-size:16px}
+}
+
+/* Görsel pencereleri: yalnızca yüklenen görsel, arka plan kopyası ve beyaz şerit yok */
+.gallery-modal-card{width:auto!important;max-width:96vw!important;max-height:none!important;overflow:visible!important;background:transparent!important;border-radius:0!important;box-shadow:none!important}
+.gallery-modal-card .modal-close,.tour-detail-modal-card .modal-close,.blog-modal-card .modal-close{position:absolute!important;top:12px!important;right:12px!important;float:none!important;margin:0!important;z-index:12}
+.gallery-viewer,.gallery-viewer *,.tour-modal-cover,.tour-modal-cover *{-webkit-user-select:none!important;user-select:none!important;-webkit-user-drag:none!important}
+.gallery-stage{width:min(94vw,1180px);height:min(84vh,800px);max-width:94vw;max-height:88vh;background:transparent!important;touch-action:pan-y;cursor:grab}
+.gallery-stage:active{cursor:grabbing}
+.gallery-strip{height:100%}
+.gallery-slide{height:100%!important;background:transparent!important}
+.gallery-slide:before,.tour-modal-cover:before{display:none!important;content:none!important}
+.gallery-slide img{width:100%!important;height:100%!important;object-fit:contain!important;background:transparent!important;-webkit-user-drag:none!important;user-select:none!important}
+.modal-body.is-dragging .gallery-strip{transition:none!important}
+
+.tour-detail-modal-card{overflow:auto!important}
+.tour-detail-modal-card .tour-modal-cover{height:auto!important;min-height:0!important;background:none!important;overflow:hidden}
+.tour-detail-modal-card .tour-modal-cover img{width:100%!important;height:auto!important;max-height:72vh!important;object-fit:contain!important;background:transparent!important}
+.blog-modal-card{width:min(820px,94vw)!important;max-height:min(82vh,760px)!important;overflow:auto!important;margin:auto!important}
+
+.page-banner-admin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:18px}
+.page-banner-admin-grid .banner-admin-box{margin:0}
+.airport-fields input{text-transform:uppercase;letter-spacing:.12em;font-weight:900}
+.flight-excel-btn{background:#e8f0ff!important;color:#234f91!important}
+
+@media(max-width:820px){
+    .page-banner-admin-grid{grid-template-columns:1fr}
+    .gallery-stage{max-width:100vw;max-height:82vh}
+    .gallery-modal-card{max-width:100vw!important}
+    .gallery-modal-card .modal-close{top:8px!important;right:8px!important}
+}
+
+/* Banner siniri ve galeri basligi */
+.hero-bg{
+    overflow:hidden!important;
+    clip-path:inset(0);
+    contain:paint;
+    isolation:isolate;
+}
+.hero-slide{
+    inset-block:0!important;
+    left:-2px!important;
+    right:-2px!important;
+    width:calc(100% + 4px)!important;
+    backface-visibility:hidden;
+    background-color:#111;
+}
+.hero-slide.prev{opacity:0;transform:translate3d(calc(-100.5% + var(--hero-drag-x)),0,0) scale(1.015)}
+.hero-slide.next{opacity:0;transform:translate3d(calc(100.5% + var(--hero-drag-x)),0,0) scale(1.015)}
+.hero-bg.is-dragging .hero-slide.prev,
+.hero-bg.is-dragging .hero-slide.next,
+.hero-bg.is-animating .hero-slide.prev,
+.hero-bg.is-animating .hero-slide.next{opacity:1}
+
+.gallery-modal-card .modal-body{overflow:visible}
+.gallery-viewer{width:fit-content;max-width:94vw;background:transparent!important}
+.gallery-viewer-footer{
+    width:100%;min-height:72px;padding:0 20px;
+    display:flex!important;align-items:center!important;justify-content:space-between!important;
+    flex-direction:row!important;gap:16px;background:#fff!important;color:#111!important;
+    border-radius:0 0 22px 22px;box-sizing:border-box
+}
+.gallery-viewer-footer h2{margin:0!important;padding:18px 0!important;font-size:26px;line-height:1.2}
+.gallery-viewer-footer span{margin:0!important;flex:none}
+.gallery-stage{border-radius:22px 22px 0 0}
+
+@media(max-width:720px){
+    .gallery-viewer{max-width:100vw}
+    .gallery-viewer-footer{min-height:64px;padding:0 16px;border-radius:0}
+    .gallery-viewer-footer h2{padding:14px 0!important;font-size:20px}
+    .gallery-stage{border-radius:0}
+}
+
+/* Dinamik program, fiyat, rehber ve yerel SEO sayfalari
+   Ana sayfa/hero stillerinden bilincli olarak ayridir. */
+.seo-page main{overflow:hidden}
+.seo-skip{position:fixed;left:12px;top:-60px;z-index:100;background:#fff;padding:10px 14px;border-radius:10px}
+.seo-skip:focus{top:12px}
+.seo-hero{position:relative;min-height:540px;display:flex;align-items:flex-end;color:#fff;background:#111;padding:150px 0 72px}
+.seo-hero-media{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.seo-hero:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,5,8,.92),rgba(8,8,10,.58) 58%,rgba(8,8,10,.2))}
+.seo-hero-copy{position:relative;z-index:1;max-width:820px;color:#fff}
+.seo-hero h1{font-size:clamp(42px,6vw,76px);letter-spacing:-.05em;line-height:1.02;margin:0 0 18px;color:#fff}
+.seo-hero p{font-size:clamp(17px,2vw,23px);color:rgba(255,255,255,.84);max-width:720px;margin:0}
+.seo-breadcrumb{display:flex;gap:8px;flex-wrap:wrap;font-size:13px;margin-bottom:18px;color:rgba(255,255,255,.75)}
+.seo-breadcrumb a{color:var(--gold2)}
+.seo-content{padding:64px 0}
+.seo-overview{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:-100px;position:relative;z-index:4}
+.seo-stat,.seo-card{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:0 16px 40px rgba(30,20,8,.08)}
+.seo-stat{padding:21px}
+.seo-stat small{display:block;color:var(--muted);font-weight:800;margin-bottom:6px}
+.seo-stat strong{font-size:18px;display:block}
+.seo-section{padding:56px 0 0}
+.seo-section-head{margin-bottom:24px}
+.seo-section-head h2{font-size:clamp(30px,4vw,46px);letter-spacing:-.04em;line-height:1.06;margin:0}
+.seo-section-head p{color:var(--muted);max-width:720px}
+.seo-grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.seo-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.seo-card{padding:26px}
+.seo-card h2,.seo-card h3{margin:0 0 12px}
+.seo-card p:last-child{margin-bottom:0}
+.seo-hotel-card{padding:0;overflow:hidden}
+.seo-hotel-card>div{padding:26px}
+.seo-hotel-card b{display:block;color:var(--gold);margin-top:12px}
+.seo-price-card{display:flex;flex-direction:column;gap:12px;min-height:190px}
+.seo-price-card strong{font-size:26px;margin-top:auto}
+.seo-check-list{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+.seo-check-list li{position:relative;padding-left:25px}
+.seo-check-list li:before{content:"✓";position:absolute;left:0;color:var(--gold);font-weight:900}
+.seo-check-list.excluded li:before{content:"–"}
+.seo-prose{font-size:17px;color:#38332d}
+.seo-prose p{margin:0 0 18px}
+.seo-gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.seo-gallery figure{margin:0;border-radius:20px;overflow:hidden;background:#111;min-height:240px}
+.seo-gallery img{width:100%;height:100%;min-height:240px;object-fit:cover}
+.seo-expired{display:flex;align-items:center;justify-content:space-between;gap:20px;background:#241d15;color:#fff;border-radius:22px;padding:24px 28px;margin:24px 0}
+.seo-expired strong{font-size:22px}
+.seo-expired p{margin:4px 0 0;color:rgba(255,255,255,.72)}
+.seo-program-card{padding:0;overflow:hidden;display:flex;flex-direction:column}
+.seo-program-card img{width:100%;height:210px;object-fit:cover}
+.seo-program-card-body{padding:24px;display:flex;flex-direction:column;gap:12px;flex:1}
+.seo-program-card h2,.seo-program-card h3{margin:0;font-size:25px}
+.seo-program-meta{display:flex;flex-wrap:wrap;gap:8px}
+.seo-pill{border:1px solid var(--line);background:var(--soft);border-radius:999px;padding:7px 11px;font-size:13px;font-weight:800}
+.seo-program-prices{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.seo-program-prices span{background:#f8f3e9;border-radius:12px;padding:10px}
+.seo-program-prices small{display:block;color:var(--muted)}
+.seo-program-prices b{display:block}
+.seo-program-card .btn{margin-top:auto}
+.seo-article{max-width:900px}
+.seo-article .seo-card{padding:clamp(26px,5vw,54px)}
+.seo-article h2{font-size:32px;margin-top:34px}
+.seo-article-cta{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:38px}
+.seo-local-intro{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.seo-map{border:0;width:100%;min-height:380px;border-radius:22px}
+.seo-review{padding:24px}
+.seo-stars{color:var(--gold);letter-spacing:2px}
+.seo-mobile-whatsapp{display:none}
+.seo-page{
+    --seo-card-shadow:0 18px 46px rgba(28,20,10,.075);
+    --seo-card-shadow-hover:0 25px 58px rgba(28,20,10,.13);
+    background:
+        radial-gradient(circle at 84% 18%,rgba(224,180,90,.08),transparent 26rem),
+        var(--bg);
+}
+.seo-page main{isolation:isolate}
+.seo-page .seo-skip{
+    color:var(--ink);font-weight:850;border:1px solid var(--line);
+    box-shadow:0 12px 30px rgba(0,0,0,.16)
+}
+.seo-page :where(.seo-card,.seo-stat,.seo-map,.seo-program-card,.seo-expired){scroll-margin-top:110px}
+.seo-page :where(a,button):focus-visible{outline:3px solid var(--gold2);outline-offset:4px}
+
+/* SEO sayfalarinin sikisik masaustu basligi */
+.seo-page .seo-site-header{background:rgba(9,9,11,.82);box-shadow:0 10px 28px rgba(0,0,0,.12)}
+.seo-page .seo-site-header .nav{gap:14px}
+.seo-page .seo-site-header .logo-wrap{min-width:150px}
+.seo-page .seo-site-header .logo{width:150px}
+.seo-page .seo-site-header .nav-links{gap:13px}
+.seo-page .seo-site-header .nav-links a{font-size:12px;white-space:nowrap;transition:color .2s ease,opacity .2s ease}
+.seo-page .seo-site-header .nav-actions{gap:7px}
+.seo-page .seo-site-header .nav-actions .btn{padding:10px 13px;font-size:12px}
+
+/* Dinamik sayfa hero'su: ayni tipografi ve altin/siyah atmosfer */
+.seo-page .seo-hero{
+    min-height:560px;padding:158px 0 78px;isolation:isolate;overflow:hidden;
+    background:linear-gradient(135deg,#0c0c0e,#211b13)
+}
+.seo-page .seo-hero-media{
+    transform:scale(1.015);filter:saturate(.9) contrast(1.03);
+    transition:transform 9s cubic-bezier(.2,.7,.2,1)
+}
+.seo-page .seo-hero:hover .seo-hero-media{transform:scale(1.045)}
+.seo-page .seo-hero:after{
+    background:
+        linear-gradient(90deg,rgba(5,5,8,.94) 0%,rgba(8,8,10,.69) 46%,rgba(8,8,10,.25) 76%,rgba(8,8,10,.36) 100%),
+        linear-gradient(0deg,rgba(0,0,0,.32),transparent 42%)
+}
+.seo-page .seo-hero-copy{max-width:860px;text-shadow:0 2px 26px rgba(0,0,0,.22)}
+.seo-page .seo-hero h1{max-width:830px;text-wrap:balance}
+.seo-page .seo-hero p{line-height:1.5;text-wrap:pretty}
+.seo-page .seo-breadcrumb{align-items:center;margin-bottom:22px}
+.seo-page .seo-breadcrumb span:not(:last-child){opacity:.62}
+.seo-page .seo-breadcrumb a{transition:color .2s ease}
+.seo-page .seo-breadcrumb a:hover{color:#fff}
+
+/* Icerik ritmi ve kart sistemi */
+.seo-page .seo-content{padding:68px 0 82px}
+.seo-page .seo-overview{gap:16px}
+.seo-page .seo-stat,
+.seo-page .seo-card{
+    border-color:rgba(196,145,47,.15);box-shadow:var(--seo-card-shadow);
+    transition:transform .28s cubic-bezier(.2,.8,.2,1),box-shadow .28s ease,border-color .28s ease
+}
+.seo-page .seo-stat{position:relative;overflow:hidden;padding:24px}
+.seo-page .seo-stat:before{
+    content:"";position:absolute;inset:0 auto 0 0;width:3px;
+    background:linear-gradient(var(--gold2),var(--gold));opacity:.86
+}
+.seo-page .seo-stat small{text-transform:uppercase;letter-spacing:.08em;font-size:11px}
+.seo-page .seo-stat strong{font-size:clamp(17px,1.55vw,21px);line-height:1.3}
+.seo-page .seo-section{padding-top:66px}
+.seo-page .seo-section-head{max-width:820px;margin-bottom:28px}
+.seo-page .seo-section-head h2{text-wrap:balance}
+.seo-page .seo-section-head p{font-size:17px;line-height:1.7}
+.seo-page .seo-grid-2,.seo-page .seo-grid-3{align-items:stretch;gap:22px}
+.seo-page .seo-card{position:relative;background:rgba(255,255,255,.96)}
+.seo-page .seo-card :where(h2,h3){line-height:1.18;text-wrap:balance}
+.seo-page .seo-card p{color:#4a443c}
+.seo-page .seo-card a:not(.btn){color:var(--gold);font-weight:800}
+.seo-page .seo-card a:not(.btn):hover{color:#8b651f}
+.seo-page .seo-muted{color:var(--muted)!important}
+
+.seo-page .seo-hotel-card{min-height:235px}
+.seo-page .seo-hotel-card:after{
+    content:"";position:absolute;right:-48px;bottom:-58px;width:170px;height:170px;
+    border:1px solid rgba(196,145,47,.14);border-radius:50%;box-shadow:0 0 0 22px rgba(196,145,47,.04)
+}
+.seo-page .seo-hotel-card>div{position:relative;z-index:1;padding:30px}
+.seo-page .seo-hotel-card h3{font-size:clamp(22px,2.3vw,30px)}
+.seo-page .seo-hotel-card b{font-size:13px;letter-spacing:.025em}
+
+.seo-page .seo-price-card{min-height:214px;padding:28px}
+.seo-page .seo-price-card strong{font-size:clamp(27px,3vw,36px);line-height:1.1;color:#1b1711}
+.seo-page .seo-price-card.featured{
+    border-color:rgba(196,145,47,.5);
+    background:linear-gradient(145deg,#fff 0%,#fff9ed 72%,#f9e8bf 140%)
+}
+.seo-page .seo-price-card.featured:after{
+    content:"Öne çıkan";position:absolute;right:18px;top:18px;padding:6px 10px;
+    border-radius:999px;background:#211b13;color:var(--gold2);font-size:10px;font-weight:900;
+    letter-spacing:.08em;text-transform:uppercase
+}
+.seo-page .seo-check-list{gap:12px}
+.seo-page .seo-check-list li{padding:11px 12px 11px 38px;border-radius:13px;background:var(--soft)}
+.seo-page .seo-check-list li:before{left:14px;top:10px}
+.seo-page .seo-check-list.excluded li{background:#faf7f2}
+.seo-page .seo-prose{line-height:1.78}
+.seo-page .seo-prose p{color:#413b34}
+
+.seo-page .seo-gallery{gap:18px}
+.seo-page .seo-gallery figure{
+    position:relative;min-height:260px;aspect-ratio:4/3;border:1px solid rgba(196,145,47,.16);
+    box-shadow:var(--seo-card-shadow);transition:transform .3s ease,box-shadow .3s ease
+}
+.seo-page .seo-gallery img{min-height:260px;transition:transform .55s cubic-bezier(.2,.7,.2,1)}
+.seo-page .seo-gallery figure:hover{transform:translateY(-4px);box-shadow:var(--seo-card-shadow-hover)}
+.seo-page .seo-gallery figure:hover img{transform:scale(1.035)}
+.seo-page .seo-expired{border:1px solid rgba(224,180,90,.26);box-shadow:var(--seo-card-shadow)}
+.seo-page .seo-expired .btn{flex:none}
+
+/* Fiyat karsilastirma ve program kartlari */
+.seo-page .seo-program-card{min-height:100%;padding:0;background:#fff}
+.seo-page .seo-program-card>img{height:230px;transition:transform .55s cubic-bezier(.2,.7,.2,1),filter .35s ease}
+.seo-page .seo-program-card:hover{transform:translateY(-7px);box-shadow:var(--seo-card-shadow-hover);border-color:rgba(196,145,47,.32)}
+.seo-page .seo-program-card:hover>img{transform:scale(1.03);filter:saturate(1.06)}
+.seo-page .seo-program-card-body{padding:26px;gap:14px}
+.seo-page .seo-program-card :where(h2,h3){font-size:clamp(23px,2.2vw,29px)}
+.seo-page .seo-pill{background:#fbf8f2;border-color:#ece2d1;color:#51483c}
+.seo-page .seo-program-prices{gap:9px;margin:2px 0 5px}
+.seo-page .seo-program-prices span{min-width:0;border:1px solid rgba(196,145,47,.09);background:#faf5eb}
+.seo-page .seo-program-prices small{font-size:11px;white-space:nowrap}
+.seo-page .seo-program-prices b{font-size:14px;overflow-wrap:anywhere}
+.seo-page .seo-program-card .btn{min-height:48px;margin-top:auto}
+
+/* Rehber makalesi */
+.seo-page .seo-article{max-width:910px}
+.seo-page .seo-article>.seo-card{border-radius:28px}
+.seo-page .seo-article .seo-prose{font-size:clamp(17px,1.55vw,19px)}
+.seo-page .seo-article .seo-prose>p:first-of-type::first-letter{
+    float:left;margin:7px 9px 0 0;color:var(--gold);font-size:3.25em;font-weight:900;line-height:.78
+}
+.seo-page .seo-article-cta{padding-top:28px;border-top:1px solid var(--line)}
+
+/* Umraniye yerel sayfasi */
+.seo-page .seo-local-intro{align-items:stretch;gap:24px}
+.seo-page .seo-local-intro .seo-card{padding:34px}
+.seo-page .seo-local-intro h2{font-size:clamp(28px,3.5vw,42px)}
+.seo-page .seo-map{min-height:410px;border:1px solid rgba(196,145,47,.18);box-shadow:var(--seo-card-shadow)}
+.seo-page .seo-review{display:flex;flex-direction:column;min-height:220px}
+.seo-page .seo-review:hover{transform:translateY(-6px);box-shadow:var(--seo-card-shadow-hover);border-color:rgba(196,145,47,.3)}
+.seo-page .seo-review p{font-size:16px;line-height:1.7}
+.seo-page .seo-review b{margin-top:auto}
+.seo-page .seo-review small{display:block;margin-top:5px}
+.seo-page .seo-stars{font-size:18px;margin-bottom:12px}
+
+/* Dinamik sayfalardaki iletisim ve alt bilgi */
+.seo-page .cta-strip{position:relative;overflow:hidden}
+.seo-page .cta-strip:before{
+    content:"";position:absolute;right:-10%;top:-180%;width:540px;height:540px;border-radius:50%;
+    border:1px solid rgba(224,180,90,.13);box-shadow:0 0 0 70px rgba(224,180,90,.025);pointer-events:none
+}
+.seo-page .cta-grid{position:relative;grid-template-columns:minmax(270px,.85fr) minmax(0,1.25fr)}
+.seo-page .cta-grid h2{text-wrap:balance}
+.seo-page .contact-cards{grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+.seo-page .contact-card{min-width:0;transition:transform .25s ease,border-color .25s ease,background .25s ease}
+.seo-page a.contact-card:hover{transform:translateY(-4px);border-color:rgba(224,180,90,.35);background:rgba(255,255,255,.1)}
+.seo-page .contact-card span{overflow-wrap:anywhere}
+.seo-page .footer a{transition:color .2s ease}
+.seo-page .footer a:hover{color:var(--gold2)}
+.seo-page .seo-mobile-whatsapp{font-weight:950;border:1px solid rgba(255,255,255,.45)}
+
+/* Giriste yumusak hareket; hareket azaltma tercihi korunur. */
+@keyframes seoPageRise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.seo-page .seo-hero-copy,.seo-page .seo-overview,.seo-page .seo-section-head{
+    animation:seoPageRise .62s cubic-bezier(.2,.8,.2,1) both
+}
+.seo-page .seo-overview{animation-delay:.08s}
+
+@media(max-width:1180px){
+    .seo-page .seo-site-header .nav{min-height:76px;height:76px;flex-wrap:nowrap;padding:0}
+    .seo-page .seo-site-header .menu-toggle{display:grid;margin-left:auto}
+    .seo-page .seo-site-header .nav-links,
+    .seo-page .seo-site-header .nav-actions{display:none!important}
+    .seo-page .seo-site-header .nav-links.open{
+        position:fixed;inset:76px 0 0;z-index:60;display:flex!important;flex-direction:column;
+        align-items:flex-start;gap:0;margin:0;padding:28px max(6vw,24px) 224px;
+        overflow:auto;overscroll-behavior:contain;background:#0b0b0d
+    }
+    .seo-page .seo-site-header .nav-links.open a{
+        width:min(760px,100%);padding:9px 0;color:#f5f5f7;font-size:clamp(27px,5vw,43px);
+        font-weight:600;line-height:1.13;letter-spacing:-.035em;white-space:normal
+    }
+    .seo-page .seo-site-header .nav-actions.open{
+        position:fixed;left:max(6vw,24px);right:max(6vw,24px);bottom:max(22px,env(safe-area-inset-bottom));
+        z-index:62;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;
+        padding:14px;border:1px solid rgba(255,255,255,.1);border-radius:24px;
+        background:rgba(24,24,26,.96);box-shadow:0 22px 55px rgba(0,0,0,.38);backdrop-filter:blur(18px)
+    }
+    .seo-page .seo-site-header .nav-actions.open .btn{width:100%;min-height:52px;font-size:14px}
+    .seo-page .seo-grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .seo-page .seo-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .seo-page .cta-grid{grid-template-columns:1fr}
+}
+
+@media(max-width:820px){
+    .seo-page .seo-site-header .nav{width:min(100% - 28px,1180px)}
+    .seo-page .seo-site-header .logo{width:164px}
+    .seo-page .seo-hero{min-height:500px;padding:130px 0 64px}
+    .seo-page .seo-hero h1{font-size:clamp(38px,10.5vw,54px)}
+    .seo-page .seo-hero p{font-size:17px}
+    .seo-page .seo-content{padding:48px 0 86px}
+    .seo-page .seo-overview{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:-74px}
+    .seo-page .seo-section{padding-top:54px}
+    .seo-page .seo-grid-2,.seo-page .seo-grid-3,.seo-page .seo-gallery,.seo-page .seo-local-intro{grid-template-columns:1fr}
+    .seo-page .seo-gallery figure,.seo-page .seo-gallery img{min-height:230px}
+    .seo-page .seo-program-card>img{height:240px}
+    .seo-page .seo-article-cta{grid-template-columns:1fr}
+    .seo-page .seo-expired{align-items:flex-start;flex-direction:column}
+    .seo-page .seo-expired .btn{width:100%}
+    .seo-page .seo-local-intro .seo-card{padding:28px}
+    .seo-page .seo-map{min-height:340px}
+    .seo-page .contact-cards{grid-template-columns:1fr}
+    .seo-page .seo-mobile-whatsapp{display:flex;width:54px;height:54px;right:14px;bottom:max(14px,env(safe-area-inset-bottom))}
+}
+
+@media(max-width:560px){
+    .seo-page .seo-site-header .nav-actions.open{grid-template-columns:1fr;left:18px;right:18px;padding:12px}
+    .seo-page .seo-site-header .nav-actions.open .btn{min-height:46px}
+    .seo-page .seo-site-header .nav-links.open{padding:20px 22px 238px}
+    .seo-page .seo-site-header .nav-links.open a{padding:7px 0;font-size:clamp(26px,8.2vw,36px)}
+    .seo-page .seo-breadcrumb{font-size:11px}
+    .seo-page .seo-hero{min-height:470px;padding:116px 0 54px}
+    .seo-page .seo-hero h1{font-size:clamp(36px,11vw,46px)}
+    .seo-page .seo-overview{grid-template-columns:1fr;gap:10px;margin-top:-58px}
+    .seo-page .seo-stat{padding:17px 19px}
+    .seo-page .seo-section-head p{font-size:15px}
+    .seo-page .seo-card{padding:22px}
+    .seo-page .seo-hotel-card>div,.seo-page .seo-program-card-body{padding:22px}
+    .seo-page .seo-program-card>img{height:210px}
+    .seo-page .seo-program-prices{grid-template-columns:1fr}
+    .seo-page .seo-price-card.featured:after{position:static;align-self:flex-start;order:-1}
+    .seo-page .seo-gallery figure{aspect-ratio:1.25/1}
+    .seo-page .seo-gallery figure,.seo-page .seo-gallery img{min-height:210px}
+    .seo-page .seo-article>.seo-card{border-radius:22px}
+    .seo-page .seo-article .seo-prose>p:first-of-type::first-letter{font-size:2.7em}
+    .seo-page .seo-expired{padding:22px}
+    .seo-page .cta-strip{padding:56px 0}
+    .seo-page .cta-grid h2{font-size:34px}
+    .seo-page .footer-grid{gap:24px}
+}
+
+@media(hover:hover){
+    .seo-page .seo-stat:hover,.seo-page .seo-card:not(.seo-program-card):not(.seo-review):hover{
+        transform:translateY(-3px);box-shadow:var(--seo-card-shadow-hover);border-color:rgba(196,145,47,.28)
+    }
+}
+@media(prefers-reduced-motion:reduce){
+    .seo-page .seo-hero-media,.seo-page .seo-card,.seo-page .seo-stat,.seo-page .seo-gallery figure,.seo-page .seo-gallery img{
+        transition:none!important
+    }
+    .seo-page .seo-hero-copy,.seo-page .seo-overview,.seo-page .seo-section-head{animation:none!important}
 }

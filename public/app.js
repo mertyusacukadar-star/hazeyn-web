@@ -9,7 +9,7 @@
             email: 'info@hazeynturizm.com',
             website: 'https://www.hazeynturizm.com/tr/',
             instagram: 'hazeynturizm',
-            address: 'Ümraniye / İstanbul',
+            address: 'Atatürk Mah. Gaffar Efendi Sk. Güder Han No:5, İç Kapı No:26, 34774 Ümraniye / İstanbul',
             heroTitle: 'Kutsal Yolculuğunuzda Güvenilir Rehberiniz',
             heroSubtitle: 'Hac, Umre ve yurt içi turlarında profesyonel organizasyon.',
             heroMode: 'slider',
@@ -26,7 +26,7 @@
                 { id: 'hb2', image: 'assets/gallery-kuba.jpeg', title: 'Umre Yolculuğunuz Hazeyn ile Başlasın', subtitle: "Mekke ve Medine'de konforlu konaklama, rehberlik ve güvenli organizasyon.", textColor: '#ffffff', textPosition: 'left' }
             ],
             searchConsoleVerification: '',
-            googleMapsEmbedUrl: '',
+            googleMapsEmbedUrl: 'https://www.google.com/maps?q=41.024651,29.09212&z=17&output=embed',
             officeImages: [],
             ga4MeasurementId: '',
             metaPixelId: '',
@@ -80,6 +80,7 @@
     let state = null;
     let adminLoggedIn = false;
     let tempTourImage = '';
+    let tempTourDetailBannerImage = '';
     let tempHotelMekkeImages = [];
     let tempHotelMedineImages = [];
     let tempTourGroupImages = [];
@@ -212,6 +213,11 @@
             capacity: String(source.capacity || '').trim(),
             capacityStatus: ['available', 'limited', 'full', 'waitlist'].includes(source.capacityStatus) ? source.capacityStatus : 'available',
             groupImages: normalizeImageArray(source.groupImages),
+            detailBannerImage: String(source.detailBannerImage || '').trim(),
+            detailBannerKicker: String(source.detailBannerKicker || '').trim(),
+            detailBannerTitle: String(source.detailBannerTitle || '').trim(),
+            detailBannerSubtitle: String(source.detailBannerSubtitle || '').trim(),
+            detailBannerPosition: ['center', 'left', 'right', 'top', 'bottom'].includes(source.detailBannerPosition) ? source.detailBannerPosition : 'center',
             seoTitle: String(source.seoTitle || '').trim(),
             seoDescription: String(source.seoDescription || '').trim()
         };
@@ -417,6 +423,34 @@
     function startingPriceValue(t) {
         const priced = roomPriceEntries(t).map(entry => ({ ...entry, amount: Number(String(entry.value).replace(/[^0-9]/g, '')) })).filter(entry => Number.isFinite(entry.amount) && entry.amount > 0).sort((a, b) => a.amount - b.amount);
         return priced[0]?.value || String(t && t.price || '').trim() || 'Fiyat Sorunuz';
+    }
+
+    function seoTextsForTour(source) {
+        const t = normalizeTour(source || {});
+        const date = formatDateTR(t.departureDate);
+        const days = t.durationDays ? `${t.durationDays} Günlük` : '';
+        const titleBase = [date, days, t.type === 'umre' ? 'Umre Programı' : t.title].filter(Boolean).join(' ');
+        const cities = departureCityLabel(t).replace(/ çıkışlı$/i, '');
+        const hotels = [t.mekkeHotelName, t.medineHotelName].filter(Boolean).join(' ve ');
+        return {
+            title: `${titleBase || t.title} | Hazeyn Turizm`.slice(0, 70),
+            description: `${date ? `${date} tarihli ` : ''}${t.durationDays ? `${t.durationDays} günlük ` : ''}${cities ? `${cities} çıkışlı ` : ''}Umre programı${hotels ? `; ${hotels} konaklamaları` : ''}, uçuş, oda fiyatları ve ziyaret ayrıntıları.`.replace(/\s+/g, ' ').slice(0, 180)
+        };
+    }
+
+    function fillTourSeo(force = true) {
+        const draft = normalizeTour({
+            type: $('tourType').value,
+            title: $('tourTitle').value.trim(),
+            departureDate: $('tourDepartureDate').value,
+            departureCities: normalizeDepartureCities($('tourDepartureCities').value),
+            durationDays: positiveInteger($('tourDurationDays').value),
+            mekkeHotelName: $('tourMekkeHotelName').value.trim(),
+            medineHotelName: $('tourMedineHotelName').value.trim()
+        });
+        const seo = seoTextsForTour(draft);
+        if (force || !$('tourSeoTitle').value.trim()) $('tourSeoTitle').value = seo.title;
+        if (force || !$('tourSeoDescription').value.trim()) $('tourSeoDescription').value = seo.description;
     }
 
     function capacityLabel(t) {
@@ -929,7 +963,7 @@
             <h3>${escapeHtml(t.title)}</h3>
             <div class="tour-meta">${departure ? `<span>📅 ${escapeHtml(departure)}</span>` : ''}${duration ? `<span>◷ ${escapeHtml(duration)}</span>` : ''}<span>✈ ${escapeHtml(departureLabel)}</span></div>
             <div class="tour-hotels">${escapeHtml(hotelText)}</div>
-            <div class="tour-bottom"><span class="price">${t.type === 'umre' ? '<small>Başlangıç fiyatı</small><br>' : ''}${escapeHtml(cardText)}</span><a class="small-btn" data-program-link data-track="program_click" data-program-id="${escapeHtml(t.id)}" data-program-title="${escapeHtml(t.title)}" data-program-slug="${escapeHtml(slug)}" href="/${escapeHtml(slug)}">Programı İncele</a></div>
+            <div class="tour-bottom"><span class="price tour-price-block">${t.type === 'umre' ? '<small>Başlangıç fiyatı</small>' : ''}<strong>${escapeHtml(cardText)}</strong></span><a class="small-btn" data-program-link data-track="program_click" data-program-id="${escapeHtml(t.id)}" data-program-title="${escapeHtml(t.title)}" data-program-slug="${escapeHtml(slug)}" href="/${escapeHtml(slug)}">Programı İncele <span aria-hidden="true">→</span></a></div>
         </div>
     </article>`;
     }
@@ -1489,6 +1523,7 @@
         $('tourForm').reset();
         $('tourId').value = '';
         tempTourImage = '';
+        tempTourDetailBannerImage = '';
         tempHotelMekkeImages = [];
         tempHotelMedineImages = [];
         tempTourGroupImages = [];
@@ -1501,6 +1536,8 @@
         if ($('tourCapacityStatus')) $('tourCapacityStatus').value = 'available';
         const coverPreview = $('tourPreview');
         if (coverPreview) coverPreview.removeAttribute('src');
+        const detailBannerPreview = $('tourDetailBannerPreview');
+        if (detailBannerPreview) detailBannerPreview.removeAttribute('src');
         renderMultiPreview('tourHotelMekkePreview', []);
         renderMultiPreview('tourHotelMedinePreview', []);
         renderMultiPreview('tourGroupPreview', []);
@@ -1531,6 +1568,12 @@
         $('tourDurationNights').value = t.durationNights;
         $('tourImage').value = (t.image && !t.image.startsWith('data:')) ? t.image : '';
         tempTourImage = t.image || '';
+        $('tourDetailBannerImage').value = (t.detailBannerImage && !t.detailBannerImage.startsWith('data:')) ? t.detailBannerImage : '';
+        $('tourDetailBannerKicker').value = t.detailBannerKicker || '';
+        $('tourDetailBannerTitle').value = t.detailBannerTitle || '';
+        $('tourDetailBannerSubtitle').value = t.detailBannerSubtitle || '';
+        $('tourDetailBannerPosition').value = t.detailBannerPosition || 'center';
+        tempTourDetailBannerImage = t.detailBannerImage || '';
         const hotelImages = getHotelImageArrays(t);
         tempHotelMekkeImages = hotelImages.mekke.slice(); tempHotelMedineImages = hotelImages.medine.slice();
         const groupImages = getTourGroupImages(t);
@@ -1553,7 +1596,9 @@
         $('tourVisitProgram').value = textBlock(t.visitProgram);
         $('tourSeoTitle').value = t.seoTitle || '';
         $('tourSeoDescription').value = t.seoDescription || '';
+        if (!t.seoTitle || !t.seoDescription) fillTourSeo(false);
         $('tourPreview').src = t.image || '';
+        $('tourDetailBannerPreview').src = t.detailBannerImage || t.image || '';
         renderMultiPreview('tourHotelMekkePreview', hotelImages.mekke);
         renderMultiPreview('tourHotelMedinePreview', hotelImages.medine);
         renderMultiPreview('tourGroupPreview', groupImages);
@@ -1565,6 +1610,7 @@
         const id = $('tourId').value || uid('t');
         const existing = state.tours.find(x => x.id === id) || {};
         const image = tempTourImage || $('tourImage').value.trim() || ($('tourType').value === 'yurtici' ? 'assets/yurtici.svg' : 'assets/hotel.svg');
+        const detailBannerImage = tempTourDetailBannerImage || $('tourDetailBannerImage').value.trim();
         const hotelImages = { mekke: uniqueList([...tempHotelMekkeImages, ...linesToList($('tourHotelMekkeImage')?.value)]), medine: uniqueList([...tempHotelMedineImages, ...linesToList($('tourHotelMedineImage')?.value)]) };
         const groupImages = uniqueList([...tempTourGroupImages, ...linesToList($('tourGroupImage')?.value)]);
         const roomPrices = cleanRoomPrices({ '1': $('tourPrice1').value, '2': $('tourPrice2').value, '3': $('tourPrice3').value, '4': $('tourPrice4').value, '5+': $('tourPrice5plus').value });
@@ -1591,6 +1637,11 @@
             tag: $('tourTag').value.trim(),
             cardText: $('tourCardText') ? $('tourCardText').value.trim() : '',
             image,
+            detailBannerImage,
+            detailBannerKicker: $('tourDetailBannerKicker').value.trim(),
+            detailBannerTitle: $('tourDetailBannerTitle').value.trim(),
+            detailBannerSubtitle: $('tourDetailBannerSubtitle').value.trim(),
+            detailBannerPosition: $('tourDetailBannerPosition').value,
             hotelImages,
             groupImages,
             roomPrices,
@@ -1607,8 +1658,8 @@
             includedServices: $('tourIncludedServices').value.trim(),
             excludedServices: $('tourExcludedServices').value.trim(),
             visitProgram: $('tourVisitProgram').value.trim(),
-            seoTitle: $('tourSeoTitle').value.trim(),
-            seoDescription: $('tourSeoDescription').value.trim()
+            seoTitle: $('tourSeoTitle').value.trim() || seoTextsForTour({ ...draft, departureCities: normalizeDepartureCities($('tourDepartureCities').value), durationDays: positiveInteger($('tourDurationDays').value), mekkeHotelName: $('tourMekkeHotelName').value.trim(), medineHotelName: $('tourMedineHotelName').value.trim() }).title,
+            seoDescription: $('tourSeoDescription').value.trim() || seoTextsForTour({ ...draft, departureCities: normalizeDepartureCities($('tourDepartureCities').value), durationDays: positiveInteger($('tourDurationDays').value), mekkeHotelName: $('tourMekkeHotelName').value.trim(), medineHotelName: $('tourMedineHotelName').value.trim() }).description
         });
 
         const idx = state.tours.findIndex(x => x.id === id);
@@ -2436,6 +2487,9 @@
         $('tourForm').addEventListener('submit', saveTour);
         $('tourReset').onclick = resetTourForm;
         $('tourImageFile').addEventListener('change', e => previewFile(e.target, src => { tempTourImage = src; $('tourPreview').src = src; }));
+        $('tourDetailBannerFile').addEventListener('change', e => previewFile(e.target, src => { tempTourDetailBannerImage = src; $('tourDetailBannerPreview').src = src; }));
+        $('tourDetailBannerImage').addEventListener('input', e => { if (!tempTourDetailBannerImage) $('tourDetailBannerPreview').src = e.target.value.trim() || tempTourImage || $('tourImage').value.trim(); });
+        $('tourSeoGenerate').onclick = () => fillTourSeo(true);
         $('tourHotelMekkeFile').addEventListener('change', e => previewFiles(e.target, srcs => { tempHotelMekkeImages = uniqueList([...tempHotelMekkeImages, ...srcs]); renderMultiPreview('tourHotelMekkePreview', tempHotelMekkeImages); }));
         $('tourHotelMedineFile').addEventListener('change', e => previewFiles(e.target, srcs => { tempHotelMedineImages = uniqueList([...tempHotelMedineImages, ...srcs]); renderMultiPreview('tourHotelMedinePreview', tempHotelMedineImages); }));
         $('tourGroupFile').addEventListener('change', e => previewFiles(e.target, srcs => { tempTourGroupImages = uniqueList([...tempTourGroupImages, ...srcs]); renderMultiPreview('tourGroupPreview', tempTourGroupImages); }));

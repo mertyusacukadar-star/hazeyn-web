@@ -6,7 +6,7 @@
     <title>Hâzeyn Yönetici Paneli</title>
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png" />
     <link rel="apple-touch-icon" href="/assets/icon.png" />
-    <link rel="stylesheet" href="style.css?v=20260811-growth4" />
+    <link rel="stylesheet" href="style.css?v=20260813-program2" />
 </head>
 <body data-page="admin" class="admin-body">
     <section class="login-screen" id="loginScreen">
@@ -81,6 +81,19 @@
                         <label>Kapak Görsel URL<input id="tourImage" placeholder="assets/hotel.svg veya https://..." /></label>
                         <label>Veya Kapak Görseli Yükle <small>En fazla 50 MB</small><input id="tourImageFile" type="file" accept="image/*" /></label>
                         <img id="tourPreview" class="image-preview" alt="Kapak ön izleme" />
+
+                        <div class="banner-admin-box">
+                            <h3>Program Detay Sayfası Bannerı <small>Kart kapağından bağımsız düzenlenebilir</small></h3>
+                            <label>Banner Üst Etiketi<input id="tourDetailBannerKicker" placeholder="Örn: 13 AĞUSTOS 2026 UMRE PROGRAMI" /></label>
+                            <label>Banner Başlığı<input id="tourDetailBannerTitle" placeholder="Boş bırakırsan program başlığı kullanılır" /></label>
+                            <label>Banner Alt Yazısı<textarea id="tourDetailBannerSubtitle" placeholder="Programın öne çıkan kısa açıklaması"></textarea></label>
+                            <div class="form-row two-col">
+                                <label>Banner Görsel URL<input id="tourDetailBannerImage" placeholder="Boş bırakırsan kapak görseli kullanılır" /></label>
+                                <label>Veya Banner Görseli Yükle <small>En fazla 50 MB</small><input id="tourDetailBannerFile" type="file" accept="image/*" /></label>
+                            </div>
+                            <label>Görsel Odağı<select id="tourDetailBannerPosition"><option value="center">Orta</option><option value="left">Sol</option><option value="right">Sağ</option><option value="top">Üst</option><option value="bottom">Alt</option></select></label>
+                            <img id="tourDetailBannerPreview" class="image-preview banner-preview" alt="Program detay banner ön izleme" />
+                        </div>
                         
                         <div class="hotel-image-fields">
                             <div class="form-row two-col">
@@ -138,6 +151,7 @@
                             <h3>SEO Bilgileri <small>Google arama sonuçları için</small></h3>
                             <label>SEO Başlığı<input id="tourSeoTitle" maxlength="70" placeholder="25 Eylül 2026 Umre Programı | Hazeyn Turizm" /></label>
                             <label>SEO Açıklaması<textarea id="tourSeoDescription" maxlength="180" placeholder="Program tarihini, otelleri, uçuşu ve fiyatları özetleyen açıklama"></textarea></label>
+                            <button class="btn btn-outline dark" id="tourSeoGenerate" type="button">SEO Metinlerini Otomatik Hazırla</button>
                         </div>
                         <div class="form-actions"><button class="btn btn-gold" type="submit">Kaydet</button><button class="btn btn-outline dark" type="button" id="tourReset">Temizle</button></div>
                     </form>
@@ -351,6 +365,6 @@
     </div>
     <script src="vendor/exceljs.min.js?v=4.4.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=20260811-growth5"></script>
+    <script src="app.js?v=20260813-program2"></script>
 </body>
 </html>
