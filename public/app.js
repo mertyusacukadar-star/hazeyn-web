@@ -97,6 +97,7 @@
     let currentGalleryIndex = 0;
     let revealObserver = null;
     let publicRefreshInFlight = false;
+    let accountingSearchQuery = '';
     const surnameSortedLists = new Set();
 
     const page = document.body.dataset.page;
@@ -320,6 +321,65 @@
         if (!text) return '';
         const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
         return match ? `${match[3]}.${match[2]}.${match[1]}` : text;
+    }
+
+    function todayIso() {
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+    }
+
+    function stableTextHash(value) {
+        let hash = 2166136261;
+        const text = String(value || '');
+        for (let i = 0; i < text.length; i += 1) {
+            hash ^= text.charCodeAt(i);
+            hash = Math.imul(hash, 16777619);
+        }
+        return (hash >>> 0).toString(36);
+    }
+
+    function stablePassengerId(listId, passenger, index) {
+        if (passenger && passenger.id) return String(passenger.id);
+        const identity = [listId, passenger?.tc, passenger?.passportNo, passenger?.name, passenger?.birthDate, index].join('|');
+        return `p_${stableTextHash(identity)}`;
+    }
+
+    function normalizePayment(payment) {
+        const source = payment || {};
+        const amount = Number(source.amount);
+        return {
+            ...source,
+            id: String(source.id || uid('pay_')),
+            receiptNo: String(source.receiptNo || createReceiptNumber()),
+            amount: Number.isFinite(amount) && amount > 0 ? amount : 0,
+            paidAt: String(source.paidAt || todayIso()),
+            method: String(source.method || 'Nakit'),
+            note: String(source.note || ''),
+            voided: source.voided === true,
+            createdAt: String(source.createdAt || new Date().toISOString())
+        };
+    }
+
+    function normalizePassengerLists(items) {
+        return (Array.isArray(items) ? items : []).map(list => {
+            const source = list || {};
+            const listId = String(source.id || uid('l'));
+            const passengers = (Array.isArray(source.passengers) ? source.passengers : []).map((passenger, index) => {
+                const accounting = passenger?.accounting || {};
+                const agreedPrice = Number(accounting.agreedPrice);
+                return {
+                    ...(passenger || {}),
+                    id: stablePassengerId(listId, passenger, index),
+                    accounting: {
+                        agreedPrice: Number.isFinite(agreedPrice) && agreedPrice >= 0 ? agreedPrice : '',
+                        currency: ['USD', 'EUR', 'TRY'].includes(accounting.currency) ? accounting.currency : '',
+                        payments: (Array.isArray(accounting.payments) ? accounting.payments : []).map(normalizePayment)
+                    }
+                };
+            });
+            return { ...source, id: listId, passengers };
+        });
     }
 
     /* PASAPORT KONTROLÜ: uçuş tarihinde en az 6 ay geçerlilik */
@@ -773,16 +833,46 @@
             gallery: Array.isArray(data.gallery) ? data.gallery : d.gallery,
             staff: Array.isArray(data.staff) ? data.staff : d.staff,
             blogs: mergeSeoDefaultBlogs(Array.isArray(data.blogs) ? data.blogs : d.blogs),
-            passengerLists: Array.isArray(data.passengerLists) ? data.passengerLists : []
+            passengerLists: normalizePassengerLists(Array.isArray(data.passengerLists) ? data.passengerLists : [])
         };
     }
 
-    async function saveData() {
+    function passengerIdentityKey(passenger) {
+        return [passenger?.tc, passenger?.passportNo, normalizeSearchText(passenger?.name), passenger?.birthDate].map(value => String(value || '').trim()).join('|');
+    }
+
+    function mergeRemoteAccountingIntoState(remoteData) {
+        const remote = mergeDefaults(remoteData);
+        (state.passengerLists || []).forEach(localList => {
+            const remoteList = (remote.passengerLists || []).find(item => item.id === localList.id);
+            if (!remoteList) return;
+            (localList.passengers || []).forEach(localPassenger => {
+                const identity = passengerIdentityKey(localPassenger);
+                const remotePassenger = (remoteList.passengers || []).find(item => item.id === localPassenger.id)
+                    || (identity.replace(/\|/g, '') ? (remoteList.passengers || []).find(item => passengerIdentityKey(item) === identity) : null);
+                if (remotePassenger?.accounting) localPassenger.accounting = clone(remotePassenger.accounting);
+            });
+        });
+    }
+
+    async function saveData(options = {}) {
         if (state && state.settings) {
             delete state.settings.adminPassword;
             delete state.settings.password;
         }
-        state._meta = { ...(state._meta || {}), updatedAt: Date.now(), pendingSync: true };
+        if (!options.keepLocalAccounting && location.protocol !== 'file:' && getAdminPassword()) {
+            const latest = await fetchRemoteData({ admin: true });
+            if (latest) {
+                const remoteStamp = Number(latest?._meta?.updatedAt || 0);
+                const localStamp = Number(state?._meta?.updatedAt || 0);
+                if (remoteStamp > localStamp) {
+                    alert('Başka bir bilgisayarda daha yeni bir değişiklik yapıldı. Veri kaybını önlemek için bu kayıt gönderilmedi. “Senkronize Et” düğmesine basıp güncel veriyi aldıktan sonra işlemi tekrar yap.');
+                    return false;
+                }
+                if (state?._meta?.pendingSync !== true) mergeRemoteAccountingIntoState(latest);
+            }
+        }
+        state._meta = { ...(state._meta || {}), updatedAt: Math.max(Date.now(), Number(state?._meta?.updatedAt || 0) + 1), pendingSync: true };
         await cacheDataLocally(state);
 
         if (location.protocol !== 'file:') {
@@ -1400,6 +1490,7 @@
         renderBlogAdmin();
         renderPassengerTourSelect();
         renderPassengerAdmin();
+        renderAccounting();
         ensurePassengerRows();
     }
 
@@ -1415,6 +1506,10 @@
     function switchTab(tab) {
         document.querySelectorAll('.admin-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
         document.querySelectorAll('.admin-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
+        if (tab === 'accounting') {
+            renderAccounting(accountingSearchQuery);
+            setTimeout(() => $('accountingSearch')?.focus(), 0);
+        }
     }
 
     async function previewFile(input, cb) {
@@ -1664,7 +1759,7 @@
 
         const idx = state.tours.findIndex(x => x.id === id);
         if (idx > -1) state.tours[idx] = t; else state.tours.unshift(t);
-        await saveData(); resetTourForm(); renderTourAdmin(); renderPassengerTourSelect(); renderDashboard(); toast('Tur kaydedildi.');
+        if (!await saveData()) return; resetTourForm(); renderTourAdmin(); renderPassengerTourSelect(); renderDashboard(); toast('Tur kaydedildi.');
     }
 
     function resetReviewForm() { $('reviewForm').reset(); $('reviewId').value = ''; }
@@ -1684,7 +1779,7 @@
         const r = { id, name: $('reviewName').value.trim(), stars: Number($('reviewStars').value), text: $('reviewText').value.trim() };
         const idx = state.reviews.findIndex(x => x.id === id);
         if (idx > -1) state.reviews[idx] = r; else state.reviews.unshift(r);
-        await saveData(); resetReviewForm(); renderReviewAdmin(); renderDashboard(); toast('Yorum kaydedildi.');
+        if (!await saveData()) return; resetReviewForm(); renderReviewAdmin(); renderDashboard(); toast('Yorum kaydedildi.');
     }
 
     function renderGalleryAdmin() {
@@ -1696,7 +1791,7 @@
         e.preventDefault();
         const g = { id: uid('g'), title: $('galleryTitle').value.trim(), image: tempGalleryImage || $('galleryImage').value.trim() || 'assets/hero.svg' };
         state.gallery.unshift(g);
-        await saveData(); $('galleryForm').reset(); tempGalleryImage = ''; $('galleryPreview').removeAttribute('src'); renderGalleryAdmin(); renderDashboard(); toast('Galeri görseli eklendi.');
+        if (!await saveData()) return; $('galleryForm').reset(); tempGalleryImage = ''; $('galleryPreview').removeAttribute('src'); renderGalleryAdmin(); renderDashboard(); toast('Galeri görseli eklendi.');
     }
 
     function resetStaffForm() { $('staffForm').reset(); $('staffId').value = ''; tempStaffImage = ''; const p = $('staffPreview'); if (p) p.removeAttribute('src'); }
@@ -1718,7 +1813,7 @@
         if (!Array.isArray(state.staff)) state.staff = [];
         const idx = state.staff.findIndex(x => x.id === id);
         if (idx > -1) state.staff[idx] = item; else state.staff.unshift(item);
-        await saveData(); resetStaffForm(); renderStaffAdmin(); renderDashboard(); toast('Kadro kaydedildi.');
+        if (!await saveData()) return; resetStaffForm(); renderStaffAdmin(); renderDashboard(); toast('Kadro kaydedildi.');
     }
 
     function resetBlogForm() { $('blogForm').reset(); $('blogId').value = ''; tempBlogImage = ''; const p = $('blogPreview'); if (p) p.removeAttribute('src'); }
@@ -1743,7 +1838,7 @@
         if (!Array.isArray(state.blogs)) state.blogs = [];
         const idx = state.blogs.findIndex(x => x.id === id);
         if (idx > -1) state.blogs[idx] = item; else state.blogs.unshift(item);
-        await saveData(); resetBlogForm(); renderBlogAdmin(); renderDashboard(); toast('Merak edilenler yazısı kaydedildi.');
+        if (!await saveData()) return; resetBlogForm(); renderBlogAdmin(); renderDashboard(); toast('Merak edilenler yazısı kaydedildi.');
     }
 
     function resetHeroBannerForm() {
@@ -1786,7 +1881,7 @@
         const idx = state.settings.heroBanners.findIndex(x => x.id === id);
         if (idx > -1) state.settings.heroBanners[idx] = item; else state.settings.heroBanners.push(item);
 
-        await saveData(); resetHeroBannerForm(); renderHeroBannerAdmin(); applySettings(); toast('Banner kaydedildi.');
+        if (!await saveData()) return; resetHeroBannerForm(); renderHeroBannerAdmin(); applySettings(); toast('Banner kaydedildi.');
     }
 
     function editHeroBanner(id) {
@@ -1853,7 +1948,7 @@
             googleAdsPhoneLabel: $('setGoogleAdsPhoneLabel')?.value.trim() || '',
             googleAdsFormLabel: $('setGoogleAdsFormLabel')?.value.trim() || ''
         };
-        await saveData(); toast('Ayarlar kaydedildi.');
+        if (!await saveData()) return; toast('Ayarlar kaydedildi.');
     }
 
     function renderPassengerTourSelect(selectedId = '') {
@@ -1951,6 +2046,8 @@
         const tr = document.createElement('tr');
         const gender = p.gender || '';
         const roomPeople = p.roomPeople || p.room || '';
+        tr.dataset.passengerId = p.id || uid('p_');
+        tr._accounting = clone(p.accounting || { agreedPrice: '', currency: '', payments: [] });
         tr.innerHTML = `
         <td><input class="p-name" value="${escapeHtml(p.name || '')}" placeholder="Ad Soyad"></td>
         <td><select class="p-gender"><option value="">Seç</option><option ${gender === 'Kadın' ? 'selected' : ''}>Kadın</option><option ${gender === 'Erkek' ? 'selected' : ''}>Erkek</option></select></td>
@@ -1983,6 +2080,7 @@
 
     function readPassengers() {
         return Array.from($('passengerTable').querySelectorAll('tbody tr')).map(tr => ({
+            id: tr.dataset.passengerId || uid('p_'),
             name: tr.querySelector('.p-name').value.trim(),
             gender: tr.querySelector('.p-gender').value.trim(),
             tc: tr.querySelector('.p-tc').value.trim(),
@@ -1994,7 +2092,8 @@
             roomPeople: tr.querySelector('.p-room-people').value,
             mekkeRoomNo: tr.querySelector('.p-mekke-room-no')?.value.trim() || '',
             medineRoomNo: tr.querySelector('.p-medine-room-no')?.value.trim() || '',
-            note: tr.querySelector('.p-note').value.trim()
+            note: tr.querySelector('.p-note').value.trim(),
+            accounting: clone(tr._accounting || { agreedPrice: '', currency: '', payments: [] })
         })).filter(p => p.name || p.gender || p.tc || p.phone || p.passportNo || p.birthDate || p.passportStart || p.passportEnd || p.roomPeople || p.mekkeRoomNo || p.medineRoomNo || p.note);
     }
 
@@ -2019,7 +2118,7 @@
         const idx = state.passengerLists.findIndex(x => x.id === id);
         if (idx > -1) state.passengerLists[idx] = item; else state.passengerLists.unshift(item);
 
-        await saveData(); clearPassengerForm(); renderPassengerAdmin(); renderDashboard(); toast('Yolcu listesi kaydedildi.');
+        if (!await saveData()) return; clearPassengerForm(); renderPassengerAdmin(); renderDashboard(); toast('Yolcu listesi kaydedildi.');
     }
 
     function editPassengerList(id) {
@@ -2147,8 +2246,337 @@
         const l = state.passengerLists.find(x => x.id === listId);
         if (!l || !l.passengers || !l.passengers[passengerIndex]) return;
         l.passengers[passengerIndex][field] = value;
-        await saveData();
+        if (!await saveData()) return;
         if (field === 'roomPeople' || field === 'mekkeRoomNo' || field === 'medineRoomNo' || field === 'roomNo') renderPassengerAdmin();
+    }
+
+    function normalizeSearchText(value) {
+        return slugifyTR(String(value || '').replace(/-/g, ' ')).replace(/-/g, ' ');
+    }
+
+    function parseMoneyAmount(value) {
+        let raw = String(value ?? '').trim().replace(/[^0-9,.-]/g, '');
+        if (!raw) return NaN;
+        const sign = raw.startsWith('-') ? -1 : 1;
+        raw = raw.replace(/-/g, '');
+        if (/^\d{1,3}(\.\d{3})+$/.test(raw)) raw = raw.replace(/\./g, '');
+        else if (/^\d{1,3}(,\d{3})+$/.test(raw)) raw = raw.replace(/,/g, '');
+        else if (raw.includes('.') && raw.includes(',')) {
+            const decimal = raw.lastIndexOf(',') > raw.lastIndexOf('.') ? ',' : '.';
+            const thousands = decimal === ',' ? /\./g : /,/g;
+            raw = raw.replace(thousands, '').replace(decimal, '.');
+        } else if (raw.includes(',')) raw = raw.replace(',', '.');
+        const amount = Number(raw);
+        return Number.isFinite(amount) ? amount * sign : NaN;
+    }
+
+    function currencyFromText(value) {
+        const text = String(value || '').toLocaleUpperCase('tr-TR');
+        if (text.includes('EUR') || text.includes('€')) return 'EUR';
+        if (text.includes('USD') || text.includes('$')) return 'USD';
+        return 'TRY';
+    }
+
+    function formatMoney(amount, currency = 'TRY') {
+        const value = Number(amount || 0);
+        try {
+            return new Intl.NumberFormat('tr-TR', {
+                style: 'currency', currency,
+                minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+                maximumFractionDigits: 2
+            }).format(value);
+        } catch (e) {
+            return `${value.toLocaleString('tr-TR')} ${currency}`;
+        }
+    }
+
+    function passengerTourPrice(tour, passenger) {
+        const roomPeople = String(passenger?.roomPeople || passenger?.room || '');
+        const raw = tour?.roomPrices?.[roomPeople] || tour?.price || '';
+        const amount = parseMoneyAmount(raw);
+        return {
+            amount: Number.isFinite(amount) && amount >= 0 ? amount : 0,
+            currency: currencyFromText(raw)
+        };
+    }
+
+    function getPassengerContext(listId, passengerId) {
+        const list = (state.passengerLists || []).find(item => item.id === listId);
+        if (!list) return null;
+        const passengerIndex = (list.passengers || []).findIndex(item => item.id === passengerId);
+        if (passengerIndex < 0) return null;
+        const passenger = list.passengers[passengerIndex];
+        const tour = (state.tours || []).find(item => item.id === list.tourId) || null;
+        return { list, passenger, passengerIndex, tour };
+    }
+
+    function passengerAccountSnapshot(context) {
+        const fallback = passengerTourPrice(context.tour, context.passenger);
+        const accounting = context.passenger.accounting || { payments: [] };
+        const agreed = Number(accounting.agreedPrice);
+        const hasAgreed = Number.isFinite(agreed) && agreed >= 0 && accounting.agreedPrice !== '';
+        const currency = accounting.currency || fallback.currency || 'TRY';
+        const payments = (Array.isArray(accounting.payments) ? accounting.payments : []).map(normalizePayment);
+        const paid = payments.filter(payment => !payment.voided).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+        const agreedPrice = hasAgreed ? agreed : fallback.amount;
+        return { agreedPrice, currency, payments, paid, balance: agreedPrice - paid, usesProgramPrice: !hasAgreed };
+    }
+
+    function allPassengerContexts() {
+        return (state.passengerLists || []).flatMap(list => (list.passengers || []).map((passenger, passengerIndex) => ({
+            list,
+            passenger,
+            passengerIndex,
+            tour: (state.tours || []).find(item => item.id === list.tourId) || null
+        })));
+    }
+
+    function passengerRoommates(context) {
+        const target = context.passenger;
+        const passengers = context.list.passengers || [];
+        const mekke = String(target.mekkeRoomNo || target.roomNo || '').trim();
+        const medine = String(target.medineRoomNo || target.roomNo || '').trim();
+        let roommates = passengers.filter(item => item.id !== target.id && (
+            (mekke && String(item.mekkeRoomNo || item.roomNo || '').trim() === mekke) ||
+            (medine && String(item.medineRoomNo || item.roomNo || '').trim() === medine)
+        ));
+        if (!roommates.length) {
+            const assignment = createRoomAssignments(passengers).find(room => room.occupants.some(item => item.id === target.id));
+            roommates = assignment ? assignment.occupants.filter(item => item.id !== target.id) : [];
+        }
+        return roommates.map(item => item.name).filter(Boolean);
+    }
+
+    function createReceiptNumber() {
+        const now = new Date();
+        const date = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+        return `HZ-${date}-${now.getTime().toString(36).slice(-5).toLocaleUpperCase('tr-TR')}`;
+    }
+
+    function multiCurrencyHtml(values) {
+        const order = ['USD', 'EUR', 'TRY'];
+        const entries = order.filter(currency => Math.abs(Number(values[currency] || 0)) > 0.0001);
+        if (!entries.length) return '<span>—</span>';
+        return entries.map(currency => `<span>${escapeHtml(formatMoney(values[currency], currency))}</span>`).join('');
+    }
+
+    function renderAccountingStats() {
+        const contract = { USD: 0, EUR: 0, TRY: 0 };
+        const paid = { USD: 0, EUR: 0, TRY: 0 };
+        const balance = { USD: 0, EUR: 0, TRY: 0 };
+        let openCount = 0;
+        allPassengerContexts().forEach(context => {
+            const snapshot = passengerAccountSnapshot(context);
+            contract[snapshot.currency] += snapshot.agreedPrice;
+            paid[snapshot.currency] += snapshot.paid;
+            balance[snapshot.currency] += snapshot.balance;
+            if (snapshot.balance > 0.005) openCount += 1;
+        });
+        if ($('accountingStatContract')) $('accountingStatContract').innerHTML = multiCurrencyHtml(contract);
+        if ($('accountingStatPaid')) $('accountingStatPaid').innerHTML = multiCurrencyHtml(paid);
+        if ($('accountingStatBalance')) $('accountingStatBalance').innerHTML = multiCurrencyHtml(balance);
+        if ($('accountingStatOpen')) $('accountingStatOpen').textContent = String(openCount);
+    }
+
+    function accountingPaymentHistoryHtml(context, snapshot) {
+        if (!snapshot.payments.length) return '<div class="empty small">Henüz ödeme kaydı yok.</div>';
+        const rows = [...snapshot.payments].reverse().map(payment => `
+            <tr class="${payment.voided ? 'payment-voided' : ''}">
+                <td><b>${escapeHtml(payment.receiptNo)}</b>${payment.voided ? '<small>İPTAL EDİLDİ</small>' : ''}</td>
+                <td>${escapeHtml(formatDateDMY(payment.paidAt))}</td>
+                <td>${escapeHtml(formatMoney(payment.amount, snapshot.currency))}</td>
+                <td>${escapeHtml(payment.method || '-')}</td>
+                <td>${escapeHtml(payment.note || '-')}</td>
+                <td class="payment-actions"><button class="icon-btn" type="button" data-print-receipt="${escapeHtml(payment.id)}">Makbuz</button>${payment.voided ? '' : `<button class="icon-btn danger" type="button" data-void-payment="${escapeHtml(payment.id)}">İptal</button>`}</td>
+            </tr>`).join('');
+        return `<div class="accounting-payment-table"><table><thead><tr><th>Makbuz No</th><th>Tarih</th><th>Tutar</th><th>Yöntem</th><th>Not</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+
+    function accountingProgramType(context) {
+        const explicit = String(context.tour?.type || '').toLowerCase();
+        if (explicit === 'hac') return 'Hac';
+        if (explicit === 'umre') return 'Umre';
+        if (explicit === 'yurtici') return 'Kültür Turu';
+        const title = normalizeSearchText(`${context.list?.title || ''} ${context.tour?.title || ''}`);
+        if (title.includes('hac')) return 'Hac';
+        if (title.includes('umre')) return 'Umre';
+        return 'Kültür Turu';
+    }
+
+    function accountingResultCard(context) {
+        const { list, passenger, tour } = context;
+        const snapshot = passengerAccountSnapshot(context);
+        const roommates = passengerRoommates(context);
+        const roomPeople = String(passenger.roomPeople || passenger.room || '');
+        const mekkeRoom = passenger.mekkeRoomNo || passenger.roomNo || '';
+        const medineRoom = passenger.medineRoomNo || passenger.roomNo || '';
+        const balanceClass = snapshot.balance > 0.005 ? 'open' : snapshot.balance < -0.005 ? 'credit' : 'paid';
+        const balanceLabel = snapshot.balance > 0.005 ? 'Kalan' : snapshot.balance < -0.005 ? 'Fazla Ödeme' : 'Ödendi';
+        return `<article class="accounting-card" data-account-card data-list-id="${escapeHtml(list.id)}" data-passenger-id="${escapeHtml(passenger.id)}">
+            <header class="accounting-card-head">
+                <div><span class="accounting-tour-type">${escapeHtml(accountingProgramType(context))}</span><h3>${escapeHtml(passenger.name || 'İsimsiz yolcu')}</h3><p>${escapeHtml(tour?.title || list.title || 'Program')} • ${escapeHtml(formatDateTR(tour?.departureDate || list.date) || 'Tarih yok')}</p></div>
+                <div class="accounting-balance ${balanceClass}"><small>${balanceLabel}</small><strong>${escapeHtml(formatMoney(Math.abs(snapshot.balance), snapshot.currency))}</strong></div>
+            </header>
+            <div class="passenger-facts">
+                <span><small>Oda Tipi</small><b>${escapeHtml(roomPeople ? `${roomPeople} Kişilik` : 'Belirtilmemiş')}</b></span>
+                <span><small>Mekke Oda</small><b>${escapeHtml(mekkeRoom || '—')}</b></span>
+                <span><small>Medine Oda</small><b>${escapeHtml(medineRoom || '—')}</b></span>
+                <span><small>Telefon</small><b>${escapeHtml(passenger.phone || '—')}</b></span>
+                <span class="roommates"><small>Oda Arkadaşları</small><b>${escapeHtml(roommates.length ? roommates.join(', ') : 'Henüz belirlenmemiş')}</b></span>
+            </div>
+            <div class="accounting-totals">
+                <span><small>Program Ücreti</small><strong>${escapeHtml(formatMoney(snapshot.agreedPrice, snapshot.currency))}</strong>${snapshot.usesProgramPrice ? '<em>Oda fiyatından otomatik</em>' : '<em>Özel fiyat</em>'}</span>
+                <span><small>Toplam Ödeme</small><strong>${escapeHtml(formatMoney(snapshot.paid, snapshot.currency))}</strong></span>
+                <span><small>Kalan Bakiye</small><strong>${escapeHtml(formatMoney(snapshot.balance, snapshot.currency))}</strong></span>
+            </div>
+            <details class="accounting-editor" ${accountingSearchQuery ? 'open' : ''}>
+                <summary>Fiyat ve ödeme işlemleri</summary>
+                <div class="accounting-editor-grid">
+                    <div class="accounting-form-block">
+                        <h4>Program Ücreti</h4>
+                        <div class="inline-money-form"><input class="account-agreed-price" type="number" min="0" step="0.01" value="${escapeHtml(snapshot.agreedPrice)}" aria-label="Program ücreti"><select class="account-currency" aria-label="Para birimi">${['USD', 'EUR', 'TRY'].map(currency => `<option value="${currency}" ${currency === snapshot.currency ? 'selected' : ''}>${currency}</option>`).join('')}</select><button class="btn btn-outline dark" type="button" data-save-account-price>Fiyatı Kaydet</button></div>
+                        <small>Oda fiyatından farklı anlaşma varsa burada değiştirebilirsin.</small>
+                    </div>
+                    <div class="accounting-form-block payment-form">
+                        <h4>Yeni Ödeme Ekle</h4>
+                        <div class="payment-fields"><label>Tutar<input class="payment-amount" type="number" min="0.01" step="0.01" placeholder="200"></label><label>Tarih<input class="payment-date" type="date" value="${todayIso()}"></label><label>Ödeme Yöntemi<select class="payment-method"><option>Nakit</option><option>Havale / EFT</option><option>Kredi Kartı</option><option>Diğer</option></select></label><label>Not<input class="payment-note" placeholder="Kapora, ikinci ödeme..."></label></div>
+                        <button class="btn btn-gold" type="button" data-add-payment>Ödemeyi Kaydet ve Makbuz Yazdır</button>
+                    </div>
+                </div>
+                <div class="payment-history"><h4>Ödeme Geçmişi</h4>${accountingPaymentHistoryHtml(context, snapshot)}</div>
+            </details>
+        </article>`;
+    }
+
+    function renderAccounting(query = accountingSearchQuery) {
+        const results = $('accountingSearchResults');
+        if (!results) return;
+        accountingSearchQuery = String(query || '').trim();
+        if ($('accountingSearch') && $('accountingSearch').value !== accountingSearchQuery) $('accountingSearch').value = accountingSearchQuery;
+        if ($('globalPassengerSearch') && $('globalPassengerSearch').value !== accountingSearchQuery) $('globalPassengerSearch').value = accountingSearchQuery;
+        renderAccountingStats();
+        const normalizedQuery = normalizeSearchText(accountingSearchQuery);
+        if (normalizedQuery.length < 2) {
+            results.innerHTML = '<div class="empty accounting-empty">Aramak için yolcunun adından veya soyadından en az 2 harf yazın.</div>';
+            return;
+        }
+        const matches = allPassengerContexts().filter(context => {
+            const searchable = [context.passenger.name, context.passenger.tc, context.passenger.passportNo, context.passenger.phone, context.tour?.title, context.list.title].map(normalizeSearchText).join(' ');
+            return searchable.includes(normalizedQuery);
+        });
+        results.innerHTML = matches.length
+            ? `<div class="accounting-result-count"><b>${matches.length}</b> kayıt bulundu</div>${matches.map(accountingResultCard).join('')}`
+            : `<div class="empty accounting-empty"><b>“${escapeHtml(accountingSearchQuery)}”</b> için hiçbir programda yolcu bulunamadı.</div>`;
+    }
+
+    async function latestAccountingContext(listId, passengerId) {
+        const remote = await fetchRemoteData({ admin: true });
+        if (remote) {
+            state = mergeDefaults(remote);
+            await cacheDataLocally(state);
+        }
+        return getPassengerContext(listId, passengerId);
+    }
+
+    async function savePassengerAccountPrice(card) {
+        const listId = card.dataset.listId;
+        const passengerId = card.dataset.passengerId;
+        const amount = Number(card.querySelector('.account-agreed-price')?.value);
+        const currency = card.querySelector('.account-currency')?.value || 'TRY';
+        if (!Number.isFinite(amount) || amount < 0) { toast('Geçerli bir program ücreti yaz.'); return; }
+        const context = await latestAccountingContext(listId, passengerId);
+        if (!context) { toast('Yolcu kaydı başka bir kullanıcı tarafından değiştirilmiş. Verileri senkronize et.'); return; }
+        context.passenger.accounting = { ...(context.passenger.accounting || {}), agreedPrice: amount, currency, payments: context.passenger.accounting?.payments || [] };
+        const saved = await saveData({ keepLocalAccounting: true });
+        if (!saved) return;
+        renderAccounting();
+        toast('Yolcu program ücreti kaydedildi.');
+    }
+
+    async function addPassengerPayment(card) {
+        const listId = card.dataset.listId;
+        const passengerId = card.dataset.passengerId;
+        const currentContext = getPassengerContext(listId, passengerId);
+        if (!currentContext) return;
+        const amount = Number(card.querySelector('.payment-amount')?.value);
+        const paidAt = card.querySelector('.payment-date')?.value || todayIso();
+        const method = card.querySelector('.payment-method')?.value || 'Nakit';
+        const note = card.querySelector('.payment-note')?.value.trim() || '';
+        const selectedCurrency = card.querySelector('.account-currency')?.value || 'TRY';
+        if (!Number.isFinite(amount) || amount <= 0) { toast('Ödeme tutarı 0’dan büyük olmalı.'); return; }
+        const currentSnapshot = passengerAccountSnapshot(currentContext);
+        if (!currentSnapshot.agreedPrice) { toast('Önce yolcunun program ücretini kaydet.'); return; }
+        const receiptWindow = window.open('', '_blank');
+        const context = await latestAccountingContext(listId, passengerId);
+        if (!context) { if (receiptWindow) receiptWindow.close(); toast('Yolcu kaydı başka bir kullanıcı tarafından değiştirilmiş. Verileri senkronize et.'); return; }
+        const snapshot = passengerAccountSnapshot(context);
+        if (!snapshot.agreedPrice) { if (receiptWindow) receiptWindow.close(); toast('Önce yolcunun program ücretini kaydet.'); return; }
+        const payment = normalizePayment({ id: uid('pay_'), receiptNo: createReceiptNumber(), amount, paidAt, method, note, createdAt: new Date().toISOString() });
+        context.passenger.accounting = {
+            agreedPrice: snapshot.agreedPrice,
+            currency: selectedCurrency || snapshot.currency,
+            payments: [...snapshot.payments, payment]
+        };
+        const saved = await saveData({ keepLocalAccounting: true });
+        if (!saved) { if (receiptWindow) receiptWindow.close(); return; }
+        renderAccounting();
+        const opened = printPaymentReceipt(context.list.id, context.passenger.id, payment.id, receiptWindow);
+        toast(opened ? 'Ödeme kaydedildi; makbuz yazdırmaya hazır.' : 'Ödeme kaydedildi; makbuz dosyası indirildi.');
+    }
+
+    async function voidPassengerPayment(card, paymentId) {
+        const listId = card.dataset.listId;
+        const passengerId = card.dataset.passengerId;
+        const currentContext = getPassengerContext(listId, passengerId);
+        const currentPayment = currentContext?.passenger.accounting?.payments?.find(item => item.id === paymentId);
+        if (!currentPayment || currentPayment.voided) return;
+        if (!confirm(`${currentPayment.receiptNo} numaralı ${formatMoney(currentPayment.amount, currentContext.passenger.accounting.currency)} ödeme kaydı iptal edilsin mi? Kayıt denetim için geçmişte görünmeye devam eder.`)) return;
+        const context = await latestAccountingContext(listId, passengerId);
+        const payment = context?.passenger.accounting?.payments?.find(item => item.id === paymentId);
+        if (!payment || payment.voided) { renderAccounting(); toast('Bu ödeme kaydı başka bir kullanıcı tarafından zaten değiştirilmiş.'); return; }
+        payment.voided = true;
+        payment.voidedAt = new Date().toISOString();
+        const saved = await saveData({ keepLocalAccounting: true });
+        if (!saved) return;
+        renderAccounting();
+        toast('Ödeme kaydı iptal edildi.');
+    }
+
+    function printPaymentReceipt(listId, passengerId, paymentId, targetWindow) {
+        const context = getPassengerContext(listId, passengerId);
+        if (!context) { if (targetWindow) targetWindow.close(); return false; }
+        const snapshot = passengerAccountSnapshot(context);
+        const payment = snapshot.payments.find(item => item.id === paymentId);
+        if (!payment) { if (targetWindow) targetWindow.close(); return false; }
+        const settings = state.settings || {};
+        const roomPeople = context.passenger.roomPeople || context.passenger.room || '';
+        const programDate = context.tour?.departureDate || context.list.date || '';
+        const logoUrl = new URL('assets/logo.png', location.href).href;
+        const receiptHtml = `<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>${escapeHtml(payment.receiptNo)} Tahsilat Makbuzu</title><style>
+            @page{size:A4 portrait;margin:15mm}*{box-sizing:border-box}body{margin:0;background:#eee;color:#17130d;font-family:Arial,sans-serif}.receipt{width:180mm;min-height:125mm;margin:12mm auto;background:#fff;border:2px solid #1b1812;padding:12mm;position:relative}.head{display:flex;justify-content:space-between;gap:20px;border-bottom:3px solid #b8892d;padding-bottom:9mm}.head img{width:52mm;height:20mm;object-fit:contain;background:#111;border-radius:4px;padding:3mm}.title{text-align:right}.title h1{margin:0;font-size:25px}.title p{margin:5px 0 0;color:#756342;font-weight:bold}.receipt-no{display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin:8mm 0}.box{border:1px solid #b8aa91;padding:4mm;border-radius:3px}.box small,.detail small{display:block;color:#756342;font-size:11px;text-transform:uppercase;font-weight:bold;margin-bottom:2mm}.box b{font-size:17px}.details{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #b8aa91}.detail{padding:4mm;border-bottom:1px solid #d6cdbd}.detail:nth-child(odd){border-right:1px solid #d6cdbd}.detail:nth-last-child(-n+2){border-bottom:0}.amount{margin:8mm 0;border:2px solid #b8892d;background:#fff9ec;padding:6mm;display:flex;align-items:center;justify-content:space-between}.amount span{font-size:16px;font-weight:bold}.amount strong{font-size:29px}.note{min-height:16mm;border-bottom:1px solid #b8aa91;padding:3mm 0}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:20mm;margin-top:12mm;text-align:center}.signature{border-top:1px solid #222;padding-top:3mm;font-weight:bold}.footer{position:absolute;left:12mm;right:12mm;bottom:8mm;text-align:center;color:#756342;font-size:10px}.void{position:absolute;inset:42% 15%;transform:rotate(-12deg);border:6px solid #b40000;color:#b40000;font-size:48px;font-weight:bold;text-align:center;padding:8px;opacity:.75}@media print{body{background:#fff}.receipt{margin:0;box-shadow:none}}
+        </style></head><body><main class="receipt"><div class="head"><img src="${escapeHtml(logoUrl)}" alt="Hâzeyn"><div class="title"><h1>TAHSİLAT MAKBUZU</h1><p>PAYMENT RECEIPT</p></div></div><div class="receipt-no"><div class="box"><small>Makbuz No</small><b>${escapeHtml(payment.receiptNo)}</b></div><div class="box"><small>Ödeme Tarihi</small><b>${escapeHtml(formatDateDMY(payment.paidAt))}</b></div></div><div class="details"><div class="detail"><small>Yolcu</small><b>${escapeHtml(context.passenger.name)}</b></div><div class="detail"><small>Program</small><b>${escapeHtml(context.tour?.title || context.list.title || '-')}</b></div><div class="detail"><small>Program Tarihi</small><b>${escapeHtml(formatDateTR(programDate) || '-')}</b></div><div class="detail"><small>Oda Tipi</small><b>${escapeHtml(roomPeople ? `${roomPeople} Kişilik Oda` : '-')}</b></div><div class="detail"><small>Ödeme Yöntemi</small><b>${escapeHtml(payment.method || '-')}</b></div><div class="detail"><small>Kalan Bakiye</small><b>${escapeHtml(formatMoney(snapshot.balance, snapshot.currency))}</b></div></div><div class="amount"><span>Tahsil Edilen Tutar</span><strong>${escapeHtml(formatMoney(payment.amount, snapshot.currency))}</strong></div><div class="note"><b>Açıklama:</b> ${escapeHtml(payment.note || 'Program ödemesi')}</div><div class="signatures"><div class="signature">Ödeyen / Yolcu İmzası</div><div class="signature">Kaşe / Yetkili İmza</div></div><div class="footer">${escapeHtml(settings.brand || 'Hâzeyn Turizm')} • ${escapeHtml(settings.phone || '')} • ${escapeHtml(settings.address || '')}</div>${payment.voided ? '<div class="void">İPTAL</div>' : ''}</main><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`;
+        const receiptWindow = targetWindow || window.open('', '_blank');
+        if (!receiptWindow) {
+            const blob = new Blob([receiptHtml], { type: 'text/html;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${payment.receiptNo}-tahsilat-makbuzu.html`;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+            return false;
+        }
+        receiptWindow.document.open();
+        receiptWindow.document.write(receiptHtml);
+        receiptWindow.document.close();
+        return true;
+    }
+
+    async function refreshAdminFromServer() {
+        const loaded = await loadAuthenticatedAdminData();
+        if (!loaded) { toast('Merkezi veriye ulaşılamadı. İnternet bağlantısını kontrol et.'); return; }
+        renderAdmin();
+        renderAccounting(accountingSearchQuery);
+        toast('Tüm bilgisayarlardaki güncel veriler alındı.');
     }
 
     function safeFileName(value) {
@@ -2483,6 +2911,14 @@
         $('logoutBtn').onclick = () => { adminLoggedIn = false; sessionStorage.removeItem('hazeynAdminPassword'); renderAdmin(); };
         document.querySelectorAll('.admin-tab').forEach(btn => btn.onclick = () => switchTab(btn.dataset.tab));
         $('exportBtn').onclick = exportBackup;
+        if ($('refreshAdminData')) $('refreshAdminData').onclick = refreshAdminFromServer;
+        const handleAccountingSearch = event => {
+            accountingSearchQuery = event.target.value;
+            if (event.target.id === 'globalPassengerSearch' && accountingSearchQuery.trim().length >= 2) switchTab('accounting');
+            renderAccounting(accountingSearchQuery);
+        };
+        if ($('accountingSearch')) $('accountingSearch').addEventListener('input', handleAccountingSearch);
+        if ($('globalPassengerSearch')) $('globalPassengerSearch').addEventListener('input', handleAccountingSearch);
 
         $('tourForm').addEventListener('submit', saveTour);
         $('tourReset').onclick = resetTourForm;
@@ -2577,10 +3013,10 @@
 
         document.addEventListener('drop', async (e) => {
             const bannerItem = e.target.closest && e.target.closest('.hero-banner-admin-item');
-            if (bannerItem && dragHeroBannerInfo) { e.preventDefault(); bannerItem.classList.remove('drag-over'); const changed = reorderHeroBanner(dragHeroBannerInfo.id, bannerItem.dataset.heroBannerId); dragHeroBannerInfo = null; if (changed) { await saveData(); renderHeroBannerAdmin(); applySettings(); toast('Banner sırası güncellendi.'); } return; }
+            if (bannerItem && dragHeroBannerInfo) { e.preventDefault(); bannerItem.classList.remove('drag-over'); const changed = reorderHeroBanner(dragHeroBannerInfo.id, bannerItem.dataset.heroBannerId); dragHeroBannerInfo = null; if (changed) { if (!await saveData()) return; renderHeroBannerAdmin(); applySettings(); toast('Banner sırası güncellendi.'); } return; }
             const row = e.target.closest && e.target.closest('.passenger-order-row');
             if (!row || !dragPassengerInfo || row.dataset.listId !== dragPassengerInfo.listId) return;
-            e.preventDefault(); row.classList.remove('drag-over'); reorderPassenger(dragPassengerInfo.listId, dragPassengerInfo.index, Number(row.dataset.passengerIndex)); dragPassengerInfo = null; await saveData(); renderPassengerAdmin(); toast('Yolcu sırası güncellendi.');
+            e.preventDefault(); row.classList.remove('drag-over'); reorderPassenger(dragPassengerInfo.listId, dragPassengerInfo.index, Number(row.dataset.passengerIndex)); dragPassengerInfo = null; if (!await saveData()) return; renderPassengerAdmin(); toast('Yolcu sırası güncellendi.');
         });
 
         document.addEventListener('dragend', () => {
@@ -2596,38 +3032,52 @@
         });
 
         document.addEventListener('click', async (e) => {
+            const accountingCard = e.target.closest && e.target.closest('[data-account-card]');
+            const saveAccountPrice = e.target.closest && e.target.closest('[data-save-account-price]');
+            if (saveAccountPrice && accountingCard) { await savePassengerAccountPrice(accountingCard); return; }
+            const addPayment = e.target.closest && e.target.closest('[data-add-payment]');
+            if (addPayment && accountingCard) { await addPassengerPayment(accountingCard); return; }
+            const printReceipt = e.target.closest && e.target.closest('[data-print-receipt]');
+            if (printReceipt && accountingCard) {
+                const opened = printPaymentReceipt(accountingCard.dataset.listId, accountingCard.dataset.passengerId, printReceipt.dataset.printReceipt);
+                if (!opened) toast('Makbuz dosyası indirildi; açıp yazdırabilirsin.');
+                return;
+            }
+            const voidPayment = e.target.closest && e.target.closest('[data-void-payment]');
+            if (voidPayment && accountingCard) { await voidPassengerPayment(accountingCard, voidPayment.dataset.voidPayment); return; }
+
             const delTour = e.target.closest('[data-delete-tour]');
             if (delTour) {
                 const tourId = delTour.dataset.deleteTour;
                 const foundTour = state.tours.find(x => x.id === tourId);
                 if (foundTour && normalizedTourStatus(foundTour) === 'draft' && confirm('Taslak program silinsin mi?')) {
                     state.tours = state.tours.filter(x => x.id !== tourId);
-                    await saveData(); renderTourAdmin(); renderPassengerTourSelect(); renderDashboard(); toast('Taslak silindi.');
+                    if (!await saveData()) return; renderTourAdmin(); renderPassengerTourSelect(); renderDashboard(); toast('Taslak silindi.');
                 } else if (foundTour && normalizedTourStatus(foundTour) !== 'draft' && confirm('Program sona ermiş olarak arşivlensin mi? Sayfası ve Google bağlantısı korunacaktır.')) {
                     foundTour.status = 'completed';
-                    await saveData(); renderTourAdmin(); renderPassengerTourSelect(); renderDashboard(); toast('Program arşivlendi; sayfası korunuyor.');
+                    if (!await saveData()) return; renderTourAdmin(); renderPassengerTourSelect(); renderDashboard(); toast('Program arşivlendi; sayfası korunuyor.');
                 }
             }
             const editTourBtn = e.target.closest('[data-edit-tour]'); if (editTourBtn) editTour(editTourBtn.dataset.editTour);
 
             const delReview = e.target.closest('[data-delete-review]');
-            if (delReview && confirm('Yorum silinsin mi?')) { state.reviews = state.reviews.filter(x => x.id !== delReview.dataset.deleteReview); await saveData(); renderReviewAdmin(); renderDashboard(); toast('Yorum silindi.'); }
+            if (delReview && confirm('Yorum silinsin mi?')) { state.reviews = state.reviews.filter(x => x.id !== delReview.dataset.deleteReview); if (!await saveData()) return; renderReviewAdmin(); renderDashboard(); toast('Yorum silindi.'); }
             const editReviewBtn = e.target.closest('[data-edit-review]'); if (editReviewBtn) editReview(editReviewBtn.dataset.editReview);
 
             const delGallery = e.target.closest('[data-delete-gallery]');
-            if (delGallery && confirm('Görsel silinsin mi?')) { state.gallery = state.gallery.filter(x => x.id !== delGallery.dataset.deleteGallery); await saveData(); renderGalleryAdmin(); renderDashboard(); toast('Görsel silindi.'); }
+            if (delGallery && confirm('Görsel silinsin mi?')) { state.gallery = state.gallery.filter(x => x.id !== delGallery.dataset.deleteGallery); if (!await saveData()) return; renderGalleryAdmin(); renderDashboard(); toast('Görsel silindi.'); }
 
             const editStaffBtn = e.target.closest('[data-edit-staff]'); if (editStaffBtn) editStaff(editStaffBtn.dataset.editStaff);
             const delStaff = e.target.closest('[data-delete-staff]');
-            if (delStaff && confirm('Ekip üyesi silinsin mi?')) { state.staff = (state.staff || []).filter(x => x.id !== delStaff.dataset.deleteStaff); await saveData(); renderStaffAdmin(); renderDashboard(); toast('Kadro silindi.'); }
+            if (delStaff && confirm('Ekip üyesi silinsin mi?')) { state.staff = (state.staff || []).filter(x => x.id !== delStaff.dataset.deleteStaff); if (!await saveData()) return; renderStaffAdmin(); renderDashboard(); toast('Kadro silindi.'); }
 
             const editBlogBtn = e.target.closest('[data-edit-blog]'); if (editBlogBtn) editBlog(editBlogBtn.dataset.editBlog);
             const delBlog = e.target.closest('[data-delete-blog]');
-            if (delBlog && confirm('Yazı silinsin mi?')) { state.blogs = (state.blogs || []).filter(x => x.id !== delBlog.dataset.deleteBlog); await saveData(); renderBlogAdmin(); renderDashboard(); toast('Yazı silindi.'); }
+            if (delBlog && confirm('Yazı silinsin mi?')) { state.blogs = (state.blogs || []).filter(x => x.id !== delBlog.dataset.deleteBlog); if (!await saveData()) return; renderBlogAdmin(); renderDashboard(); toast('Yazı silindi.'); }
 
             const editHeroBannerBtn = e.target.closest('[data-edit-hero-banner]'); if (editHeroBannerBtn) editHeroBanner(editHeroBannerBtn.dataset.editHeroBanner);
             const delHeroBanner = e.target.closest('[data-delete-hero-banner]');
-            if (delHeroBanner && confirm('Banner silinsin mi?')) { state.settings.heroBanners = (state.settings.heroBanners || []).filter(x => x.id !== delHeroBanner.dataset.deleteHeroBanner); await saveData(); renderHeroBannerAdmin(); applySettings(); toast('Banner silindi.'); }
+            if (delHeroBanner && confirm('Banner silinsin mi?')) { state.settings.heroBanners = (state.settings.heroBanners || []).filter(x => x.id !== delHeroBanner.dataset.deleteHeroBanner); if (!await saveData()) return; renderHeroBannerAdmin(); applySettings(); toast('Banner silindi.'); }
 
             const editList = e.target.closest('[data-edit-list]'); if (editList) editPassengerList(editList.dataset.editList);
             const surnameToggle = e.target.closest('[data-surname-toggle]');
@@ -2647,7 +3097,7 @@
             if (flightExcelBtn) exportFlightExcel(flightExcelBtn.dataset.flightExcelList);
 
             const delList = e.target.closest('[data-delete-list]');
-            if (delList && confirm('Yolcu listesi silinsin mi?')) { surnameSortedLists.delete(delList.dataset.deleteList); state.passengerLists = state.passengerLists.filter(x => x.id !== delList.dataset.deleteList); await saveData(); renderPassengerAdmin(); renderDashboard(); toast('Liste silindi.'); }
+            if (delList && confirm('Yolcu listesi silinsin mi?')) { surnameSortedLists.delete(delList.dataset.deleteList); state.passengerLists = state.passengerLists.filter(x => x.id !== delList.dataset.deleteList); if (!await saveData()) return; renderPassengerAdmin(); renderDashboard(); toast('Liste silindi.'); }
         });
     }
 
