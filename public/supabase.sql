@@ -15,3 +15,7 @@ alter table public.hazeyn_data enable row level security;
 insert into public.hazeyn_data (id, data)
 values ('main', '{}'::jsonb)
 on conflict (id) do nothing;
+
+insert into public.hazeyn_data (id, data)
+values ('hakikat', '{"settings":{"brand":"Hakikat Turizm Seyahat Acentası"},"tours":[],"reviews":[],"gallery":[],"staff":[],"blogs":[],"passengerLists":[]}'::jsonb)
+on conflict (id) do nothing;

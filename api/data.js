@@ -1,9 +1,10 @@
 const path = require('path');
 const {
-  TABLE, ROW_ID, BUCKET,
+  TABLE, BUCKET,
   supabaseAdmin, checkAdmin,
+  requestCompanyId, companyRowId, companyDefaultData,
   sanitizeAdminState, sanitizePublicState,
-  readDefaultData, ensureBucket
+  ensureBucket
 } = require('./_supabase');
 
 function cleanFileName(name){
@@ -15,12 +16,14 @@ function cleanFileName(name){
 module.exports = async function handler(req, res){
   res.setHeader('Cache-Control', 'no-store');
   const action = String(req.query && req.query.action || '');
+  const requestedCompanyId = requestCompanyId(req);
 
   if(req.method === 'GET'){
     const wantsAdmin = String(req.query && req.query.scope || '') === 'admin';
-    if(wantsAdmin && !checkAdmin(req)) return res.status(401).json({ok:false, error:'Yetkisiz.'});
+    const companyId = wantsAdmin ? requestedCompanyId : 'hazeyn';
+    if(wantsAdmin && !checkAdmin(req, companyId)) return res.status(401).json({ok:false, error:'Yetkisiz.'});
     if(action === 'upload-config'){
-      if(!checkAdmin(req)) return res.status(401).json({ok:false, error:'Yetkisiz.'});
+      if(!checkAdmin(req, requestedCompanyId)) return res.status(401).json({ok:false, error:'Yetkisiz.'});
       return res.status(200).json({
         url: process.env.SUPABASE_URL || '',
         anonKey: process.env.SUPABASE_ANON_KEY || '',
@@ -29,10 +32,11 @@ module.exports = async function handler(req, res){
     }
     try{
       const client = supabaseAdmin();
-      const { data, error } = await client.from(TABLE).select('data').eq('id', ROW_ID).maybeSingle();
+      const { data, error } = await client.from(TABLE).select('data').eq('id', companyRowId(companyId)).maybeSingle();
       if(error) throw error;
-      const rawState = data && data.data ? data.data : readDefaultData();
-      return res.status(200).json(checkAdmin(req) ? sanitizeAdminState(rawState) : sanitizePublicState(rawState));
+      const rawState = data && data.data ? data.data : companyDefaultData(companyId);
+      res.setHeader('X-Turizm-Company', companyId);
+      return res.status(200).json(wantsAdmin ? sanitizeAdminState(rawState) : sanitizePublicState(rawState));
     } catch(err){
       console.error(err);
       res.setHeader('Retry-After', '30');
@@ -41,11 +45,13 @@ module.exports = async function handler(req, res){
   }
 
   if(req.method === 'POST'){
-    if(!checkAdmin(req)) return res.status(401).json({ok:false, error:'Admin şifresi hatalı.'});
+    const companyId = requestedCompanyId;
+    if(!checkAdmin(req, companyId)) return res.status(401).json({ok:false, error:'Admin şifresi hatalı.'});
     if(action === 'signed-upload'){
       try{
         const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-        const folder = String(body.folder || 'uploads').replace(/[^a-z0-9-_\/]/gi, '').replace(/^\/+/, '').slice(0, 80) || 'uploads';
+        const requestedFolder = String(body.folder || 'uploads').replace(/[^a-z0-9-_\/]/gi, '').replace(/^\/+/, '').slice(0, 70) || 'uploads';
+        const folder = `${companyId}/${requestedFolder}`;
         const filename = cleanFileName(body.filename || 'image.jpg');
         const objectPath = `${folder}/${filename}`;
         const client = supabaseAdmin();
@@ -62,9 +68,10 @@ module.exports = async function handler(req, res){
       const client = supabaseAdmin();
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const dataToSave = sanitizeAdminState(body.data || body);
-      const { error } = await client.from(TABLE).upsert({id: ROW_ID, data: dataToSave, updated_at: new Date().toISOString()}, {onConflict:'id'});
+      const { error } = await client.from(TABLE).upsert({id: companyRowId(companyId), data: dataToSave, updated_at: new Date().toISOString()}, {onConflict:'id'});
       if(error) throw error;
-      return res.status(200).json({ok:true});
+      res.setHeader('X-Turizm-Company', companyId);
+      return res.status(200).json({ok:true, company:companyId});
     } catch(err){
       console.error(err);
       return res.status(500).json({ok:false, error:'Veri kaydı yapılamadı.'});

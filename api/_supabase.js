@@ -5,8 +5,10 @@ const { createClient } = require('@supabase/supabase-js');
 
 const TABLE = process.env.SUPABASE_TABLE || 'hazeyn_data';
 const ROW_ID = process.env.SUPABASE_ROW_ID || 'main';
+const HAKIKAT_ROW_ID = process.env.SUPABASE_HAKIKAT_ROW_ID || 'hakikat';
 const BUCKET = process.env.SUPABASE_BUCKET || 'hazeyn';
 const CONFIGURED_ADMIN_PASSWORD = process.env.HAZEYN_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '';
+const CONFIGURED_HAKIKAT_PASSWORD = process.env.HAKIKAT_ADMIN_PASSWORD || '';
 // Geriye uyumluluk icin yalnizca sunucu tarafinda tutulur. Gercek sifre istemci
 // paketine veya veri tabanindaki site ayarlarina yazilmaz.
 const FALLBACK_ADMIN_PASSWORD_SHA256 = process.env.HAZEYN_ADMIN_PASSWORD_SHA256 || '4715441fb3d9f3ee5ce2f74cd2752f45e4fb0d5a381cd532e8cab562fd99d83a';
@@ -32,10 +34,40 @@ function secureEqual(left, right){
   return a.length === b.length && a.length > 0 && crypto.timingSafeEqual(a, b);
 }
 
-function verifyAdminCredential(value){
+function normalizeCompanyId(value){
+  return String(value || '').trim().toLowerCase() === 'hakikat' ? 'hakikat' : 'hazeyn';
+}
+
+function requestCompanyId(req){
+  const queryValue = req && req.query && req.query.company;
+  const headers = req && req.headers || {};
+  return normalizeCompanyId(queryValue || headers['x-company-id']);
+}
+
+function companyRowId(companyId){
+  return normalizeCompanyId(companyId) === 'hakikat' ? HAKIKAT_ROW_ID : ROW_ID;
+}
+
+function companyDefaultData(companyId){
+  if(normalizeCompanyId(companyId) !== 'hakikat') return readDefaultData();
+  return {
+    _meta: { updatedAt: 0 },
+    settings: {
+      brand: 'Hakikat Turizm Seyahat Acentası',
+      phone: '', phone2: '', whatsapp: '', email: '', website: '', instagram: '', address: '',
+      heroTitle: 'Hakikat Turizm', heroSubtitle: '', heroBanners: [], officeImages: []
+    },
+    tours: [], reviews: [], gallery: [], staff: [], blogs: [], passengerLists: []
+  };
+}
+
+function verifyAdminCredential(value, companyId = 'hazeyn'){
   const candidate = String(value || '');
   if(!candidate) return false;
-  if(CONFIGURED_ADMIN_PASSWORD) return secureEqual(candidate, CONFIGURED_ADMIN_PASSWORD);
+  const configuredPassword = normalizeCompanyId(companyId) === 'hakikat' && CONFIGURED_HAKIKAT_PASSWORD
+    ? CONFIGURED_HAKIKAT_PASSWORD
+    : CONFIGURED_ADMIN_PASSWORD;
+  if(configuredPassword) return secureEqual(candidate, configuredPassword);
   const digest = crypto.createHash('sha256').update(candidate, 'utf8').digest('hex');
   return secureEqual(digest, FALLBACK_ADMIN_PASSWORD_SHA256);
 }
@@ -109,8 +141,8 @@ function supabaseAnon(){
   return createClient(url, anonKey, { auth: { persistSession: false } });
 }
 
-function checkAdmin(req){
-  return verifyAdminCredential(requestCredential(req));
+function checkAdmin(req, companyId = requestCompanyId(req)){
+  return verifyAdminCredential(requestCredential(req), companyId);
 }
 
 function readDefaultData(){
@@ -135,9 +167,10 @@ async function ensureBucket(client){
 }
 
 module.exports = {
-  TABLE, ROW_ID, BUCKET,
+  TABLE, ROW_ID, HAKIKAT_ROW_ID, BUCKET,
   supabaseAdmin, supabaseAnon,
   checkAdmin, verifyAdminCredential,
+  normalizeCompanyId, requestCompanyId, companyRowId, companyDefaultData,
   sanitizeAdminState, sanitizePublicState,
   readDefaultData, ensureBucket
 };

@@ -2,9 +2,10 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const {
-  TABLE, ROW_ID, BUCKET,
+  TABLE, BUCKET,
   supabaseAdmin, ensureBucket,
   checkAdmin, verifyAdminCredential,
+  normalizeCompanyId, companyRowId, companyDefaultData,
   sanitizeAdminState, sanitizePublicState
 } = require('./api/_supabase');
 const {
@@ -53,20 +54,28 @@ function ensureDb(){
   if(!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, JSON.stringify({settings:{},tours:[],reviews:[],gallery:[],passengerLists:[]}, null, 2));
 }
 
-function readLocalState(){
-  try { return JSON.parse(fs.readFileSync(DB_PATH, 'utf8')); }
-  catch(e) { return {settings:{}, tours:[], reviews:[], gallery:[], staff:[], blogs:[], passengerLists:[]}; }
+function companyFromRequest(req, requestUrl){
+  return normalizeCompanyId(requestUrl.searchParams.get('company') || req.headers['x-company-id']);
 }
 
-async function readCentralState(){
+function localDbPath(companyId){
+  return normalizeCompanyId(companyId) === 'hakikat' ? path.join(DATA_DIR, 'db-hakikat.json') : DB_PATH;
+}
+
+function readLocalState(companyId = 'hazeyn'){
+  try { return JSON.parse(fs.readFileSync(localDbPath(companyId), 'utf8')); }
+  catch(e) { return companyDefaultData(companyId); }
+}
+
+async function readCentralState(companyId = 'hazeyn'){
   try {
     const client = supabaseAdmin();
-    const { data, error } = await client.from(TABLE).select('data').eq('id', ROW_ID).maybeSingle();
+    const { data, error } = await client.from(TABLE).select('data').eq('id', companyRowId(companyId)).maybeSingle();
     if(error) throw error;
-    return data && data.data ? data.data : readLocalState();
+    return data && data.data ? data.data : readLocalState(companyId);
   } catch(error) {
     console.error('Supabase veri okuma hatası:', error);
-    return readLocalState();
+    return readLocalState(companyId);
   }
 }
 
@@ -97,8 +106,9 @@ const server = http.createServer(async (req, res) => {
     req.on('end', () => {
       try {
         const data = JSON.parse(body || '{}');
-        if(verifyAdminCredential(data.password)){
-          return send(res, 200, JSON.stringify({ok:true}), 'application/json; charset=utf-8');
+        const companyId = normalizeCompanyId(data.company || req.headers['x-company-id']);
+        if(verifyAdminCredential(data.password, companyId)){
+          return send(res, 200, JSON.stringify({ok:true, company:companyId}), 'application/json; charset=utf-8');
         }
         return send(res, 401, JSON.stringify({ok:false, error:'Şifre hatalı.'}), 'application/json; charset=utf-8');
       } catch(e) {
@@ -109,11 +119,13 @@ const server = http.createServer(async (req, res) => {
   }
   if(pathname === '/api/data' && req.method === 'GET'){
     const wantsAdmin = requestUrl.searchParams.get('scope') === 'admin';
-    if(wantsAdmin && !checkAdmin(req)){
+    const requestedCompanyId = companyFromRequest(req, requestUrl);
+    const companyId = wantsAdmin ? requestedCompanyId : 'hazeyn';
+    if(wantsAdmin && !checkAdmin(req, companyId)){
       return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
     }
     if(requestUrl.searchParams.get('action') === 'upload-config'){
-      if(!checkAdmin(req)){
+      if(!checkAdmin(req, requestedCompanyId)){
         return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
       }
       return send(res, 200, JSON.stringify({
@@ -122,12 +134,13 @@ const server = http.createServer(async (req, res) => {
         bucket: BUCKET
       }), 'application/json; charset=utf-8');
     }
-    const rawState = await readCentralState();
-    const payload = checkAdmin(req) ? sanitizeAdminState(rawState) : sanitizePublicState(rawState);
-    return send(res, 200, JSON.stringify(payload), 'application/json; charset=utf-8', {'X-Hazeyn-Data-Source':'supabase'});
+    const rawState = await readCentralState(companyId);
+    const payload = wantsAdmin ? sanitizeAdminState(rawState) : sanitizePublicState(rawState);
+    return send(res, 200, JSON.stringify(payload), 'application/json; charset=utf-8', {'X-Hazeyn-Data-Source':'supabase','X-Turizm-Company':companyId});
   }
   if(pathname === '/api/media-upload' && req.method === 'POST'){
-    if(!checkAdmin(req)){
+    const companyId = companyFromRequest(req, requestUrl);
+    if(!checkAdmin(req, companyId)){
       return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
     }
     const chunks = [];
@@ -143,7 +156,8 @@ const server = http.createServer(async (req, res) => {
         const contentType = String(req.headers['content-type'] || 'image/jpeg');
         if(!contentType.startsWith('image/')) return send(res, 415, JSON.stringify({ok:false, error:'Geçersiz görsel.'}), 'application/json; charset=utf-8');
         const extension = path.extname(String(req.headers['x-file-name'] || '')).toLowerCase().replace(/[^a-z0-9.]/g, '') || '.jpg';
-        const folder = String(req.headers['x-upload-folder'] || 'uploads').replace(/[^a-z0-9-_\/]/gi, '').replace(/^\/+/, '').slice(0, 80) || 'uploads';
+        const requestedFolder = String(req.headers['x-upload-folder'] || 'uploads').replace(/[^a-z0-9-_\/]/gi, '').replace(/^\/+/, '').slice(0, 70) || 'uploads';
+        const folder = `${companyId}/${requestedFolder}`;
         const objectPath = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2,10)}${extension}`;
         const client = supabaseAdmin();
         await ensureBucket(client);
@@ -161,7 +175,8 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if(pathname === '/api/data' && req.method === 'POST'){
-    if(!checkAdmin(req)){
+    const companyId = companyFromRequest(req, requestUrl);
+    if(!checkAdmin(req, companyId)){
       return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
     }
     if(requestUrl.searchParams.get('action') === 'signed-upload'){
@@ -173,7 +188,8 @@ const server = http.createServer(async (req, res) => {
       req.on('end', async () => {
         try {
           const input = JSON.parse(uploadBody || '{}');
-          const folder = String(input.folder || 'uploads').replace(/[^a-z0-9-_\/]/gi, '').replace(/^\/+/, '').slice(0, 80) || 'uploads';
+          const requestedFolder = String(input.folder || 'uploads').replace(/[^a-z0-9-_\/]/gi, '').replace(/^\/+/, '').slice(0, 70) || 'uploads';
+          const folder = `${companyId}/${requestedFolder}`;
           const objectPath = `${folder}/${cleanFileName(input.filename || 'image.jpg')}`;
           const client = supabaseAdmin();
           await ensureBucket(client);
@@ -197,19 +213,19 @@ const server = http.createServer(async (req, res) => {
         const data = sanitizeAdminState(JSON.parse(body || '{}'));
         const client = supabaseAdmin();
         const { error } = await client.from(TABLE).upsert({
-          id: ROW_ID,
+          id: companyRowId(companyId),
           data,
           updated_at: new Date().toISOString()
         }, { onConflict: 'id' });
         if(error) throw error;
         try {
-          fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
+          fs.writeFileSync(localDbPath(companyId), JSON.stringify(data, null, 2));
         } catch(localBackupError) {
           // Vercel çalışma dizini salt okunurdur; merkezi Supabase kaydı başarılıysa
           // yerel yedek hatası kullanıcı kaydını başarısız göstermemelidir.
           if(localBackupError && localBackupError.code !== 'EROFS') console.warn('Yerel veri yedeği yazılamadı:', localBackupError);
         }
-        send(res, 200, JSON.stringify({ok:true, source:'supabase'}), 'application/json; charset=utf-8');
+        send(res, 200, JSON.stringify({ok:true, source:'supabase', company:companyId}), 'application/json; charset=utf-8');
       } catch(e) {
         console.error('Supabase veri kayıt hatası:', e);
         send(res, 502, JSON.stringify({ok:false, error:'Merkezi veri kaydı yapılamadı.'}), 'application/json; charset=utf-8');

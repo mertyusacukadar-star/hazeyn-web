@@ -77,6 +77,27 @@
         { id: 'seo-yaslilar', slug: 'yaslilar-umreye-tek-basina-gidebilir-mi', category: 'Umre Rehberi', title: 'Yaşlılar Umreye tek başına gidebilir mi?', summary: 'İleri yaştaki misafirler için refakat, sağlık ve program seçimi önerileri.', content: 'İleri yaştaki misafirlerin sağlık durumu, hareket kabiliyeti ve ihtiyaç duyduğu destek program seçerken dikkate alınmalıdır. Uygun otel mesafesi ve kafile desteği için yolculuk öncesinde acentamızla görüşebilirsiniz.' }
     ];
 
+    const page = document.body.dataset.page;
+    const $ = (id) => document.getElementById(id);
+    const COMPANY_CONFIG = {
+        hazeyn: {
+            id: 'hazeyn', name: 'Hazeyn Turizm', shortName: 'Hazeyn', receiptPrefix: 'HZ',
+            logo: 'assets/logo.png', loginLogo: 'assets/logo.png', publicUrl: 'index.html', accent: '#c4912f'
+        },
+        hakikat: {
+            id: 'hakikat', name: 'Hakikat Turizm', shortName: 'Hakikat', receiptPrefix: 'HK',
+            logo: 'assets/hakikat-logo-white.png', loginLogo: 'assets/hakikat-logo.png', publicUrl: '', accent: '#628c2c'
+        }
+    };
+
+    function normalizeCompanyId(value) {
+        return String(value || '').trim().toLowerCase() === 'hakikat' ? 'hakikat' : 'hazeyn';
+    }
+
+    const requestedCompany = new URLSearchParams(location.search).get('company');
+    let currentCompanyId = page === 'public'
+        ? 'hazeyn'
+        : normalizeCompanyId(requestedCompany || localStorage.getItem('turizmLastCompany'));
     let state = null;
     let adminLoggedIn = false;
     let tempTourImage = '';
@@ -100,11 +121,69 @@
     let accountingSearchQuery = '';
     const surnameSortedLists = new Set();
 
-    const page = document.body.dataset.page;
-    const $ = (id) => document.getElementById(id);
-
     function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
     function uid(prefix) { return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+    function currentCompany() {
+        return COMPANY_CONFIG[currentCompanyId] || COMPANY_CONFIG.hazeyn;
+    }
+
+    function defaultDataForCompany() {
+        const data = clone(DEFAULT_DATA);
+        if (currentCompanyId !== 'hakikat') return data;
+        data.settings = {
+            ...data.settings,
+            brand: 'Hakikat Turizm Seyahat Acentası',
+            phone: '', phone2: '', whatsapp: '', email: '', website: '', instagram: '', address: '',
+            heroTitle: 'Hakikat Turizm', heroSubtitle: '', heroMode: 'single', heroBanners: [], officeImages: [],
+            staffBannerKicker: 'HAKİKAT TURİZM', staffBannerTitle: 'Deneyimli Kadro', staffBannerSubtitle: '', staffBannerImage: '',
+            blogBannerKicker: 'HAKİKAT TURİZM', blogBannerTitle: 'Merak Edilenler', blogBannerSubtitle: '', blogBannerImage: ''
+        };
+        data.tours = [];
+        data.reviews = [];
+        data.gallery = [];
+        data.staff = [];
+        data.blogs = [];
+        data.passengerLists = [];
+        return data;
+    }
+
+    function companyCacheKey() {
+        return currentCompanyId === 'hazeyn' ? 'hazeynData' : `turizmData:${currentCompanyId}`;
+    }
+
+    function companyLogoUrl() {
+        return new URL(currentCompany().logo, location.href).href;
+    }
+
+    function adminPasswordKey(companyId = currentCompanyId) {
+        return `turizmAdminPassword:${normalizeCompanyId(companyId)}`;
+    }
+
+    function updateCompanyBranding() {
+        if (page !== 'admin') return;
+        const company = currentCompany();
+        document.body.dataset.company = company.id;
+        document.title = `${company.name} • Turizm Muhasebe`;
+        document.querySelectorAll('[data-company-name]').forEach(el => { el.textContent = company.name; });
+        document.querySelectorAll('[data-company-short-name]').forEach(el => { el.textContent = company.shortName; });
+        document.querySelectorAll('[data-company-logo]').forEach(el => {
+            const context = el.dataset.companyLogo;
+            el.src = context === 'login' ? company.loginLogo : company.logo;
+            el.alt = company.name;
+        });
+        document.querySelectorAll('[data-company-choice]').forEach(button => {
+            const selected = button.dataset.companyChoice === company.id;
+            button.classList.toggle('active', selected);
+            button.setAttribute('aria-pressed', String(selected));
+        });
+        if ($('companySwitcher') && $('companySwitcher').value !== company.id) $('companySwitcher').value = company.id;
+        if ($('companyAccountNote')) $('companyAccountNote').textContent = `${company.name} kayıtları diğer firmadan tamamen ayrı tutulur.`;
+        document.querySelectorAll('[data-company-public-link]').forEach(publicLink => {
+            publicLink.hidden = !company.publicUrl;
+            publicLink.href = company.publicUrl || '#';
+        });
+    }
 
     function slugifyTR(value) {
         const map = { 'ç': 'c', 'Ç': 'c', 'ğ': 'g', 'Ğ': 'g', 'ı': 'i', 'I': 'i', 'İ': 'i', 'ö': 'o', 'Ö': 'o', 'ş': 's', 'Ş': 's', 'ü': 'u', 'Ü': 'u' };
@@ -493,7 +572,7 @@
         const cities = departureCityLabel(t).replace(/ çıkışlı$/i, '');
         const hotels = [t.mekkeHotelName, t.medineHotelName].filter(Boolean).join(' ve ');
         return {
-            title: `${titleBase || t.title} | Hazeyn Turizm`.slice(0, 70),
+            title: `${titleBase || t.title} | ${currentCompany().name}`.slice(0, 70),
             description: `${date ? `${date} tarihli ` : ''}${t.durationDays ? `${t.durationDays} günlük ` : ''}${cities ? `${cities} çıkışlı ` : ''}Umre programı${hotels ? `; ${hotels} konaklamaları` : ''}, uçuş, oda fiyatları ve ziyaret ayrıntıları.`.replace(/\s+/g, ' ').slice(0, 180)
         };
     }
@@ -548,7 +627,7 @@
     }
 
     function getAdminPassword() {
-        return sessionStorage.getItem('hazeynAdminPassword') || '';
+        return sessionStorage.getItem(adminPasswordKey()) || sessionStorage.getItem('turizmAdminPassword') || sessionStorage.getItem('hazeynAdminPassword') || '';
     }
 
     async function validateAdminPassword(password) {
@@ -556,11 +635,12 @@
             try {
                 const res = await fetch('/api/login', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password })
+                    headers: { 'Content-Type': 'application/json', 'x-company-id': currentCompanyId },
+                    body: JSON.stringify({ password, company: currentCompanyId })
                 });
                 if (res.ok) {
-                    sessionStorage.setItem('hazeynAdminPassword', password);
+                    sessionStorage.setItem(adminPasswordKey(), password);
+                    sessionStorage.setItem('turizmAdminPassword', password);
                     return true;
                 }
                 if (res.status !== 404 && res.status !== 405) return false;
@@ -578,9 +658,9 @@
         if (location.protocol === 'file:') return null;
         try {
             const password = getAdminPassword();
-            const res = await fetch('/api/data?action=upload-config', {
+            const res = await fetch(`/api/data?action=upload-config&company=${encodeURIComponent(currentCompanyId)}`, {
                 cache: 'no-store',
-                headers: password ? { 'x-admin-password': password } : {}
+                headers: password ? { 'x-admin-password': password, 'x-company-id': currentCompanyId } : { 'x-company-id': currentCompanyId }
             });
             if (!res.ok) return null;
             const cfg = await res.json();
@@ -611,6 +691,7 @@
                     headers: {
                         'Content-Type': prepared.type || 'image/jpeg',
                         'x-admin-password': password,
+                        'x-company-id': currentCompanyId,
                         'x-file-name': uploadName,
                         'x-upload-folder': folder || 'uploads'
                     },
@@ -632,9 +713,9 @@
         const cfg = await getUploadConfig();
         if (!cfg || !window.supabase) return null;
 
-        const signed = await fetch('/api/data?action=signed-upload', {
+        const signed = await fetch(`/api/data?action=signed-upload&company=${encodeURIComponent(currentCompanyId)}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
+            headers: { 'Content-Type': 'application/json', 'x-admin-password': password, 'x-company-id': currentCompanyId },
             body: JSON.stringify({ filename: uploadName, type: prepared.type, size: prepared.size, folder: folder || 'uploads' })
         });
         if (!signed.ok) throw new Error('Yükleme izni alınamadı. Admin şifreni tekrar gir.');
@@ -718,11 +799,12 @@
 
     function dataScore(data) {
         if (!data) return -1;
+        const defaults = defaultDataForCompany();
         let score = Number(data._meta && data._meta.updatedAt ? data._meta.updatedAt : 0);
         if (Array.isArray(data.passengerLists) && data.passengerLists.length) score += 500000000000;
-        if (Array.isArray(data.tours) && JSON.stringify(data.tours) !== JSON.stringify(DEFAULT_DATA.tours)) score += 400000000000;
-        if (Array.isArray(data.reviews) && JSON.stringify(data.reviews) !== JSON.stringify(DEFAULT_DATA.reviews)) score += 200000000000;
-        if (Array.isArray(data.gallery) && JSON.stringify(data.gallery) !== JSON.stringify(DEFAULT_DATA.gallery)) score += 100000000000;
+        if (Array.isArray(data.tours) && JSON.stringify(data.tours) !== JSON.stringify(defaults.tours)) score += 400000000000;
+        if (Array.isArray(data.reviews) && JSON.stringify(data.reviews) !== JSON.stringify(defaults.reviews)) score += 200000000000;
+        if (Array.isArray(data.gallery) && JSON.stringify(data.gallery) !== JSON.stringify(defaults.gallery)) score += 100000000000;
         if (Array.isArray(data.staff) && data.staff.length) score += 50000000000;
         if (Array.isArray(data.blogs) && data.blogs.length) score += 25000000000;
         return score;
@@ -730,7 +812,7 @@
 
     function chooseBestData(items) {
         const valid = items.filter(Boolean).map(mergeDefaults);
-        if (!valid.length) return clone(DEFAULT_DATA);
+        if (!valid.length) return defaultDataForCompany();
         valid.sort((a, b) => {
             const stampDifference = Number(b?._meta?.updatedAt || 0) - Number(a?._meta?.updatedAt || 0);
             return stampDifference || (dataScore(b) - dataScore(a));
@@ -746,8 +828,11 @@
                 const password = getAdminPassword();
                 if (!password) return null;
                 headers['x-admin-password'] = password;
+                headers['x-company-id'] = currentCompanyId;
             }
-            const query = options.admin === true ? `scope=admin&ts=${Date.now()}` : `ts=${Date.now()}`;
+            const query = options.admin === true
+                ? `scope=admin&company=${encodeURIComponent(currentCompanyId)}&ts=${Date.now()}`
+                : `ts=${Date.now()}`;
             const res = await fetch(`/api/data?${query}`, {
                 cache: 'no-store',
                 headers
@@ -760,8 +845,9 @@
     }
 
     async function cacheDataLocally(data) {
-        await idbSet('hazeynData', data);
-        try { localStorage.setItem('hazeynData', JSON.stringify(data)); } catch (e) { }
+        const key = companyCacheKey();
+        await idbSet(key, data);
+        try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) { }
     }
 
     function shouldPreserveUnsyncedLocal(remote, local) {
@@ -771,9 +857,10 @@
     }
 
     async function loadData() {
-        const local = parseJson(localStorage.getItem('hazeynData'));
-        const indexed = await idbGet('hazeynData');
-        const remote = await fetchRemoteData();
+        const key = companyCacheKey();
+        const local = parseJson(localStorage.getItem(key));
+        const indexed = await idbGet(key);
+        const remote = page === 'admin' ? null : await fetchRemoteData();
         const bestLocal = chooseBestData([indexed, local]);
         // Sunucu verisi cihazlar arasındaki tek ana kaynaktır. Yalnızca sunucudan
         // daha yeni olduğu kanıtlanan çevrimdışı bir yönetim kaydı geçici olarak
@@ -790,8 +877,9 @@
     async function loadAuthenticatedAdminData() {
         const remote = await fetchRemoteData({ admin: true });
         if (!remote) return false;
-        const local = parseJson(localStorage.getItem('hazeynData'));
-        const indexed = await idbGet('hazeynData');
+        const key = companyCacheKey();
+        const local = parseJson(localStorage.getItem(key));
+        const indexed = await idbGet(key);
         const bestLocal = chooseBestData([indexed, local]);
         state = mergeDefaults(shouldPreserveUnsyncedLocal(remote, bestLocal) ? bestLocal : remote);
         await cacheDataLocally(state);
@@ -820,7 +908,7 @@
     }
 
     function mergeDefaults(data) {
-        const d = clone(DEFAULT_DATA);
+        const d = defaultDataForCompany();
         data = data || {};
         const settings = { ...d.settings, ...(data.settings || {}) };
         delete settings.adminPassword;
@@ -832,7 +920,9 @@
             reviews: Array.isArray(data.reviews) ? data.reviews : d.reviews,
             gallery: Array.isArray(data.gallery) ? data.gallery : d.gallery,
             staff: Array.isArray(data.staff) ? data.staff : d.staff,
-            blogs: mergeSeoDefaultBlogs(Array.isArray(data.blogs) ? data.blogs : d.blogs),
+            blogs: currentCompanyId === 'hakikat'
+                ? (Array.isArray(data.blogs) ? data.blogs : d.blogs)
+                : mergeSeoDefaultBlogs(Array.isArray(data.blogs) ? data.blogs : d.blogs),
             passengerLists: normalizePassengerLists(Array.isArray(data.passengerLists) ? data.passengerLists : [])
         };
     }
@@ -880,7 +970,7 @@
                 const password = getAdminPassword();
                 const syncedState = clone(state);
                 syncedState._meta = { ...(syncedState._meta || {}), pendingSync: false };
-                const res = await fetch('/api/data', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': password }, body: JSON.stringify(syncedState) });
+                const res = await fetch(`/api/data?company=${encodeURIComponent(currentCompanyId)}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': password, 'x-company-id': currentCompanyId }, body: JSON.stringify(syncedState) });
                 if (!res.ok) {
                     const details = await res.json().catch(() => ({}));
                     throw new Error(details.error || 'Sunucu kaydı başarısız');
@@ -1095,7 +1185,7 @@
         const target = $('staffGrid');
         if (!target) return;
         const list = state.staff && state.staff.length ? state.staff : DEFAULT_DATA.staff;
-        target.innerHTML = list.map(s => `<article class="staff-card reveal"><div class="staff-photo"><img src="${escapeHtml(s.image || 'assets/icon.png')}" alt="${escapeHtml(s.name)}" loading="lazy" decoding="async" onerror="this.src='assets/icon.png'"></div><div><span>${escapeHtml(s.role || 'Hâzeyn Ekibi')}</span><h3>${escapeHtml(s.name || '')}</h3><p>${escapeHtml(s.bio || '')}</p></div></article>`).join('');
+        target.innerHTML = list.map(s => `<article class="staff-card reveal"><div class="staff-photo"><img src="${escapeHtml(s.image || 'assets/icon.png')}" alt="${escapeHtml(s.name)}" loading="lazy" decoding="async" onerror="this.src='assets/icon.png'"></div><div><span>${escapeHtml(s.role || `${currentCompany().shortName} Ekibi`)}</span><h3>${escapeHtml(s.name || '')}</h3><p>${escapeHtml(s.bio || '')}</p></div></article>`).join('');
     }
 
     function renderBlogs() {
@@ -1472,7 +1562,44 @@
         updateChecklist();
     }
 
+    async function switchCompanyAccount(companyId) {
+        const nextCompanyId = normalizeCompanyId(companyId);
+        if (nextCompanyId === currentCompanyId) {
+            updateCompanyBranding();
+            return true;
+        }
+        currentCompanyId = nextCompanyId;
+        localStorage.setItem('turizmLastCompany', currentCompanyId);
+        const url = new URL(location.href);
+        url.searchParams.set('company', currentCompanyId);
+        history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+        getUploadConfig.cache = null;
+        accountingSearchQuery = '';
+        updateCompanyBranding();
+
+        if (!adminLoggedIn) {
+            state = await loadData();
+            renderAdmin();
+            return true;
+        }
+
+        const loaded = await loadAuthenticatedAdminData();
+        if (!loaded) {
+            adminLoggedIn = false;
+            renderAdmin();
+            alert(`${currentCompany().name} hesabı açılamadı. Lütfen şifreni tekrar gir.`);
+            return false;
+        }
+        try { resetTourForm(); } catch (e) { }
+        try { clearPassengerForm(); } catch (e) { }
+        renderAdmin();
+        switchTab('dashboard');
+        toast(`${currentCompany().name} hesabına geçildi.`);
+        return true;
+    }
+
     function renderAdmin() {
+        updateCompanyBranding();
         const isLogged = adminLoggedIn === true;
         const login = $('loginScreen');
         const shell = $('adminShell');
@@ -2192,7 +2319,7 @@
             return `<tr class="${rowClass}"><td>${p.sheetNo}</td><td>${escapeHtml(name.firstName)}</td><td>${escapeHtml(name.surname)}</td>${shared}<td>${escapeHtml(mekkeRoomNo)}</td><td>${escapeHtml(medineRoomNo)}</td><td><span class="passport-status ${status.level}">${escapeHtml(status.label)}</span><small>${escapeHtml(formatDateDMY(p.passportEnd) || '-')}</small></td></tr>`;
         }).join('')).join('');
         return `<div class="rooming-preview">
-            <div class="rooming-preview-head"><div><span>HAZEYN</span><strong>${escapeHtml(l.title)} ODALAMA YERLEŞKESİ</strong></div><small>Excel çıktısıyla aynı düzen</small></div>
+            <div class="rooming-preview-head"><div><span>${escapeHtml(currentCompany().shortName.toLocaleUpperCase('tr-TR'))}</span><strong>${escapeHtml(l.title)} ODALAMA YERLEŞKESİ</strong></div><small>Excel çıktısıyla aynı düzen</small></div>
             <div class="passenger-detail-wrap"><table class="rooming-table"><thead><tr><th>NO</th><th>İSİM</th><th>SOY İSİM</th><th>SAYI</th><th>ODALAMA</th><th>MEKKE</th><th>MEDİNE</th><th>PASAPORT</th></tr></thead><tbody>${rows || '<tr><td colspan="8">Yolcu bulunamadı.</td></tr>'}</tbody></table></div>
         </div>`;
     }
@@ -2350,7 +2477,7 @@
     function createReceiptNumber() {
         const now = new Date();
         const date = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
-        return `HZ-${date}-${now.getTime().toString(36).slice(-5).toLocaleUpperCase('tr-TR')}`;
+        return `${currentCompany().receiptPrefix}-${date}-${now.getTime().toString(36).slice(-5).toLocaleUpperCase('tr-TR')}`;
     }
 
     function multiCurrencyHtml(values) {
@@ -2551,10 +2678,11 @@
         const settings = state.settings || {};
         const roomPeople = context.passenger.roomPeople || context.passenger.room || '';
         const programDate = context.tour?.departureDate || context.list.date || '';
-        const logoUrl = new URL('assets/logo.png', location.href).href;
+        const company = currentCompany();
+        const logoUrl = companyLogoUrl();
         const receiptHtml = `<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>${escapeHtml(payment.receiptNo)} Tahsilat Makbuzu</title><style>
             @page{size:A4 portrait;margin:15mm}*{box-sizing:border-box}body{margin:0;background:#eee;color:#17130d;font-family:Arial,sans-serif}.receipt{width:180mm;min-height:125mm;margin:12mm auto;background:#fff;border:2px solid #1b1812;padding:12mm;position:relative}.head{display:flex;justify-content:space-between;gap:20px;border-bottom:3px solid #b8892d;padding-bottom:9mm}.head img{width:52mm;height:20mm;object-fit:contain;background:#111;border-radius:4px;padding:3mm}.title{text-align:right}.title h1{margin:0;font-size:25px}.title p{margin:5px 0 0;color:#756342;font-weight:bold}.receipt-no{display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin:8mm 0}.box{border:1px solid #b8aa91;padding:4mm;border-radius:3px}.box small,.detail small{display:block;color:#756342;font-size:11px;text-transform:uppercase;font-weight:bold;margin-bottom:2mm}.box b{font-size:17px}.details{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #b8aa91}.detail{padding:4mm;border-bottom:1px solid #d6cdbd}.detail:nth-child(odd){border-right:1px solid #d6cdbd}.detail:nth-last-child(-n+2){border-bottom:0}.amount{margin:8mm 0;border:2px solid #b8892d;background:#fff9ec;padding:6mm;display:flex;align-items:center;justify-content:space-between}.amount span{font-size:16px;font-weight:bold}.amount strong{font-size:29px}.note{min-height:16mm;border-bottom:1px solid #b8aa91;padding:3mm 0}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:20mm;margin-top:12mm;text-align:center}.signature{border-top:1px solid #222;padding-top:3mm;font-weight:bold}.footer{position:absolute;left:12mm;right:12mm;bottom:8mm;text-align:center;color:#756342;font-size:10px}.void{position:absolute;inset:42% 15%;transform:rotate(-12deg);border:6px solid #b40000;color:#b40000;font-size:48px;font-weight:bold;text-align:center;padding:8px;opacity:.75}@media print{body{background:#fff}.receipt{margin:0;box-shadow:none}}
-        </style></head><body><main class="receipt"><div class="head"><img src="${escapeHtml(logoUrl)}" alt="Hâzeyn"><div class="title"><h1>TAHSİLAT MAKBUZU</h1><p>PAYMENT RECEIPT</p></div></div><div class="receipt-no"><div class="box"><small>Makbuz No</small><b>${escapeHtml(payment.receiptNo)}</b></div><div class="box"><small>Ödeme Tarihi</small><b>${escapeHtml(formatDateDMY(payment.paidAt))}</b></div></div><div class="details"><div class="detail"><small>Yolcu</small><b>${escapeHtml(context.passenger.name)}</b></div><div class="detail"><small>Program</small><b>${escapeHtml(context.tour?.title || context.list.title || '-')}</b></div><div class="detail"><small>Program Tarihi</small><b>${escapeHtml(formatDateTR(programDate) || '-')}</b></div><div class="detail"><small>Oda Tipi</small><b>${escapeHtml(roomPeople ? `${roomPeople} Kişilik Oda` : '-')}</b></div><div class="detail"><small>Ödeme Yöntemi</small><b>${escapeHtml(payment.method || '-')}</b></div><div class="detail"><small>Kalan Bakiye</small><b>${escapeHtml(formatMoney(snapshot.balance, snapshot.currency))}</b></div></div><div class="amount"><span>Tahsil Edilen Tutar</span><strong>${escapeHtml(formatMoney(payment.amount, snapshot.currency))}</strong></div><div class="note"><b>Açıklama:</b> ${escapeHtml(payment.note || 'Program ödemesi')}</div><div class="signatures"><div class="signature">Ödeyen / Yolcu İmzası</div><div class="signature">Kaşe / Yetkili İmza</div></div><div class="footer">${escapeHtml(settings.brand || 'Hâzeyn Turizm')} • ${escapeHtml(settings.phone || '')} • ${escapeHtml(settings.address || '')}</div>${payment.voided ? '<div class="void">İPTAL</div>' : ''}</main><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`;
+        </style></head><body><main class="receipt"><div class="head"><img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(company.name)}"><div class="title"><h1>TAHSİLAT MAKBUZU</h1><p>PAYMENT RECEIPT</p></div></div><div class="receipt-no"><div class="box"><small>Makbuz No</small><b>${escapeHtml(payment.receiptNo)}</b></div><div class="box"><small>Ödeme Tarihi</small><b>${escapeHtml(formatDateDMY(payment.paidAt))}</b></div></div><div class="details"><div class="detail"><small>Yolcu</small><b>${escapeHtml(context.passenger.name)}</b></div><div class="detail"><small>Program</small><b>${escapeHtml(context.tour?.title || context.list.title || '-')}</b></div><div class="detail"><small>Program Tarihi</small><b>${escapeHtml(formatDateTR(programDate) || '-')}</b></div><div class="detail"><small>Oda Tipi</small><b>${escapeHtml(roomPeople ? `${roomPeople} Kişilik Oda` : '-')}</b></div><div class="detail"><small>Ödeme Yöntemi</small><b>${escapeHtml(payment.method || '-')}</b></div><div class="detail"><small>Kalan Bakiye</small><b>${escapeHtml(formatMoney(snapshot.balance, snapshot.currency))}</b></div></div><div class="amount"><span>Tahsil Edilen Tutar</span><strong>${escapeHtml(formatMoney(payment.amount, snapshot.currency))}</strong></div><div class="note"><b>Açıklama:</b> ${escapeHtml(payment.note || 'Program ödemesi')}</div><div class="signatures"><div class="signature">Ödeyen / Yolcu İmzası</div><div class="signature">Kaşe / Yetkili İmza</div></div><div class="footer">${escapeHtml(settings.brand || company.name)} • ${escapeHtml(settings.phone || '')} • ${escapeHtml(settings.address || '')}</div>${payment.voided ? '<div class="void">İPTAL</div>' : ''}</main><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`;
         const receiptWindow = targetWindow || window.open('', '_blank');
         if (!receiptWindow) {
             const blob = new Blob([receiptHtml], { type: 'text/html;charset=utf-8' });
@@ -2594,7 +2722,7 @@
         const tour = state.tours.find(item => item.id === list.tourId) || {};
         const rooms = createRoomAssignments(passengersForList(list));
         const workbook = new window.ExcelJS.Workbook();
-        workbook.creator = 'Hazeyn Turizm';
+        workbook.creator = currentCompany().name;
         workbook.created = new Date();
 
         const sheet = workbook.addWorksheet('Oda Yerleşimi', {
@@ -2611,7 +2739,7 @@
         const rawTitle = String(list.title || tour.title || 'TUR').trim();
         const shortTitle = rawTitle.replace(/\s+\d+\s+Günlük.*$/iu, '').trim() || rawTitle;
         const title = `${shortTitle} ODALAMA YERLEŞKESİ`;
-        sheet.getCell('A1').value = 'HAZEYN';
+        sheet.getCell('A1').value = currentCompany().shortName.toLocaleUpperCase('tr-TR');
         sheet.getCell('C1').value = title.toLocaleUpperCase('tr-TR');
         sheet.mergeCells('A1:B1');
         sheet.mergeCells('C1:G1');
@@ -2708,7 +2836,7 @@
         }
 
         const workbook = new window.ExcelJS.Workbook();
-        workbook.creator = 'Hazeyn Turizm';
+        workbook.creator = currentCompany().name;
         workbook.created = new Date();
         const sheet = workbook.addWorksheet('Uçuş Listesi', { views: [{ showGridLines: false, state: 'frozen', ySplit: 5 }] });
         sheet.pageSetup = {
@@ -2731,13 +2859,13 @@
         sheet.getCell('H2').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF111318' } };
 
         try {
-            const logoResponse = await fetch(new URL('assets/logo.png', location.href), { cache: 'no-store' });
+            const logoResponse = await fetch(companyLogoUrl(), { cache: 'no-store' });
             if (!logoResponse.ok) throw new Error('Logo alınamadı');
             const logoBytes = new Uint8Array(await logoResponse.arrayBuffer());
             const logoId = workbook.addImage({ buffer: logoBytes, extension: 'png' });
             sheet.addImage(logoId, { tl: { col: 7.08, row: 1.12 }, ext: { width: 185, height: 72 } });
         } catch (error) {
-            sheet.getCell('H2').value = 'HAZEYN';
+            sheet.getCell('H2').value = currentCompany().shortName.toLocaleUpperCase('tr-TR');
             sheet.getCell('H2').font = { name: 'Calibri', size: 20, bold: true, color: { argb: 'FFFFFFFF' } };
             sheet.getCell('H2').alignment = { horizontal: 'center', vertical: 'middle' };
         }
@@ -2873,7 +3001,7 @@
         .print-meta { margin: 12px 0; font-size: 14px; line-height: 1.6; }
     `;
 
-        const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(l.title)} Yolcu Listesi</title><link rel="stylesheet" href="style.css"><style>${printCss}</style></head><body><div class="print-page passenger-print"><div class="print-head"><div><h1>${escapeHtml(l.title)}</h1><div class="print-meta"><b>Tur:</b> ${escapeHtml(tourTitle)} &nbsp; <b>Uçuş:</b> ${escapeHtml(formatDateTR(flightDate) || '-')} &nbsp; <b>Rehber:</b> ${escapeHtml(l.leader || '-')}<br><b>Toplam Yolcu:</b> ${total} &nbsp; <b>Erkek:</b> ${males} &nbsp; <b>Kadın:</b> ${females} &nbsp; <b style="color:#d32f2f">Uçuşta 6 Aydan Az Pasaport:</b> <span style="color:#d32f2f; font-weight:bold;">${expiringCount}</span></div></div><img src="assets/logo.png" alt="Hâzeyn"></div>${groupsHtml}<div class="print-notes"><b>Liste Notu:</b><br>${escapeHtml(l.notes || '')}</div></div><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`;
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(l.title)} Yolcu Listesi</title><link rel="stylesheet" href="style.css"><style>${printCss}</style></head><body><div class="print-page passenger-print"><div class="print-head"><div><h1>${escapeHtml(l.title)}</h1><div class="print-meta"><b>Firma:</b> ${escapeHtml(currentCompany().name)} &nbsp; <b>Tur:</b> ${escapeHtml(tourTitle)} &nbsp; <b>Uçuş:</b> ${escapeHtml(formatDateTR(flightDate) || '-')} &nbsp; <b>Rehber:</b> ${escapeHtml(l.leader || '-')}<br><b>Toplam Yolcu:</b> ${total} &nbsp; <b>Erkek:</b> ${males} &nbsp; <b>Kadın:</b> ${females} &nbsp; <b style="color:#d32f2f">Uçuşta 6 Aydan Az Pasaport:</b> <span style="color:#d32f2f; font-weight:bold;">${expiringCount}</span></div></div><img src="${escapeHtml(companyLogoUrl())}" alt="${escapeHtml(currentCompany().name)}"></div>${groupsHtml}<div class="print-notes"><b>Liste Notu:</b><br>${escapeHtml(l.notes || '')}</div></div><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`;
 
         const w = window.open('', '_blank');
         if (w) { w.document.write(html); w.document.close(); } else {
@@ -2886,7 +3014,7 @@
         const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'hazeyn-yedek-' + new Date().toISOString().slice(0, 10) + '.json';
+        a.download = `${currentCompanyId}-yedek-${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
         URL.revokeObjectURL(a.href);
     }
@@ -2899,7 +3027,7 @@
                 $('adminPassword').value = '';
                 const loaded = await loadAuthenticatedAdminData();
                 if (!loaded) {
-                    sessionStorage.removeItem('hazeynAdminPassword');
+                    sessionStorage.removeItem(adminPasswordKey());
                     alert('Yonetici verileri guvenli sekilde yuklenemedi. Lutfen baglantini kontrol edip tekrar dene.');
                     return;
                 }
@@ -2908,7 +3036,17 @@
             } else { alert('Şifre hatalı.'); }
         };
         $('adminPassword').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
-        $('logoutBtn').onclick = () => { adminLoggedIn = false; sessionStorage.removeItem('hazeynAdminPassword'); renderAdmin(); };
+        $('logoutBtn').onclick = () => {
+            adminLoggedIn = false;
+            sessionStorage.removeItem(adminPasswordKey());
+            sessionStorage.removeItem('turizmAdminPassword');
+            sessionStorage.removeItem('hazeynAdminPassword');
+            renderAdmin();
+        };
+        document.querySelectorAll('[data-company-choice]').forEach(button => {
+            button.onclick = () => switchCompanyAccount(button.dataset.companyChoice);
+        });
+        if ($('companySwitcher')) $('companySwitcher').addEventListener('change', event => switchCompanyAccount(event.target.value));
         document.querySelectorAll('.admin-tab').forEach(btn => btn.onclick = () => switchTab(btn.dataset.tab));
         $('exportBtn').onclick = exportBackup;
         if ($('refreshAdminData')) $('refreshAdminData').onclick = refreshAdminFromServer;
@@ -3105,6 +3243,8 @@
         // Admin girişini uzak veri yüklemesine bağlama. Supabase yavaşlasa veya
         // geçici olarak cevap vermese bile şifre alanı ve giriş düğmesi çalışsın.
         if (page === 'admin') {
+            localStorage.setItem('turizmLastCompany', currentCompanyId);
+            updateCompanyBranding();
             bindAdminEvents();
             renderAdmin();
         }
