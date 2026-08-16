@@ -238,8 +238,8 @@
         if ($('companyAccountNote')) $('companyAccountNote').textContent = IS_DESKTOP_APP
             ? 'Baş yönetici veya sana verilen çalışan hesabıyla giriş yap.'
             : `${company.name} kayıtları diğer firmadan tamamen ayrı tutulur.`;
-        if (IS_DESKTOP_APP && $('loginHeading')) $('loginHeading').textContent = 'Turizm Muhasebe Girişi';
-        if (IS_DESKTOP_APP && $('loginKicker')) $('loginKicker').textContent = 'HAZEYN & HAKİKAT';
+        if (IS_DESKTOP_APP && $('loginHeading')) $('loginHeading').textContent = `${company.name} Girişi`;
+        if (IS_DESKTOP_APP && $('loginKicker')) $('loginKicker').textContent = 'GİRİŞ YAPILACAK FİRMAYI SEÇ';
         if (IS_DESKTOP_APP && $('signedUserName')) $('signedUserName').textContent = currentAppUser?.displayName || '—';
         document.querySelectorAll('.desktop-owner-only').forEach(element => { element.hidden = !isAppOwner(); element.style.display = isAppOwner() ? '' : 'none'; });
         document.querySelectorAll('[data-company-public-link]').forEach(publicLink => {
@@ -741,7 +741,10 @@
             if (!res.ok || !result.token || !result.user) return { ok: false, error: result.error || 'Kullanıcı adı veya şifre hatalı.' };
             storeDesktopSession(result);
             const allowed = allowedCompanyIds();
-            if (!allowed.includes(currentCompanyId)) currentCompanyId = allowed[0] || 'hazeyn';
+            if (!allowed.includes(currentCompanyId)) {
+                clearDesktopSession();
+                return { ok: false, error: `Bu kullanıcı ${currentCompany().name} hesabına yetkili değil. Giriş ekranından yetkili olduğu firmayı seçsin.` };
+            }
             localStorage.setItem('turizmLastCompany', currentCompanyId);
             return { ok: true };
         } catch (error) {
@@ -1072,7 +1075,7 @@
             delete state.settings.adminPassword;
             delete state.settings.password;
         }
-        if (!options.keepLocalAccounting && location.protocol !== 'file:' && hasAdminCredential()) {
+        if (location.protocol !== 'file:' && hasAdminCredential()) {
             const latest = await fetchRemoteData({ admin: true });
             if (latest) {
                 const remoteStamp = Number(latest?._meta?.updatedAt || 0);
@@ -1081,7 +1084,7 @@
                     alert('Başka bir bilgisayarda daha yeni bir değişiklik yapıldı. Veri kaybını önlemek için bu kayıt gönderilmedi. “Senkronize Et” düğmesine basıp güncel veriyi aldıktan sonra işlemi tekrar yap.');
                     return false;
                 }
-                if (state?._meta?.pendingSync !== true) mergeRemoteAccountingIntoState(latest);
+                if (!options.keepLocalAccounting && state?._meta?.pendingSync !== true) mergeRemoteAccountingIntoState(latest);
             }
         }
         state._meta = { ...(state._meta || {}), updatedAt: Math.max(Date.now(), Number(state?._meta?.updatedAt || 0) + 1), pendingSync: true };
@@ -2486,7 +2489,7 @@
         const idx = state.passengerLists.findIndex(x => x.id === id);
         if (idx > -1) state.passengerLists[idx] = item; else state.passengerLists.unshift(item);
 
-        if (!await saveData()) return; clearPassengerForm(); renderPassengerAdmin(); renderDashboard(); toast('Yolcu listesi kaydedildi.');
+        if (!await saveData({ keepLocalAccounting: IS_DESKTOP_APP })) return; clearPassengerForm(); renderPassengerAdmin(); renderDashboard(); toast('Yolcu listesi ve muhasebe fiyatları kaydedildi.');
     }
 
     function editPassengerList(id) {
@@ -2620,7 +2623,7 @@
             const fallback = passengerTourPrice(tour, passenger);
             passenger.accounting = { ...(passenger.accounting || {}), agreedPrice: fallback.amount, currency: fallback.currency, priceSource: 'room', payments: passenger.accounting?.payments || [] };
         }
-        if (!await saveData()) return;
+        if (!await saveData({ keepLocalAccounting: IS_DESKTOP_APP && field === 'roomPeople' })) return;
         if (field === 'roomPeople' || field === 'mekkeRoomNo' || field === 'medineRoomNo' || field === 'roomNo') renderPassengerAdmin();
     }
 
@@ -2772,7 +2775,8 @@
                 paid: { USD: 0, EUR: 0, TRY: 0 },
                 balance: { USD: 0, EUR: 0, TRY: 0 },
                 passengers: 0,
-                open: 0
+                open: 0,
+                debtors: []
             });
             const group = groups.get(key);
             const snapshot = passengerAccountSnapshot(context);
@@ -2780,13 +2784,27 @@
             group.paid[snapshot.currency] += snapshot.paid;
             group.balance[snapshot.currency] += snapshot.balance;
             group.passengers += 1;
-            if (snapshot.balance > 0.005) group.open += 1;
+            if (snapshot.balance > 0.005) {
+                group.open += 1;
+                group.debtors.push({
+                    listId: context.list.id,
+                    passengerId: context.passenger.id,
+                    name: context.passenger.name || 'İsimsiz yolcu',
+                    phone: context.passenger.phone || '',
+                    roomPeople: context.passenger.roomPeople || context.passenger.room || '',
+                    balance: snapshot.balance,
+                    currency: snapshot.currency
+                });
+            }
         });
         const items = [...groups.values()].sort((a, b) => String(b.date).localeCompare(String(a.date)));
         target.innerHTML = items.length ? items.map(group => `
             <article class="program-balance-card ${group.open ? 'open' : 'paid'}">
                 <header><div><h4>${escapeHtml(group.title)}</h4><small>${escapeHtml(formatDateTR(group.date) || 'Tarih belirtilmemiş')} • ${group.passengers} yolcu</small></div><span>${group.open ? `${group.open} bakiye açık` : 'Tamamı ödendi'}</span></header>
                 <div class="program-balance-values"><span><small>Toplam</small><b>${escapeHtml(currencySummary(group.contract))}</b></span><span><small>Ödenen</small><b>${escapeHtml(currencySummary(group.paid))}</b></span><span><small>Kalan</small><b>${escapeHtml(currencySummary(group.balance))}</b></span></div>
+                ${group.debtors.length ? `<details class="program-debtor-list"><summary>${group.debtors.length} borçlu yolcuyu göster</summary><div class="program-debtor-rows">${group.debtors
+                    .sort((a, b) => b.balance - a.balance)
+                    .map(debtor => `<div class="program-debtor-row"><div><b>${escapeHtml(debtor.name)}</b><small>${escapeHtml(debtor.roomPeople ? `${debtor.roomPeople} kişilik oda` : 'Oda belirtilmemiş')}${debtor.phone ? ` • ${escapeHtml(debtor.phone)}` : ''}</small></div><strong>${escapeHtml(formatMoney(debtor.balance, debtor.currency))}</strong><button class="icon-btn" type="button" data-open-debtor="${escapeHtml(debtor.passengerId)}" data-debtor-list="${escapeHtml(debtor.listId)}" data-debtor-name="${escapeHtml(debtor.name)}">Ödeme Aç</button></div>`).join('')}</div></details>` : ''}
             </article>`).join('') : '<div class="empty small">Program bazında bakiye göstermek için yolcu kaydı ekleyin.</div>';
     }
 
@@ -2852,7 +2870,7 @@
                 <div class="accounting-editor-grid">
                     <div class="accounting-form-block">
                         <h4>${priceEditorTitle}</h4>
-                        <div class="inline-money-form"><input class="account-agreed-price" type="number" min="0" step="0.01" value="${escapeHtml(snapshot.agreedPrice)}" aria-label="Program ücreti"><select class="account-currency" aria-label="Para birimi">${['USD', 'EUR', 'TRY'].map(currency => `<option value="${currency}" ${currency === snapshot.currency ? 'selected' : ''}>${currency}</option>`).join('')}</select><button class="btn btn-outline dark" type="button" data-save-account-price>${priceSaveLabel}</button>${priceResetButton}</div>
+                        <div class="inline-money-form"><input class="account-agreed-price" type="number" min="0" step="0.01" value="${escapeHtml(snapshot.agreedPrice)}" aria-label="Program ücreti"><select class="account-currency" aria-label="Para birimi">${['USD', 'EUR', 'TRY'].map(currency => `<option value="${currency}" ${currency === snapshot.currency ? 'selected' : ''}>${currency}</option>`).join('')}</select><div class="account-price-actions"><button class="btn btn-outline dark" type="button" data-save-account-price>${priceSaveLabel}</button>${priceResetButton}</div></div>
                         <small>${priceHelp}</small>
                     </div>
                     <div class="accounting-form-block payment-form">
@@ -2869,7 +2887,9 @@
     function renderAccounting(query = accountingSearchQuery) {
         const results = $('accountingSearchResults');
         if (!results) return;
-        accountingSearchQuery = String(query || '').trim();
+        // Kullanıcı ad ile soyad arasına boşluk yazarken değeri kırpma; aksi halde
+        // her tuşta yeniden çizim son boşluğu siler ve ikinci kelime yazılamaz.
+        accountingSearchQuery = String(query || '');
         if ($('accountingSearch') && $('accountingSearch').value !== accountingSearchQuery) $('accountingSearch').value = accountingSearchQuery;
         if ($('globalPassengerSearch') && $('globalPassengerSearch').value !== accountingSearchQuery) $('globalPassengerSearch').value = accountingSearchQuery;
         renderAccountingStats();
@@ -2907,7 +2927,7 @@
         context.passenger.accounting = { ...(context.passenger.accounting || {}), agreedPrice: amount, currency, priceSource: 'custom', payments: context.passenger.accounting?.payments || [] };
         const saved = await saveData({ keepLocalAccounting: true });
         if (!saved) return;
-        renderAccounting();
+        renderAccounting(accountingSearchQuery);
         toast('Yolcu program ücreti kaydedildi.');
     }
 
@@ -2996,7 +3016,7 @@
             ? `<div class="detail"><small>Kaydı Yapan</small><b>${escapeHtml(actorName(context.passenger.createdBy || context.list.createdBy, 'Eski kayıt'))}</b></div><div class="detail"><small>Tahsilatı Alan</small><b>${escapeHtml(actorName(payment.receivedBy, 'Eski kayıt'))}</b></div>`
             : '';
         const receiptHtml = `<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>${escapeHtml(payment.receiptNo)} Tahsilat Makbuzu</title><style>
-            @page{size:A4 portrait;margin:15mm}*{box-sizing:border-box}body{margin:0;background:#eee;color:#17130d;font-family:Arial,sans-serif}.receipt{width:180mm;min-height:125mm;margin:12mm auto;background:#fff;border:2px solid #1b1812;padding:12mm;position:relative}.head{display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:3px solid #b8892d;padding-bottom:9mm}.head img{${receiptLogoStyle}}.title{text-align:right}.title h1{margin:0;font-size:25px}.title p{margin:5px 0 0;color:#756342;font-weight:bold}.receipt-no{display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin:8mm 0}.box{border:1px solid #b8aa91;padding:4mm;border-radius:3px}.box small,.detail small{display:block;color:#756342;font-size:11px;text-transform:uppercase;font-weight:bold;margin-bottom:2mm}.box b{font-size:17px}.details{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #b8aa91}.detail{padding:4mm;border-bottom:1px solid #d6cdbd}.detail:nth-child(odd){border-right:1px solid #d6cdbd}.detail:nth-last-child(-n+2){border-bottom:0}.amount{margin:8mm 0;border:2px solid #b8892d;background:#fff9ec;padding:6mm;display:flex;align-items:center;justify-content:space-between}.amount span{font-size:16px;font-weight:bold}.amount strong{font-size:29px}.note{min-height:16mm;border-bottom:1px solid #b8aa91;padding:3mm 0}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:20mm;margin-top:12mm;text-align:center}.signature{border-top:1px solid #222;padding-top:3mm;font-weight:bold}.footer{position:absolute;left:12mm;right:12mm;bottom:8mm;text-align:center;color:#756342;font-size:10px}.void{position:absolute;inset:42% 15%;transform:rotate(-12deg);border:6px solid #b40000;color:#b40000;font-size:48px;font-weight:bold;text-align:center;padding:8px;opacity:.75}@media print{body{background:#fff}.receipt{margin:0;box-shadow:none}}
+            @page{size:A4 portrait;margin:15mm}*{box-sizing:border-box}body{margin:0;background:#eee;color:#17130d;font-family:Arial,sans-serif}.receipt{width:180mm;min-height:125mm;margin:12mm auto;background:#fff;border:2px solid #1b1812;padding:12mm;position:relative}.head{display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:3px solid #b8892d;padding-bottom:9mm}.head img{${receiptLogoStyle}}.title{text-align:right}.title h1{margin:0;font-size:25px}.title p{margin:5px 0 0;color:#756342;font-weight:bold}.receipt-no{display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin:8mm 0}.box{border:1px solid #b8aa91;padding:4mm;border-radius:3px}.box small,.detail small{display:block;color:#756342;font-size:11px;text-transform:uppercase;font-weight:bold;margin-bottom:2mm}.box b{font-size:17px}.details{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #b8aa91}.detail{padding:4mm;border-bottom:1px solid #d6cdbd}.detail:nth-child(odd){border-right:1px solid #d6cdbd}.detail:nth-last-child(-n+2){border-bottom:0}.amount{margin:8mm 0;border:2px solid #b8892d;background:#fff9ec;padding:6mm;display:flex;align-items:center;justify-content:space-between}.amount span{font-size:16px;font-weight:bold}.amount strong{font-size:29px}.note{min-height:16mm;border-bottom:1px solid #b8aa91;padding:3mm 0}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:20mm;margin-top:11mm;text-align:center}.signature{border-top:1px solid #222;padding-top:3mm;font-weight:bold}.footer{position:static;margin-top:10mm;padding-top:3mm;border-top:1px solid #d6cdbd;text-align:center;color:#756342;font-size:9px;line-height:1.5;overflow-wrap:anywhere}.void{position:absolute;inset:42% 15%;transform:rotate(-12deg);border:6px solid #b40000;color:#b40000;font-size:48px;font-weight:bold;text-align:center;padding:8px;opacity:.75}@media print{body{background:#fff}.receipt{margin:0;box-shadow:none}}
         </style></head><body><main class="receipt"><div class="head"><img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(company.name)}"><div class="title"><h1>TAHSİLAT MAKBUZU</h1><p>PAYMENT RECEIPT</p></div></div><div class="receipt-no"><div class="box"><small>Makbuz No</small><b>${escapeHtml(payment.receiptNo)}</b></div><div class="box"><small>Ödeme Tarihi</small><b>${escapeHtml(formatDateDMY(payment.paidAt))}</b></div></div><div class="details"><div class="detail"><small>Yolcu</small><b>${escapeHtml(context.passenger.name)}</b></div><div class="detail"><small>Program</small><b>${escapeHtml(context.tour?.title || context.list.title || '-')}</b></div><div class="detail"><small>Program Tarihi</small><b>${escapeHtml(formatDateTR(programDate) || '-')}</b></div><div class="detail"><small>Oda Tipi</small><b>${escapeHtml(roomPeople ? `${roomPeople} Kişilik Oda` : '-')}</b></div><div class="detail"><small>Ödeme Yöntemi</small><b>${escapeHtml(payment.method || '-')}</b></div><div class="detail"><small>Kalan Bakiye</small><b>${escapeHtml(formatMoney(snapshot.balance, snapshot.currency))}</b></div>${receiptAuditDetails}</div><div class="amount"><span>Tahsil Edilen Tutar</span><strong>${escapeHtml(formatMoney(payment.amount, snapshot.currency))}</strong></div><div class="note"><b>Açıklama:</b> ${escapeHtml(payment.note || 'Program ödemesi')}</div><div class="signatures"><div class="signature">Ödeyen / Yolcu İmzası</div><div class="signature">Kaşe / Yetkili İmza</div></div><div class="footer">${escapeHtml(settings.brand || company.name)} • ${escapeHtml(settings.phone || '')} • ${escapeHtml(settings.address || '')}</div>${payment.voided ? '<div class="void">İPTAL</div>' : ''}</main><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`;
         const receiptWindow = targetWindow || window.open('', '_blank');
         if (!receiptWindow) {
@@ -3493,6 +3513,17 @@
         });
 
         document.addEventListener('click', async (e) => {
+            const openDebtor = e.target.closest && e.target.closest('[data-open-debtor]');
+            if (openDebtor) {
+                const debtorName = String(openDebtor.dataset.debtorName || '').trim();
+                accountingSearchQuery = debtorName;
+                renderAccounting(debtorName);
+                setTimeout(() => {
+                    const card = document.querySelector(`[data-account-card][data-list-id="${CSS.escape(openDebtor.dataset.debtorList || '')}"][data-passenger-id="${CSS.escape(openDebtor.dataset.openDebtor || '')}"]`);
+                    if (card) { card.querySelector('details')?.setAttribute('open', ''); card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+                }, 0);
+                return;
+            }
             const accountingCard = e.target.closest && e.target.closest('[data-account-card]');
             const saveAccountPrice = e.target.closest && e.target.closest('[data-save-account-price]');
             if (saveAccountPrice && accountingCard) { await savePassengerAccountPrice(accountingCard); return; }
