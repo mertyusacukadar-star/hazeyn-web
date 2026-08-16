@@ -9,6 +9,16 @@ const {
   sanitizeAdminState, sanitizePublicState
 } = require('./api/_supabase');
 const {
+  login: loginDesktopUser,
+  readUsers,
+  publicUser,
+  authenticateDesktopRequest,
+  authorizeDataRequest,
+  applyDesktopAudit,
+  saveEmployee,
+  deleteEmployee
+} = require('./api/_appAuth');
+const {
   slugify,
   normalizeTour,
   normalizeBlog,
@@ -54,6 +64,29 @@ function ensureDb(){
   if(!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, JSON.stringify({settings:{},tours:[],reviews:[],gallery:[],passengerLists:[]}, null, 2));
 }
 
+function readJsonBody(req, maxBytes = 1024 * 1024){
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk;
+      if(body.length > maxBytes){
+        const error = new Error('İstek çok büyük.');
+        error.statusCode = 413;
+        reject(error);
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      try { resolve(JSON.parse(body || '{}')); }
+      catch(error) {
+        error.statusCode = 400;
+        reject(error);
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
 function companyFromRequest(req, requestUrl){
   return normalizeCompanyId(requestUrl.searchParams.get('company') || req.headers['x-company-id']);
 }
@@ -97,6 +130,45 @@ const server = http.createServer(async (req, res) => {
   ensureDb();
   const requestUrl = new URL(req.url, 'http://localhost');
   const pathname = requestUrl.pathname;
+  if(pathname === '/api/app-auth'){
+    const action = requestUrl.searchParams.get('action') || '';
+    try {
+      if(req.method === 'POST' && action === 'login'){
+        const body = await readJsonBody(req);
+        const result = await loginDesktopUser(body.username, body.password);
+        if(!result) return send(res, 401, JSON.stringify({ok:false, error:'Kullanıcı adı veya şifre hatalı.'}), 'application/json; charset=utf-8');
+        return send(res, 200, JSON.stringify({ok:true, ...result}), 'application/json; charset=utf-8');
+      }
+
+      const auth = await authenticateDesktopRequest(req);
+      if(!auth) return send(res, 401, JSON.stringify({ok:false, error:'Oturum geçersiz veya süresi dolmuş.'}), 'application/json; charset=utf-8');
+      if(req.method === 'GET' && action === 'me'){
+        return send(res, 200, JSON.stringify({ok:true, user:auth.user}), 'application/json; charset=utf-8');
+      }
+      if(auth.user.role !== 'owner'){
+        return send(res, 403, JSON.stringify({ok:false, error:'Bu işlem yalnızca baş yöneticiye açıktır.'}), 'application/json; charset=utf-8');
+      }
+      if(req.method === 'GET' && action === 'users'){
+        const store = await readUsers();
+        return send(res, 200, JSON.stringify({ok:true, users:store.users.map(publicUser)}), 'application/json; charset=utf-8');
+      }
+      if(req.method === 'POST' && action === 'save-user'){
+        const body = await readJsonBody(req);
+        const user = await saveEmployee(body.user || body);
+        return send(res, 200, JSON.stringify({ok:true, user}), 'application/json; charset=utf-8');
+      }
+      if(req.method === 'POST' && action === 'delete-user'){
+        const body = await readJsonBody(req);
+        await deleteEmployee(body.id);
+        return send(res, 200, JSON.stringify({ok:true}), 'application/json; charset=utf-8');
+      }
+      return send(res, 405, JSON.stringify({ok:false, error:'Desteklenmeyen işlem.'}), 'application/json; charset=utf-8');
+    } catch(error) {
+      console.error('Masaüstü kullanıcı işlemi hatası:', error);
+      const status = error.statusCode || (/en az|zaten|bulunamadı|yaz/i.test(String(error.message || '')) ? 400 : 500);
+      return send(res, status, JSON.stringify({ok:false, error:error.message || 'Kullanıcı işlemi tamamlanamadı.'}), 'application/json; charset=utf-8');
+    }
+  }
   if(pathname === '/api/login' && req.method === 'POST'){
     let body = '';
     req.on('data', chunk => {
@@ -121,11 +193,13 @@ const server = http.createServer(async (req, res) => {
     const wantsAdmin = requestUrl.searchParams.get('scope') === 'admin';
     const requestedCompanyId = companyFromRequest(req, requestUrl);
     const companyId = wantsAdmin ? requestedCompanyId : 'hazeyn';
-    if(wantsAdmin && !checkAdmin(req, companyId)){
+    let authorization = wantsAdmin ? await authorizeDataRequest(req, companyId) : null;
+    if(wantsAdmin && !authorization){
       return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
     }
     if(requestUrl.searchParams.get('action') === 'upload-config'){
-      if(!checkAdmin(req, requestedCompanyId)){
+      authorization = authorization || await authorizeDataRequest(req, requestedCompanyId);
+      if(!authorization){
         return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
       }
       return send(res, 200, JSON.stringify({
@@ -140,7 +214,7 @@ const server = http.createServer(async (req, res) => {
   }
   if(pathname === '/api/media-upload' && req.method === 'POST'){
     const companyId = companyFromRequest(req, requestUrl);
-    if(!checkAdmin(req, companyId)){
+    if(!await authorizeDataRequest(req, companyId)){
       return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
     }
     const chunks = [];
@@ -176,8 +250,9 @@ const server = http.createServer(async (req, res) => {
   }
   if(pathname === '/api/data' && req.method === 'POST'){
     const companyId = companyFromRequest(req, requestUrl);
-    if(!checkAdmin(req, companyId)){
-      return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
+    const authorization = await authorizeDataRequest(req, companyId);
+    if(!authorization){
+      return send(res, 401, JSON.stringify({ok:false, error:'Bu firma hesabı için yetkin yok veya oturumun sona ermiş.'}), 'application/json; charset=utf-8');
     }
     if(requestUrl.searchParams.get('action') === 'signed-upload'){
       let uploadBody = '';
@@ -210,8 +285,13 @@ const server = http.createServer(async (req, res) => {
     });
     req.on('end', async () => {
       try {
-        const data = sanitizeAdminState(JSON.parse(body || '{}'));
+        let data = sanitizeAdminState(JSON.parse(body || '{}'));
         const client = supabaseAdmin();
+        if(authorization.kind === 'desktop'){
+          const { data: existing, error: readError } = await client.from(TABLE).select('data').eq('id', companyRowId(companyId)).maybeSingle();
+          if(readError) throw readError;
+          data = applyDesktopAudit(data, existing && existing.data ? existing.data : companyDefaultData(companyId), authorization);
+        }
         const { error } = await client.from(TABLE).upsert({
           id: companyRowId(companyId),
           data,
