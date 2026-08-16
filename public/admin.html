@@ -3,12 +3,23 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#090a0d" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Turizm Muhasebe" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <title>Hazeyn &amp; Hakikat • Turizm Muhasebe</title>
-    <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png" />
-    <link rel="apple-touch-icon" href="/assets/icon.png" />
-    <link rel="stylesheet" href="style.css?v=20260816-passenger-groups1" />
+    <link rel="manifest" href="/manifest.webmanifest?v=20260816-mobile1" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/mobile-app-icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/mobile-app-icon-180.png" />
+    <link rel="stylesheet" href="style.css?v=20260816-mobile1" />
 </head>
 <body data-page="admin" class="admin-body">
+    <div id="mobileInstallBar" class="mobile-install-bar" hidden>
+        <span id="mobileInstallText"></span>
+        <button id="mobileInstallButton" type="button" class="mobile-install-button" hidden>Uygulamayı Yükle</button>
+        <button id="mobileInstallDismiss" type="button" class="mobile-install-dismiss" aria-label="Kurulum bildirimini kapat">×</button>
+    </div>
     <section class="login-screen" id="loginScreen">
         <div class="login-card">
             <span class="login-kicker" id="loginKicker">FİRMA HESABINI SEÇ</span>
@@ -66,7 +77,7 @@
                 </div>
                 <div class="admin-card">
                     <h2>Nasıl kullanılır?</h2>
-                    <p>Turları, yorumları, galeri görsellerini ve yolcu listelerini buradan ekleyebilirsin. Kaydettiğin değişiklikler bilgisayar ve telefonda aynı veriden otomatik güncellenir.</p><p>Yolcuların manuel sırası korunur. İstersen kayıtlı listede “Aynı Soyadları Göster” düğmesiyle aynı soyadlıları geçici olarak yan yana görebilir, düğmeye tekrar basarak kendi sıralamana dönebilirsin.</p>
+                    <p>Turları, yolcu listelerini, ödemeleri ve makbuzları buradan yönetebilirsin. Kaydettiğin değişiklikler bilgisayar ve telefonda aynı veriden otomatik güncellenir.</p><p>Yolcuların manuel sırası korunur. İstersen kayıtlı listede “Aynı Soyadları Göster” düğmesiyle aynı soyadlıları geçici olarak yan yana görebilir, düğmeye tekrar basarak kendi sıralamana dönebilirsin.</p>
                     <p>Yolcu listesinde <b>PDF / Yazdır</b> butonuna basınca yazdırma ekranı açılır. Yazıcı seçebilir veya “PDF olarak kaydet” diyebilirsin.</p>
                 </div>
             </section>
@@ -443,6 +454,6 @@
     </div>
     <script src="vendor/exceljs.min.js?v=4.4.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=20260816-passenger-groups1"></script>
+    <script src="app.js?v=20260816-mobile1"></script>
 </body>
 </html>

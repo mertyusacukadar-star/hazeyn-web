@@ -15,6 +15,9 @@
       ]
     }
   ],
+  "redirects": [
+    { "source": "/uygulama", "destination": "/admin.html?mobile=1", "permanent": false }
+  ],
   "rewrites": [
     { "source": "/", "destination": "/api/seo?route=home" },
     { "source": "/tr", "destination": "/api/seo?route=home" },

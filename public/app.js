@@ -79,8 +79,11 @@
 
     const page = document.body.dataset.page;
     const $ = (id) => document.getElementById(id);
-    const IS_DESKTOP_APP = page === 'admin' && new URLSearchParams(location.search).get('desktop') === '1';
-    if (IS_DESKTOP_APP) document.body.classList.add('desktop-app');
+    const appQuery = new URLSearchParams(location.search);
+    const IS_MOBILE_APP = page === 'admin' && appQuery.get('mobile') === '1';
+    const IS_APP_MODE = page === 'admin' && (appQuery.get('desktop') === '1' || IS_MOBILE_APP);
+    if (IS_APP_MODE) document.body.classList.add('desktop-app');
+    if (IS_MOBILE_APP) document.body.classList.add('mobile-app');
     const COMPANY_CONFIG = {
         hazeyn: {
             id: 'hazeyn', name: 'Hazeyn Turizm', shortName: 'Hazeyn', receiptPrefix: 'HZ',
@@ -124,25 +127,77 @@
     let currentAppUser = null;
     let desktopUsers = [];
     let selectedPassengerTourGroupId = '';
+    let deferredMobileInstallPrompt = null;
     const surnameSortedLists = new Set();
 
     function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
     function uid(prefix) { return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+    function mobileAppIsInstalled() {
+        return Boolean(window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true);
+    }
+
+    function updateMobileInstallBar() {
+        const bar = $('mobileInstallBar');
+        const text = $('mobileInstallText');
+        const button = $('mobileInstallButton');
+        if (!bar || !text || !button) return;
+        const mobileBrowser = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (IS_MOBILE_APP && window.innerWidth <= 900);
+        const dismissed = sessionStorage.getItem('turizmMobileInstallDismissed') === '1';
+        if (!mobileBrowser || mobileAppIsInstalled() || dismissed) { bar.hidden = true; return; }
+        const appleDevice = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        bar.hidden = false;
+        text.textContent = appleDevice
+            ? 'iPhone: Safari’de Paylaş düğmesine basıp “Ana Ekrana Ekle”yi seç.'
+            : deferredMobileInstallPrompt
+                ? 'Turizm Muhasebe uygulamasını telefonuna yükle.'
+                : 'Android: Tarayıcı menüsünden “Uygulamayı yükle”yi seç.';
+        button.hidden = appleDevice || !deferredMobileInstallPrompt;
+    }
+
+    async function installMobileApp() {
+        if (!deferredMobileInstallPrompt) return;
+        await deferredMobileInstallPrompt.prompt();
+        await deferredMobileInstallPrompt.userChoice;
+        deferredMobileInstallPrompt = null;
+        updateMobileInstallBar();
+    }
+
+    function setupMobileAppInstall() {
+        updateMobileInstallBar();
+        window.addEventListener('beforeinstallprompt', event => {
+            event.preventDefault();
+            deferredMobileInstallPrompt = event;
+            updateMobileInstallBar();
+        });
+        window.addEventListener('appinstalled', () => {
+            deferredMobileInstallPrompt = null;
+            updateMobileInstallBar();
+        });
+        $('mobileInstallButton')?.addEventListener('click', installMobileApp);
+        $('mobileInstallDismiss')?.addEventListener('click', () => {
+            sessionStorage.setItem('turizmMobileInstallDismissed', '1');
+            updateMobileInstallBar();
+        });
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js').catch(error => console.warn('Mobil uygulama çevrimdışı desteği başlatılamadı.', error)), { once: true });
+        }
+    }
 
     function currentCompany() {
         return COMPANY_CONFIG[currentCompanyId] || COMPANY_CONFIG.hazeyn;
     }
 
     function desktopToken() {
-        return IS_DESKTOP_APP ? String(sessionStorage.getItem('turizmDesktopToken') || '') : '';
+        return IS_APP_MODE ? String(sessionStorage.getItem('turizmDesktopToken') || '') : '';
     }
 
     function isAppOwner() {
-        return Boolean(IS_DESKTOP_APP && currentAppUser && currentAppUser.role === 'owner');
+        return Boolean(IS_APP_MODE && currentAppUser && currentAppUser.role === 'owner');
     }
 
     function allowedCompanyIds() {
-        if (!IS_DESKTOP_APP || isAppOwner()) return ['hazeyn', 'hakikat'];
+        if (!IS_APP_MODE || isAppOwner()) return ['hazeyn', 'hakikat'];
         return Array.isArray(currentAppUser?.companies) ? currentAppUser.companies.map(normalizeCompanyId) : [];
     }
 
@@ -151,7 +206,7 @@
     }
 
     function currentActor() {
-        if (!IS_DESKTOP_APP || !currentAppUser) return null;
+        if (!IS_APP_MODE || !currentAppUser) return null;
         return { id: String(currentAppUser.id), username: String(currentAppUser.username), name: String(currentAppUser.displayName || currentAppUser.username) };
     }
 
@@ -164,7 +219,7 @@
     function authorizedHeaders(extra = {}) {
         const headers = { ...extra, 'x-company-id': currentCompanyId };
         const token = desktopToken();
-        if (IS_DESKTOP_APP && token) {
+        if (IS_APP_MODE && token) {
             headers.Authorization = `Bearer ${token}`;
             headers['x-app-mode'] = 'desktop';
         } else {
@@ -175,7 +230,7 @@
     }
 
     function hasAdminCredential() {
-        return Boolean(IS_DESKTOP_APP ? desktopToken() : getAdminPassword());
+        return Boolean(IS_APP_MODE ? desktopToken() : getAdminPassword());
     }
 
     function defaultDataForCompany() {
@@ -204,7 +259,7 @@
 
     function companyLogoUrl() {
         const company = currentCompany();
-        return new URL(IS_DESKTOP_APP ? (company.receiptLogo || company.logo) : company.logo, location.href).href;
+        return new URL(IS_APP_MODE ? (company.receiptLogo || company.logo) : company.logo, location.href).href;
     }
 
     function adminPasswordKey(companyId = currentCompanyId) {
@@ -231,17 +286,17 @@
         if ($('companySwitcher') && $('companySwitcher').value !== company.id) $('companySwitcher').value = company.id;
         if ($('companySwitcher')) {
             Array.from($('companySwitcher').options).forEach(option => {
-                const unavailable = IS_DESKTOP_APP && adminLoggedIn && !canAccessCompany(option.value);
+                const unavailable = IS_APP_MODE && adminLoggedIn && !canAccessCompany(option.value);
                 option.hidden = unavailable;
                 option.disabled = unavailable;
             });
         }
-        if ($('companyAccountNote')) $('companyAccountNote').textContent = IS_DESKTOP_APP
+        if ($('companyAccountNote')) $('companyAccountNote').textContent = IS_APP_MODE
             ? 'Baş yönetici veya sana verilen çalışan hesabıyla giriş yap.'
             : `${company.name} kayıtları diğer firmadan tamamen ayrı tutulur.`;
-        if (IS_DESKTOP_APP && $('loginHeading')) $('loginHeading').textContent = `${company.name} Girişi`;
-        if (IS_DESKTOP_APP && $('loginKicker')) $('loginKicker').textContent = 'GİRİŞ YAPILACAK FİRMAYI SEÇ';
-        if (IS_DESKTOP_APP && $('signedUserName')) $('signedUserName').textContent = currentAppUser?.displayName || '—';
+        if (IS_APP_MODE && $('loginHeading')) $('loginHeading').textContent = `${company.name} Girişi`;
+        if (IS_APP_MODE && $('loginKicker')) $('loginKicker').textContent = 'GİRİŞ YAPILACAK FİRMAYI SEÇ';
+        if (IS_APP_MODE && $('signedUserName')) $('signedUserName').textContent = currentAppUser?.displayName || '—';
         document.querySelectorAll('.desktop-owner-only').forEach(element => { element.hidden = !isAppOwner(); element.style.display = isAppOwner() ? '' : 'none'; });
         document.querySelectorAll('[data-company-public-link]').forEach(publicLink => {
             publicLink.hidden = !company.publicUrl;
@@ -765,7 +820,7 @@
     }
 
     async function restoreDesktopSession() {
-        if (!IS_DESKTOP_APP || !desktopToken()) return false;
+        if (!IS_APP_MODE || !desktopToken()) return false;
         try {
             const res = await fetch('/api/app-auth?action=me', { cache: 'no-store', headers: authorizedHeaders() });
             const result = await res.json().catch(() => ({}));
@@ -1700,7 +1755,7 @@
 
     async function switchCompanyAccount(companyId) {
         const nextCompanyId = normalizeCompanyId(companyId);
-        if (IS_DESKTOP_APP && adminLoggedIn && !canAccessCompany(nextCompanyId)) {
+        if (IS_APP_MODE && adminLoggedIn && !canAccessCompany(nextCompanyId)) {
             if ($('companySwitcher')) $('companySwitcher').value = currentCompanyId;
             toast('Bu firma hesabı için yetkin yok.');
             return false;
@@ -1759,7 +1814,7 @@
         renderPassengerTourSelect();
         renderPassengerAdmin();
         renderAccounting();
-        if (IS_DESKTOP_APP && isAppOwner()) renderDesktopUsers();
+        if (IS_APP_MODE && isAppOwner()) renderDesktopUsers();
         ensurePassengerRows();
     }
 
@@ -1773,7 +1828,7 @@
     }
 
     function switchTab(tab) {
-        if (IS_DESKTOP_APP && tab === 'users' && !isAppOwner()) { toast('Kullanıcı yönetimi yalnızca baş yöneticiye açıktır.'); return; }
+        if (IS_APP_MODE && tab === 'users' && !isAppOwner()) { toast('Kullanıcı yönetimi yalnızca baş yöneticiye açıktır.'); return; }
         document.querySelectorAll('.admin-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
         document.querySelectorAll('.admin-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
         if (tab === 'accounting') {
@@ -1801,7 +1856,7 @@
     }
 
     async function loadDesktopUsers() {
-        if (!IS_DESKTOP_APP || !isAppOwner()) return;
+        if (!IS_APP_MODE || !isAppOwner()) return;
         try {
             const result = await desktopApi('users');
             desktopUsers = Array.isArray(result.users) ? result.users : [];
@@ -2408,7 +2463,7 @@
         if (priceInput) priceInput.addEventListener('input', () => { tr.dataset.priceSource = 'custom'; });
         const currencyInput = tr.querySelector('.p-custom-currency');
         if (currencyInput) currencyInput.addEventListener('change', () => { tr.dataset.priceSource = 'custom'; });
-        if (IS_DESKTOP_APP && accounting.agreedPrice === '' && roomPeople) syncPassengerRowPrice(tr, true);
+        if (IS_APP_MODE && accounting.agreedPrice === '' && roomPeople) syncPassengerRowPrice(tr, true);
     }
 
     function syncPassengerRowPrice(tr, force = false) {
@@ -2455,7 +2510,7 @@
                 priceSource,
                 payments: clone(tr._accounting?.payments || [])
             };
-            const accounting = IS_DESKTOP_APP ? desktopAccounting : clone(tr._accounting || { agreedPrice: '', currency: '', priceSource: 'room', payments: [] });
+            const accounting = IS_APP_MODE ? desktopAccounting : clone(tr._accounting || { agreedPrice: '', currency: '', priceSource: 'room', payments: [] });
             return {
             id: tr.dataset.passengerId || uid('p_'),
             name: tr.querySelector('.p-name').value.trim(),
@@ -2499,9 +2554,9 @@
 
         const idx = state.passengerLists.findIndex(x => x.id === id);
         if (idx > -1) state.passengerLists[idx] = item; else state.passengerLists.unshift(item);
-        if (IS_DESKTOP_APP) selectedPassengerTourGroupId = tourId ? `tour:${tourId}` : 'legacy';
+        if (IS_APP_MODE) selectedPassengerTourGroupId = tourId ? `tour:${tourId}` : 'legacy';
 
-        if (!await saveData({ keepLocalAccounting: IS_DESKTOP_APP })) return; clearPassengerForm(); renderPassengerAdmin(); renderDashboard(); toast('Yolcu listesi ve muhasebe fiyatları kaydedildi.');
+        if (!await saveData({ keepLocalAccounting: IS_APP_MODE })) return; clearPassengerForm(); renderPassengerAdmin(); renderDashboard(); toast('Yolcu listesi ve muhasebe fiyatları kaydedildi.');
     }
 
     function editPassengerList(id) {
@@ -2590,7 +2645,7 @@
         const children = (l.passengers || []).filter(p => passengerFlightAgeGroup(p.birthDate, flightDate) === 'child').length;
         const expiringCount = (l.passengers || []).filter(p => isPassportExpiring(p.passportEnd, flightDate)).length;
         const route = [airportCode(l.originAirport), airportCode(l.destinationAirport)].filter(Boolean).join('-') || '-';
-        const ageSummary = IS_DESKTOP_APP
+        const ageSummary = IS_APP_MODE
             ? ` &nbsp; <b class="passenger-age-label infant">Bebek:</b> <span class="passenger-age-count infant">${infants}</span> &nbsp; <b class="passenger-age-label child">Çocuk:</b> <span class="passenger-age-count child">${children}</span>`
             : '';
 
@@ -2635,12 +2690,12 @@
         if (!l || !l.passengers || !l.passengers[passengerIndex]) return;
         const passenger = l.passengers[passengerIndex];
         passenger[field] = value;
-        if (IS_DESKTOP_APP && field === 'roomPeople' && passenger.accounting?.priceSource !== 'custom') {
+        if (IS_APP_MODE && field === 'roomPeople' && passenger.accounting?.priceSource !== 'custom') {
             const tour = state.tours.find(item => item.id === l.tourId);
             const fallback = passengerTourPrice(tour, passenger);
             passenger.accounting = { ...(passenger.accounting || {}), agreedPrice: fallback.amount, currency: fallback.currency, priceSource: 'room', payments: passenger.accounting?.payments || [] };
         }
-        if (!await saveData({ keepLocalAccounting: IS_DESKTOP_APP && field === 'roomPeople' })) return;
+        if (!await saveData({ keepLocalAccounting: IS_APP_MODE && field === 'roomPeople' })) return;
         if (field === 'roomPeople' || field === 'mekkeRoomNo' || field === 'medineRoomNo' || field === 'roomNo') renderPassengerAdmin();
     }
 
@@ -2833,11 +2888,11 @@
                 <td>${escapeHtml(formatDateDMY(payment.paidAt))}</td>
                 <td>${escapeHtml(formatMoney(payment.amount, snapshot.currency))}</td>
                 <td>${escapeHtml(payment.method || '-')}</td>
-                ${IS_DESKTOP_APP ? `<td>${escapeHtml(actorName(payment.receivedBy, 'Eski kayıt'))}</td>` : ''}
+                ${IS_APP_MODE ? `<td>${escapeHtml(actorName(payment.receivedBy, 'Eski kayıt'))}</td>` : ''}
                 <td>${escapeHtml(payment.note || '-')}</td>
                 <td class="payment-actions"><button class="icon-btn" type="button" data-print-receipt="${escapeHtml(payment.id)}">Makbuz</button>${payment.voided ? '' : `<button class="icon-btn danger" type="button" data-void-payment="${escapeHtml(payment.id)}">İptal</button>`}</td>
             </tr>`).join('');
-        return `<div class="accounting-payment-table"><table><thead><tr><th>Makbuz No</th><th>Tarih</th><th>Tutar</th><th>Yöntem</th>${IS_DESKTOP_APP ? '<th>Tahsilatı Alan</th>' : ''}<th>Not</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+        return `<div class="accounting-payment-table"><table><thead><tr><th>Makbuz No</th><th>Tarih</th><th>Tutar</th><th>Yöntem</th>${IS_APP_MODE ? '<th>Tahsilatı Alan</th>' : ''}<th>Not</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
 
     function accountingProgramType(context) {
@@ -2860,11 +2915,11 @@
         const medineRoom = passenger.medineRoomNo || passenger.roomNo || '';
         const balanceClass = snapshot.balance > 0.005 ? 'open' : snapshot.balance < -0.005 ? 'credit' : 'paid';
         const balanceLabel = snapshot.balance > 0.005 ? 'Kalan' : snapshot.balance < -0.005 ? 'Fazla Ödeme' : 'Ödendi';
-        const auditHtml = IS_DESKTOP_APP ? `<div class="accounting-audit-line"><span>Kaydı yapan: <b>${escapeHtml(actorName(passenger.createdBy || list.createdBy, 'Eski kayıt'))}</b></span>${snapshot.payments.length ? `<span>Son tahsilat: <b>${escapeHtml(actorName(snapshot.payments[snapshot.payments.length - 1].receivedBy, 'Eski kayıt'))}</b></span>` : ''}</div>` : '';
-        const priceEditorTitle = IS_DESKTOP_APP ? 'Kişiye Özel Anlaşma / İndirimli Fiyat' : 'Program Ücreti';
-        const priceSaveLabel = IS_DESKTOP_APP ? 'Özel Fiyatı Kaydet' : 'Fiyatı Kaydet';
-        const priceResetButton = IS_DESKTOP_APP ? '<button class="icon-btn" type="button" data-reset-account-price>Oda Fiyatına Dön</button>' : '';
-        const priceHelp = IS_DESKTOP_APP ? 'İndirim yapacaksan bu yolcuya özel toplam fiyatı yaz. “Oda Fiyatına Dön” seçeneği programdaki oda fiyatını yeniden uygular.' : 'Oda fiyatından farklı anlaşma varsa burada değiştirebilirsin.';
+        const auditHtml = IS_APP_MODE ? `<div class="accounting-audit-line"><span>Kaydı yapan: <b>${escapeHtml(actorName(passenger.createdBy || list.createdBy, 'Eski kayıt'))}</b></span>${snapshot.payments.length ? `<span>Son tahsilat: <b>${escapeHtml(actorName(snapshot.payments[snapshot.payments.length - 1].receivedBy, 'Eski kayıt'))}</b></span>` : ''}</div>` : '';
+        const priceEditorTitle = IS_APP_MODE ? 'Kişiye Özel Anlaşma / İndirimli Fiyat' : 'Program Ücreti';
+        const priceSaveLabel = IS_APP_MODE ? 'Özel Fiyatı Kaydet' : 'Fiyatı Kaydet';
+        const priceResetButton = IS_APP_MODE ? '<button class="icon-btn" type="button" data-reset-account-price>Oda Fiyatına Dön</button>' : '';
+        const priceHelp = IS_APP_MODE ? 'İndirim yapacaksan bu yolcuya özel toplam fiyatı yaz. “Oda Fiyatına Dön” seçeneği programdaki oda fiyatını yeniden uygular.' : 'Oda fiyatından farklı anlaşma varsa burada değiştirebilirsin.';
         return `<article class="accounting-card" data-account-card data-list-id="${escapeHtml(list.id)}" data-passenger-id="${escapeHtml(passenger.id)}">
             <header class="accounting-card-head">
                 <div><span class="accounting-tour-type">${escapeHtml(accountingProgramType(context))}</span><h3>${escapeHtml(passenger.name || 'İsimsiz yolcu')}</h3><p>${escapeHtml(tour?.title || list.title || 'Program')} • ${escapeHtml(formatDateTR(tour?.departureDate || list.date) || 'Tarih yok')}</p>${auditHtml}</div>
@@ -3026,12 +3081,12 @@
         const programDate = context.tour?.departureDate || context.list.date || '';
         const company = currentCompany();
         const logoUrl = companyLogoUrl();
-        const receiptLogoStyle = IS_DESKTOP_APP
+        const receiptLogoStyle = IS_APP_MODE
             ? (company.id === 'hakikat'
                 ? 'width:66mm;height:24mm;object-fit:contain;object-position:left center;background:transparent;border:0;border-radius:0;padding:0'
                 : 'width:58mm;height:21mm;object-fit:contain;object-position:left center;background:transparent;border:0;border-radius:0;padding:0')
             : 'width:52mm;height:20mm;object-fit:contain;background:#111;border-radius:4px;padding:3mm';
-        const receiptAuditDetails = IS_DESKTOP_APP
+        const receiptAuditDetails = IS_APP_MODE
             ? `<div class="detail"><small>Kaydı Yapan</small><b>${escapeHtml(actorName(context.passenger.createdBy || context.list.createdBy, 'Eski kayıt'))}</b></div><div class="detail"><small>Tahsilatı Alan</small><b>${escapeHtml(actorName(payment.receivedBy, 'Eski kayıt'))}</b></div>`
             : '';
         const receiptHtml = `<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>${escapeHtml(payment.receiptNo)} Tahsilat Makbuzu</title><style>
@@ -3232,7 +3287,7 @@
         passengers.forEach((passenger, index) => {
             const name = splitPassengerName(passenger.name);
             const infant = isPassengerInfant(passenger.birthDate, flightDate);
-            const child = IS_DESKTOP_APP && isPassengerChild(passenger.birthDate, flightDate);
+            const child = IS_APP_MODE && isPassengerChild(passenger.birthDate, flightDate);
             const endDate = parseLocalDate(passenger.passportEnd);
             const birthDate = parseLocalDate(passenger.birthDate);
             const row = sheet.addRow([
@@ -3324,7 +3379,7 @@
         const noTour = state.passengerLists.filter(l => !state.tours.some(t => t.id === l.tourId));
         if (noTour.length) groups.push({ id: 'legacy', title: 'Tur seçilmemiş / eski kayıtlar', type: 'Liste', items: noTour });
 
-        if (IS_DESKTOP_APP) {
+        if (IS_APP_MODE) {
             const savedTourGroups = groups.filter(group => group.items.length);
             if (!savedTourGroups.some(group => group.id === selectedPassengerTourGroupId)) selectedPassengerTourGroupId = '';
             list.innerHTML = savedTourGroups.map(group => `<details class="passenger-tour-group" data-passenger-tour-group="${escapeHtml(group.id)}" ${selectedPassengerTourGroupId === group.id ? 'open' : ''}>
@@ -3390,7 +3445,7 @@
     }
 
     function bindAdminEvents() {
-        if (IS_DESKTOP_APP) {
+        if (IS_APP_MODE) {
             // Masaüstü penceresinde yoğun yeniden çizim veya Windows ölçeklendirmesi
             // sırasında ilk tıklamanın boşa gitmemesi için alanı pointer-down anında
             // odakla. Varsayılan tıklamayı engellemediğimiz için select/date panelleri
@@ -3406,13 +3461,13 @@
         $('loginBtn').onclick = async () => {
             const password = $('adminPassword').value;
             const username = $('adminUsername')?.value || 'admin';
-            const loginResult = IS_DESKTOP_APP ? await validateDesktopLogin(username, password) : { ok: await validateAdminPassword(password) };
+            const loginResult = IS_APP_MODE ? await validateDesktopLogin(username, password) : { ok: await validateAdminPassword(password) };
             const ok = loginResult.ok;
             if (ok) {
                 $('adminPassword').value = '';
                 const loaded = await loadAuthenticatedAdminData();
                 if (!loaded) {
-                    if (IS_DESKTOP_APP) clearDesktopSession(); else sessionStorage.removeItem(adminPasswordKey());
+                    if (IS_APP_MODE) clearDesktopSession(); else sessionStorage.removeItem(adminPasswordKey());
                     alert('Yonetici verileri guvenli sekilde yuklenemedi. Lutfen baglantini kontrol edip tekrar dene.');
                     return;
                 }
@@ -3425,7 +3480,7 @@
         if ($('adminUsername')) $('adminUsername').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
         $('logoutBtn').onclick = () => {
             adminLoggedIn = false;
-            if (IS_DESKTOP_APP) clearDesktopSession();
+            if (IS_APP_MODE) clearDesktopSession();
             sessionStorage.removeItem(adminPasswordKey());
             sessionStorage.removeItem('turizmAdminPassword');
             sessionStorage.removeItem('hazeynAdminPassword');
@@ -3516,7 +3571,7 @@
         $('savePassengerList').onclick = savePassengerList;
         $('clearPassengerList').onclick = clearPassengerForm;
         $('passengerTable').addEventListener('click', e => { if (e.target.classList.contains('remove-row')) { e.target.closest('tr').remove(); ensurePassengerRows(); } });
-        $('passengerTable').addEventListener('change', e => { if (IS_DESKTOP_APP && e.target.classList.contains('p-room-people')) syncPassengerRowPrice(e.target.closest('tr'), true); });
+        $('passengerTable').addEventListener('change', e => { if (IS_APP_MODE && e.target.classList.contains('p-room-people')) syncPassengerRowPrice(e.target.closest('tr'), true); });
 
         document.addEventListener('dragstart', (e) => {
             const bannerItem = e.target.closest && e.target.closest('.hero-banner-admin-item');
@@ -3663,13 +3718,14 @@
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
+        if (page === 'admin') setupMobileAppInstall();
         // Admin girişini uzak veri yüklemesine bağlama. Supabase yavaşlasa veya
         // geçici olarak cevap vermese bile şifre alanı ve giriş düğmesi çalışsın.
         if (page === 'admin') {
             localStorage.setItem('turizmLastCompany', currentCompanyId);
             updateCompanyBranding();
             bindAdminEvents();
-            if (IS_DESKTOP_APP && await restoreDesktopSession()) {
+            if (IS_APP_MODE && await restoreDesktopSession()) {
                 adminLoggedIn = await loadAuthenticatedAdminData();
                 if (!adminLoggedIn) clearDesktopSession();
                 if (adminLoggedIn && isAppOwner()) loadDesktopUsers();

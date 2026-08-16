@@ -16,7 +16,7 @@ assert.strictEqual(sandbox.classify('2024-08-13', flightDate), 'child', '2 yaş�
 assert.strictEqual(sandbox.classify('2015-08-14', flightDate), 'child', '11 yaşından küçük yolcu çocuk olmalı');
 assert.strictEqual(sandbox.classify('2015-08-13', flightDate), 'adult', '11 yaşını dolduran yolcu çocuk olmamalı');
 
-assert(source.includes("const child = IS_DESKTOP_APP && isPassengerChild(passenger.birthDate, flightDate);"), 'Çocuk etiketi yalnız masaüstü uygulamaya uygulanmalı');
+assert(source.includes("const child = IS_APP_MODE && isPassengerChild(passenger.birthDate, flightDate);"), 'Çocuk etiketi uygulama moduna uygulanmalı');
 assert(source.includes("child ? 'ÇOCUK'"), 'Excel çocuk etiketi eksik');
 assert(source.includes("argb: 'FFDDEBF7'"), 'Excel çocuk rengi eksik');
 assert(source.includes('Bebek:</b>'), 'Yolcu listesi bebek özeti eksik');
