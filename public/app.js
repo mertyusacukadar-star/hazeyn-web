@@ -549,13 +549,24 @@
         return end < addCalendarMonths(flight, 6);
     }
 
-    function isPassengerInfant(birthDate, flightDate) {
+    function passengerFlightAgeGroup(birthDate, flightDate) {
         const birth = parseLocalDate(birthDate);
         const flight = parseLocalDate(flightDate);
-        if (!birth || !flight || birth > flight) return false;
+        if (!birth || !flight || birth > flight) return 'adult';
         const secondBirthday = new Date(birth.getTime());
         secondBirthday.setFullYear(secondBirthday.getFullYear() + 2);
-        return flight < secondBirthday;
+        if (flight < secondBirthday) return 'infant';
+        const eleventhBirthday = new Date(birth.getTime());
+        eleventhBirthday.setFullYear(eleventhBirthday.getFullYear() + 11);
+        return flight < eleventhBirthday ? 'child' : 'adult';
+    }
+
+    function isPassengerInfant(birthDate, flightDate) {
+        return passengerFlightAgeGroup(birthDate, flightDate) === 'infant';
+    }
+
+    function isPassengerChild(birthDate, flightDate) {
+        return passengerFlightAgeGroup(birthDate, flightDate) === 'child';
     }
 
     function getListFlightDate(list) {
@@ -3214,6 +3225,7 @@
         passengers.forEach((passenger, index) => {
             const name = splitPassengerName(passenger.name);
             const infant = isPassengerInfant(passenger.birthDate, flightDate);
+            const child = IS_DESKTOP_APP && isPassengerChild(passenger.birthDate, flightDate);
             const endDate = parseLocalDate(passenger.passportEnd);
             const birthDate = parseLocalDate(passenger.birthDate);
             const row = sheet.addRow([
@@ -3224,7 +3236,7 @@
                 endDate || '',
                 String(passenger.tc || ''),
                 birthDate || '',
-                infant ? 'BEBEK' : String(passenger.gender || '').toLocaleUpperCase('tr-TR'),
+                infant ? 'BEBEK' : child ? 'ÇOCUK' : String(passenger.gender || '').toLocaleUpperCase('tr-TR'),
                 route
             ]);
             row.height = 25;
@@ -3235,6 +3247,10 @@
             if (infant) {
                 row.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE699' } };
                 row.getCell(8).font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF7F6000' } };
+                row.getCell(8).alignment = { horizontal: 'center', vertical: 'middle' };
+            } else if (child) {
+                row.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' } };
+                row.getCell(8).font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF1F4E78' } };
                 row.getCell(8).alignment = { horizontal: 'center', vertical: 'middle' };
             }
         });
@@ -3256,7 +3272,7 @@
         for (let rowNumber = 6; rowNumber <= 5 + passengers.length; rowNumber += 1) {
             const row = sheet.getRow(rowNumber);
             row.eachCell({ includeEmpty: true }, cell => {
-                if (cell.col === 8 && cell.value === 'BEBEK') return;
+                if (cell.col === 8 && (cell.value === 'BEBEK' || cell.value === 'ÇOCUK')) return;
                 cell.font = { name: 'Calibri', size: 11, bold: cell.col <= 3, color: { argb: 'FF111111' } };
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7F7FC' } };
                 cell.alignment = { horizontal: 'center', vertical: 'middle' };
