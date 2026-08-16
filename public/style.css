@@ -550,6 +550,11 @@ body:not(.desktop-app) .desktop-only{display:none!important}
 .desktop-app .inline-money-form{grid-template-columns:minmax(120px,1fr) 82px}
 .desktop-app .inline-money-form .account-price-actions{grid-column:1/-1}
 .desktop-app .accounting-audit-line{display:flex;gap:10px;flex-wrap:wrap;margin-top:7px;color:var(--muted);font-size:11px;font-weight:800}.desktop-app .accounting-audit-line b{color:#3d3326}
+.desktop-app input,.desktop-app textarea,.desktop-app select,.desktop-app button,.desktop-app summary{-webkit-app-region:no-drag;touch-action:manipulation}
+.desktop-app input,.desktop-app textarea,.desktop-app select{-webkit-user-select:text;user-select:text;caret-color:currentColor}
+.desktop-app details>summary{position:relative;cursor:pointer;pointer-events:auto;user-select:none}
+.desktop-app details:not([open])>:not(summary){display:none!important}
+.desktop-app .toast{pointer-events:none}
 
 /* Tur formu masaüstü uygulamasında yalnızca operasyon ve fiyat alanlarını gösterir. */
 .desktop-app #tourForm label:has(#tourTag),

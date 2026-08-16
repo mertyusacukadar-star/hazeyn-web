@@ -4,6 +4,11 @@ const path = require('path');
 const LIVE_ADMIN_URL = process.env.TURIZM_APP_URL || 'https://www.hazeynturizm.com/admin.html?desktop=1';
 const APP_ORIGIN = 'https://www.hazeynturizm.com';
 
+// Bazı Windows ekran kartı / ölçeklendirme kombinasyonlarında Chromium'un
+// tıklama hedefi ile görünen alan kısa süreli ayrışabiliyor. Muhasebe ekranı
+// grafik ağırlıklı olmadığı için kararlı form etkileşimini önceliklendiriyoruz.
+app.disableHardwareAcceleration();
+
 function isInternalAdminUrl(value) {
   try {
     const url = new URL(value);
@@ -28,11 +33,15 @@ function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      nativeWindowOpen: true
+      nativeWindowOpen: true,
+      backgroundThrottling: false
     }
   });
 
   window.once('ready-to-show', () => window.show());
+  window.on('focus', () => {
+    if (!window.isDestroyed()) window.webContents.focus();
+  });
   window.loadURL(LIVE_ADMIN_URL);
 
   window.webContents.setWindowOpenHandler(({ url }) => {

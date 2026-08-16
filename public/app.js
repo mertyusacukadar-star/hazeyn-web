@@ -1766,7 +1766,6 @@
         document.querySelectorAll('.admin-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
         if (tab === 'accounting') {
             renderAccounting(accountingSearchQuery);
-            setTimeout(() => $('accountingSearch')?.focus(), 0);
         }
         if (tab === 'users' && isAppOwner()) loadDesktopUsers();
     }
@@ -3355,6 +3354,19 @@
     }
 
     function bindAdminEvents() {
+        if (IS_DESKTOP_APP) {
+            // Masaüstü penceresinde yoğun yeniden çizim veya Windows ölçeklendirmesi
+            // sırasında ilk tıklamanın boşa gitmemesi için alanı pointer-down anında
+            // odakla. Varsayılan tıklamayı engellemediğimiz için select/date panelleri
+            // ve details/summary davranışı doğal biçimde çalışmaya devam eder.
+            document.addEventListener('pointerdown', event => {
+                const field = event.target.closest && event.target.closest('input, textarea, select');
+                if (!field || field.disabled || field.readOnly || field.closest('[hidden]')) return;
+                if (document.activeElement !== field) {
+                    try { field.focus({ preventScroll: true }); } catch (error) { field.focus(); }
+                }
+            }, true);
+        }
         $('loginBtn').onclick = async () => {
             const password = $('adminPassword').value;
             const username = $('adminUsername')?.value || 'admin';
