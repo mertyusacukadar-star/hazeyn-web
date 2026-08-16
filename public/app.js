@@ -3009,7 +3009,9 @@
         const company = currentCompany();
         const logoUrl = companyLogoUrl();
         const receiptLogoStyle = IS_DESKTOP_APP
-            ? 'width:58mm;height:21mm;object-fit:contain;object-position:left center;background:transparent;border:0;border-radius:0;padding:0'
+            ? (company.id === 'hakikat'
+                ? 'width:66mm;height:24mm;object-fit:contain;object-position:left center;background:transparent;border:0;border-radius:0;padding:0'
+                : 'width:58mm;height:21mm;object-fit:contain;object-position:left center;background:transparent;border:0;border-radius:0;padding:0')
             : 'width:52mm;height:20mm;object-fit:contain;background:#111;border-radius:4px;padding:3mm';
         const receiptAuditDetails = IS_DESKTOP_APP
             ? `<div class="detail"><small>Kaydı Yapan</small><b>${escapeHtml(actorName(context.passenger.createdBy || context.list.createdBy, 'Eski kayıt'))}</b></div><div class="detail"><small>Tahsilatı Alan</small><b>${escapeHtml(actorName(payment.receivedBy, 'Eski kayıt'))}</b></div>`
