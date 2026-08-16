@@ -527,6 +527,16 @@ body:not(.desktop-app) .desktop-only{display:none!important}
 .desktop-app .passenger-list-top .hint-text{padding:8px 10px;border-radius:10px;background:#f8f4eb}
 .desktop-app .passenger-list-top .admin-item-actions{display:grid;grid-template-columns:repeat(4,minmax(125px,1fr));gap:8px;width:100%}
 .desktop-app .passenger-list-top .admin-item-actions .icon-btn{width:100%;padding:9px 8px;white-space:normal}
+.desktop-app .passenger-tour-group{border:1px solid #e4dccf;border-radius:16px;background:#fff;margin-bottom:10px;overflow:hidden;box-shadow:0 8px 18px rgba(40,28,12,.05)}
+.desktop-app .passenger-tour-summary{display:flex;align-items:center;gap:14px;padding:15px 17px;cursor:pointer;list-style:none;background:#fffdf9;transition:background .18s ease}
+.desktop-app .passenger-tour-summary::-webkit-details-marker{display:none}
+.desktop-app .passenger-tour-summary:hover,.desktop-app .passenger-tour-group[open]>.passenger-tour-summary{background:#f8f3e8}
+.desktop-app .passenger-tour-summary::after{content:'⌄';font-size:25px;font-weight:900;color:#8b6928;line-height:1;transition:transform .18s ease}
+.desktop-app .passenger-tour-group[open]>.passenger-tour-summary::after{transform:rotate(180deg)}
+.desktop-app .passenger-tour-name{display:grid;gap:3px;min-width:0;flex:1}.desktop-app .passenger-tour-name strong{font-size:17px;color:#1f1b14}.desktop-app .passenger-tour-name small{color:var(--muted);font-weight:750}
+.desktop-app .passenger-tour-count{padding:7px 11px;border-radius:999px;background:#fff4d7;color:#8b641d;font-weight:900;white-space:nowrap}
+.desktop-app .passenger-tour-content{padding:12px 12px 0;border-top:1px solid #eadfce}.desktop-app .passenger-tour-content>.passenger-list-card:last-child{margin-bottom:12px}
+.desktop-app .passenger-age-label.infant,.desktop-app .passenger-age-count.infant{color:#9a6500}.desktop-app .passenger-age-label.child,.desktop-app .passenger-age-count.child{color:#1f5f9d}.desktop-app .passenger-age-count{font-weight:950}
 .desktop-app .passenger-group{padding:12px;border-radius:18px}
 .desktop-app .passenger-group-head{margin-bottom:9px;padding-bottom:9px}
 .desktop-app .passenger-group-head h3{font-size:18px}

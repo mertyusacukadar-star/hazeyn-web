@@ -1,7 +1,7 @@
 const { app, BrowserWindow, Menu, shell, session } = require('electron');
 const path = require('path');
 
-const LIVE_ADMIN_URL = process.env.TURIZM_APP_URL || 'https://www.hazeynturizm.com/admin.html?desktop=1&appVersion=2.1.3';
+const LIVE_ADMIN_URL = process.env.TURIZM_APP_URL || 'https://www.hazeynturizm.com/admin.html?desktop=1&appVersion=2.1.4';
 const APP_ORIGIN = 'https://www.hazeynturizm.com';
 
 // Bazı Windows ekran kartı / ölçeklendirme kombinasyonlarında Chromium'un

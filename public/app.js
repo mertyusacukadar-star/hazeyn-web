@@ -123,6 +123,7 @@
     let accountingSearchQuery = '';
     let currentAppUser = null;
     let desktopUsers = [];
+    let selectedPassengerTourGroupId = '';
     const surnameSortedLists = new Set();
 
     function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
@@ -2498,6 +2499,7 @@
 
         const idx = state.passengerLists.findIndex(x => x.id === id);
         if (idx > -1) state.passengerLists[idx] = item; else state.passengerLists.unshift(item);
+        if (IS_DESKTOP_APP) selectedPassengerTourGroupId = tourId ? `tour:${tourId}` : 'legacy';
 
         if (!await saveData({ keepLocalAccounting: IS_DESKTOP_APP })) return; clearPassengerForm(); renderPassengerAdmin(); renderDashboard(); toast('Yolcu listesi ve muhasebe fiyatları kaydedildi.');
     }
@@ -2584,15 +2586,20 @@
         const males = (l.passengers || []).filter(p => p.gender === 'Erkek').length;
         const females = (l.passengers || []).filter(p => p.gender === 'Kadın').length;
         const flightDate = getListFlightDate(l);
+        const infants = (l.passengers || []).filter(p => passengerFlightAgeGroup(p.birthDate, flightDate) === 'infant').length;
+        const children = (l.passengers || []).filter(p => passengerFlightAgeGroup(p.birthDate, flightDate) === 'child').length;
         const expiringCount = (l.passengers || []).filter(p => isPassportExpiring(p.passportEnd, flightDate)).length;
         const route = [airportCode(l.originAirport), airportCode(l.destinationAirport)].filter(Boolean).join('-') || '-';
+        const ageSummary = IS_DESKTOP_APP
+            ? ` &nbsp; <b class="passenger-age-label infant">Bebek:</b> <span class="passenger-age-count infant">${infants}</span> &nbsp; <b class="passenger-age-label child">Çocuk:</b> <span class="passenger-age-count child">${children}</span>`
+            : '';
 
         return `<div class="passenger-list-card" data-list-card="${escapeHtml(l.id)}">
         <div class="passenger-list-top">
             <div>
                 <h3>${escapeHtml(l.title)} <small>${escapeHtml(l.date || '')}</small></h3>
                 <p><b>Tur:</b> ${escapeHtml(tourTitle)} &nbsp; <b>Uçuş:</b> ${escapeHtml(formatDateTR(flightDate) || '-')} &nbsp; <b>Parkur:</b> ${escapeHtml(route)} &nbsp; <b>Rehber:</b> ${escapeHtml(l.leader || '-')}</p>
-                <p><b>Toplam Yolcu:</b> ${total} &nbsp; <b>Erkek:</b> ${males} &nbsp; <b>Kadın:</b> ${females} &nbsp; <b style="color:#d32f2f">Pasaportu 6 Aydan Az Kalan:</b> <span style="color:#d32f2f; font-weight:bold">${expiringCount}</span></p>
+                <p><b>Toplam Yolcu:</b> ${total} &nbsp; <b>Erkek:</b> ${males} &nbsp; <b>Kadın:</b> ${females}${ageSummary} &nbsp; <b style="color:#d32f2f">Pasaportu 6 Aydan Az Kalan:</b> <span style="color:#d32f2f; font-weight:bold">${expiringCount}</span></p>
                 ${l.notes ? `<p><b>Liste Notu:</b> ${escapeHtml(l.notes)}</p>` : ''}
                 <p class="hint-text"><b>Manuel sıra korunur:</b> ☰ işaretinden yolcuyu taşıyabilirsin. İstersen soyad düğmesiyle geçici olarak aynı soyadları yan yana görebilirsin.</p>
             </div>
@@ -3304,18 +3311,29 @@
         const list = $('passengerListAdmin');
         if (!list) return;
         const openDetailIds = new Set(Array.from(list.querySelectorAll('.passenger-details[open][data-details-list-id]')).map(details => details.dataset.detailsListId));
+        const currentlyOpenTour = list.querySelector('.passenger-tour-group[open][data-passenger-tour-group]');
+        if (currentlyOpenTour) selectedPassengerTourGroupId = currentlyOpenTour.dataset.passengerTourGroup || '';
         if (!state.passengerLists.length) { list.innerHTML = '<p>Henüz kayıtlı yolcu listesi yok.</p>'; return; }
 
         const groups = [];
         state.tours.forEach(t => {
             const items = state.passengerLists.filter(l => l.tourId === t.id);
-            groups.push({ title: t.title, type: t.type === 'umre' ? 'Umre' : t.type === 'hac' ? 'Hac' : 'Yurt İçi', items });
+            groups.push({ id: `tour:${t.id}`, title: t.title, type: t.type === 'umre' ? 'Umre' : t.type === 'hac' ? 'Hac' : 'Yurt İçi', items });
         });
 
         const noTour = state.passengerLists.filter(l => !state.tours.some(t => t.id === l.tourId));
-        if (noTour.length) groups.push({ title: 'Tur seçilmemiş / eski kayıtlar', type: 'Liste', items: noTour });
+        if (noTour.length) groups.push({ id: 'legacy', title: 'Tur seçilmemiş / eski kayıtlar', type: 'Liste', items: noTour });
 
-        list.innerHTML = groups.map(g => `<section class="passenger-group"><div class="passenger-group-head"><h3>${escapeHtml(g.title)}</h3><span>${escapeHtml(g.type)} • ${g.items.length} liste</span></div>${g.items.length ? g.items.map(passengerListCard).join('') : '<div class="empty small">Bu turun altında kayıtlı yolcu listesi yok.</div>'}</section>`).join('');
+        if (IS_DESKTOP_APP) {
+            const savedTourGroups = groups.filter(group => group.items.length);
+            if (!savedTourGroups.some(group => group.id === selectedPassengerTourGroupId)) selectedPassengerTourGroupId = '';
+            list.innerHTML = savedTourGroups.map(group => `<details class="passenger-tour-group" data-passenger-tour-group="${escapeHtml(group.id)}" ${selectedPassengerTourGroupId === group.id ? 'open' : ''}>
+                <summary class="passenger-tour-summary"><span class="passenger-tour-name"><strong>${escapeHtml(group.title)}</strong><small>${escapeHtml(group.type)} turu</small></span><span class="passenger-tour-count">${group.items.length} liste</span></summary>
+                <div class="passenger-tour-content">${group.items.map(passengerListCard).join('')}</div>
+            </details>`).join('');
+        } else {
+            list.innerHTML = groups.map(g => `<section class="passenger-group"><div class="passenger-group-head"><h3>${escapeHtml(g.title)}</h3><span>${escapeHtml(g.type)} • ${g.items.length} liste</span></div>${g.items.length ? g.items.map(passengerListCard).join('') : '<div class="empty small">Bu turun altında kayıtlı yolcu listesi yok.</div>'}</section>`).join('');
+        }
         openDetailIds.forEach(id => {
             const details = list.querySelector(`.passenger-details[data-details-list-id="${CSS.escape(id)}"]`);
             if (details) details.open = true;
@@ -3543,6 +3561,16 @@
         });
 
         document.addEventListener('click', async (e) => {
+            const passengerTourSummary = e.target.closest && e.target.closest('.passenger-tour-summary');
+            if (passengerTourSummary) {
+                const selectedGroup = passengerTourSummary.closest('.passenger-tour-group');
+                if (selectedGroup && !selectedGroup.open) {
+                    document.querySelectorAll('.passenger-tour-group[open]').forEach(group => { if (group !== selectedGroup) group.open = false; });
+                    selectedPassengerTourGroupId = selectedGroup.dataset.passengerTourGroup || '';
+                } else if (selectedGroup) selectedPassengerTourGroupId = '';
+                return;
+            }
+
             const openDebtor = e.target.closest && e.target.closest('[data-open-debtor]');
             if (openDebtor) {
                 const debtorName = String(openDebtor.dataset.debtorName || '').trim();

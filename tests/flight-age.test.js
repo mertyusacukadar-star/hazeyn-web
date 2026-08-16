@@ -19,5 +19,9 @@ assert.strictEqual(sandbox.classify('2015-08-13', flightDate), 'adult', '11 yaş
 assert(source.includes("const child = IS_DESKTOP_APP && isPassengerChild(passenger.birthDate, flightDate);"), 'Çocuk etiketi yalnız masaüstü uygulamaya uygulanmalı');
 assert(source.includes("child ? 'ÇOCUK'"), 'Excel çocuk etiketi eksik');
 assert(source.includes("argb: 'FFDDEBF7'"), 'Excel çocuk rengi eksik');
+assert(source.includes('Bebek:</b>'), 'Yolcu listesi bebek özeti eksik');
+assert(source.includes('Çocuk:</b>'), 'Yolcu listesi çocuk özeti eksik');
+assert(source.includes('class="passenger-tour-group"'), 'Tur bazlı açılır yolcu listesi eksik');
+assert(source.includes('groups.filter(group => group.items.length)'), 'Boş tur grupları uygulamada gizlenmeli');
 
 console.log('flight-age tests passed');
