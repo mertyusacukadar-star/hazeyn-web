@@ -1,8 +1,8 @@
 {
   "name": "hazeyn-hakikat-turizm-muhasebe",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
-  "description": "Hazeyn ve Hakikat Turizm için senkronize yolcu ve muhasebe masaüstü uygulaması",
+  "description": "Hazeyn ve Hakikat Turizm için kullanıcı yetkili, senkronize yolcu ve muhasebe masaüstü uygulaması",
   "author": "Hazeyn & Hakikat Turizm",
   "main": "main.js",
   "scripts": {

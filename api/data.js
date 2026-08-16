@@ -1,11 +1,12 @@
 const path = require('path');
 const {
   TABLE, BUCKET,
-  supabaseAdmin, checkAdmin,
+  supabaseAdmin,
   requestCompanyId, companyRowId, companyDefaultData,
   sanitizeAdminState, sanitizePublicState,
   ensureBucket
 } = require('./_supabase');
+const { authorizeDataRequest, applyDesktopAudit } = require('./_appAuth');
 
 function cleanFileName(name){
   const ext = path.extname(String(name || '')).toLowerCase() || '.jpg';
@@ -21,9 +22,11 @@ module.exports = async function handler(req, res){
   if(req.method === 'GET'){
     const wantsAdmin = String(req.query && req.query.scope || '') === 'admin';
     const companyId = wantsAdmin ? requestedCompanyId : 'hazeyn';
-    if(wantsAdmin && !checkAdmin(req, companyId)) return res.status(401).json({ok:false, error:'Yetkisiz.'});
+    let authorization = wantsAdmin ? await authorizeDataRequest(req, companyId) : null;
+    if(wantsAdmin && !authorization) return res.status(401).json({ok:false, error:'Yetkisiz.'});
     if(action === 'upload-config'){
-      if(!checkAdmin(req, requestedCompanyId)) return res.status(401).json({ok:false, error:'Yetkisiz.'});
+      authorization = authorization || await authorizeDataRequest(req, requestedCompanyId);
+      if(!authorization) return res.status(401).json({ok:false, error:'Yetkisiz.'});
       return res.status(200).json({
         url: process.env.SUPABASE_URL || '',
         anonKey: process.env.SUPABASE_ANON_KEY || '',
@@ -46,7 +49,8 @@ module.exports = async function handler(req, res){
 
   if(req.method === 'POST'){
     const companyId = requestedCompanyId;
-    if(!checkAdmin(req, companyId)) return res.status(401).json({ok:false, error:'Admin şifresi hatalı.'});
+    const authorization = await authorizeDataRequest(req, companyId);
+    if(!authorization) return res.status(401).json({ok:false, error:'Bu firma hesabı için yetkin yok veya oturumun sona ermiş.'});
     if(action === 'signed-upload'){
       try{
         const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
@@ -67,7 +71,12 @@ module.exports = async function handler(req, res){
     try{
       const client = supabaseAdmin();
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-      const dataToSave = sanitizeAdminState(body.data || body);
+      let dataToSave = sanitizeAdminState(body.data || body);
+      if(authorization.kind === 'desktop'){
+        const { data: existing, error: readError } = await client.from(TABLE).select('data').eq('id', companyRowId(companyId)).maybeSingle();
+        if(readError) throw readError;
+        dataToSave = applyDesktopAudit(dataToSave, existing && existing.data ? existing.data : companyDefaultData(companyId), authorization);
+      }
       const { error } = await client.from(TABLE).upsert({id: companyRowId(companyId), data: dataToSave, updated_at: new Date().toISOString()}, {onConflict:'id'});
       if(error) throw error;
       res.setHeader('X-Turizm-Company', companyId);

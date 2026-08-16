@@ -79,14 +79,16 @@
 
     const page = document.body.dataset.page;
     const $ = (id) => document.getElementById(id);
+    const IS_DESKTOP_APP = page === 'admin' && new URLSearchParams(location.search).get('desktop') === '1';
+    if (IS_DESKTOP_APP) document.body.classList.add('desktop-app');
     const COMPANY_CONFIG = {
         hazeyn: {
             id: 'hazeyn', name: 'Hazeyn Turizm', shortName: 'Hazeyn', receiptPrefix: 'HZ',
-            logo: 'assets/logo.png', loginLogo: 'assets/logo.png', publicUrl: 'index.html', accent: '#c4912f'
+            logo: 'assets/logo.png', loginLogo: 'assets/hazeyn-logo-receipt.png', receiptLogo: 'assets/hazeyn-logo-receipt.png', publicUrl: 'index.html', accent: '#c4912f'
         },
         hakikat: {
             id: 'hakikat', name: 'Hakikat Turizm', shortName: 'Hakikat', receiptPrefix: 'HK',
-            logo: 'assets/hakikat-logo-white.png', loginLogo: 'assets/hakikat-logo.png', publicUrl: '', accent: '#628c2c'
+            logo: 'assets/hakikat-logo-white.png', loginLogo: 'assets/hakikat-logo.png', receiptLogo: 'assets/hakikat-logo.png', publicUrl: '', accent: '#628c2c'
         }
     };
 
@@ -119,6 +121,8 @@
     let revealObserver = null;
     let publicRefreshInFlight = false;
     let accountingSearchQuery = '';
+    let currentAppUser = null;
+    let desktopUsers = [];
     const surnameSortedLists = new Set();
 
     function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
@@ -126,6 +130,51 @@
 
     function currentCompany() {
         return COMPANY_CONFIG[currentCompanyId] || COMPANY_CONFIG.hazeyn;
+    }
+
+    function desktopToken() {
+        return IS_DESKTOP_APP ? String(sessionStorage.getItem('turizmDesktopToken') || '') : '';
+    }
+
+    function isAppOwner() {
+        return Boolean(IS_DESKTOP_APP && currentAppUser && currentAppUser.role === 'owner');
+    }
+
+    function allowedCompanyIds() {
+        if (!IS_DESKTOP_APP || isAppOwner()) return ['hazeyn', 'hakikat'];
+        return Array.isArray(currentAppUser?.companies) ? currentAppUser.companies.map(normalizeCompanyId) : [];
+    }
+
+    function canAccessCompany(companyId) {
+        return allowedCompanyIds().includes(normalizeCompanyId(companyId));
+    }
+
+    function currentActor() {
+        if (!IS_DESKTOP_APP || !currentAppUser) return null;
+        return { id: String(currentAppUser.id), username: String(currentAppUser.username), name: String(currentAppUser.displayName || currentAppUser.username) };
+    }
+
+    function actorName(value, fallback = '—') {
+        if (!value) return fallback;
+        if (typeof value === 'string') return value || fallback;
+        return String(value.name || value.displayName || value.username || fallback);
+    }
+
+    function authorizedHeaders(extra = {}) {
+        const headers = { ...extra, 'x-company-id': currentCompanyId };
+        const token = desktopToken();
+        if (IS_DESKTOP_APP && token) {
+            headers.Authorization = `Bearer ${token}`;
+            headers['x-app-mode'] = 'desktop';
+        } else {
+            const password = getAdminPassword();
+            if (password) headers['x-admin-password'] = password;
+        }
+        return headers;
+    }
+
+    function hasAdminCredential() {
+        return Boolean(IS_DESKTOP_APP ? desktopToken() : getAdminPassword());
     }
 
     function defaultDataForCompany() {
@@ -153,7 +202,8 @@
     }
 
     function companyLogoUrl() {
-        return new URL(currentCompany().logo, location.href).href;
+        const company = currentCompany();
+        return new URL(IS_DESKTOP_APP ? (company.receiptLogo || company.logo) : company.logo, location.href).href;
     }
 
     function adminPasswordKey(companyId = currentCompanyId) {
@@ -178,7 +228,20 @@
             button.setAttribute('aria-pressed', String(selected));
         });
         if ($('companySwitcher') && $('companySwitcher').value !== company.id) $('companySwitcher').value = company.id;
-        if ($('companyAccountNote')) $('companyAccountNote').textContent = `${company.name} kayıtları diğer firmadan tamamen ayrı tutulur.`;
+        if ($('companySwitcher')) {
+            Array.from($('companySwitcher').options).forEach(option => {
+                const unavailable = IS_DESKTOP_APP && adminLoggedIn && !canAccessCompany(option.value);
+                option.hidden = unavailable;
+                option.disabled = unavailable;
+            });
+        }
+        if ($('companyAccountNote')) $('companyAccountNote').textContent = IS_DESKTOP_APP
+            ? 'Baş yönetici veya sana verilen çalışan hesabıyla giriş yap.'
+            : `${company.name} kayıtları diğer firmadan tamamen ayrı tutulur.`;
+        if (IS_DESKTOP_APP && $('loginHeading')) $('loginHeading').textContent = 'Turizm Muhasebe Girişi';
+        if (IS_DESKTOP_APP && $('loginKicker')) $('loginKicker').textContent = 'HAZEYN & HAKİKAT';
+        if (IS_DESKTOP_APP && $('signedUserName')) $('signedUserName').textContent = currentAppUser?.displayName || '—';
+        document.querySelectorAll('.desktop-owner-only').forEach(element => { element.hidden = !isAppOwner(); element.style.display = isAppOwner() ? '' : 'none'; });
         document.querySelectorAll('[data-company-public-link]').forEach(publicLink => {
             publicLink.hidden = !company.publicUrl;
             publicLink.href = company.publicUrl || '#';
@@ -453,6 +516,7 @@
                     accounting: {
                         agreedPrice: Number.isFinite(agreedPrice) && agreedPrice >= 0 ? agreedPrice : '',
                         currency: ['USD', 'EUR', 'TRY'].includes(accounting.currency) ? accounting.currency : '',
+                        priceSource: accounting.priceSource === 'custom' || (!accounting.priceSource && accounting.agreedPrice !== '' && accounting.agreedPrice !== undefined) ? 'custom' : 'room',
                         payments: (Array.isArray(accounting.payments) ? accounting.payments : []).map(normalizePayment)
                     }
                 };
@@ -653,14 +717,76 @@
         return false;
     }
 
+    function storeDesktopSession(result) {
+        currentAppUser = result && result.user ? result.user : null;
+        if (result && result.token) sessionStorage.setItem('turizmDesktopToken', result.token);
+        if (currentAppUser) sessionStorage.setItem('turizmDesktopUser', JSON.stringify(currentAppUser));
+    }
+
+    function clearDesktopSession() {
+        currentAppUser = null;
+        desktopUsers = [];
+        sessionStorage.removeItem('turizmDesktopToken');
+        sessionStorage.removeItem('turizmDesktopUser');
+    }
+
+    async function validateDesktopLogin(username, password) {
+        try {
+            const res = await fetch('/api/app-auth?action=login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: String(username || 'admin').trim() || 'admin', password })
+            });
+            const result = await res.json().catch(() => ({}));
+            if (!res.ok || !result.token || !result.user) return { ok: false, error: result.error || 'Kullanıcı adı veya şifre hatalı.' };
+            storeDesktopSession(result);
+            const allowed = allowedCompanyIds();
+            if (!allowed.includes(currentCompanyId)) currentCompanyId = allowed[0] || 'hazeyn';
+            localStorage.setItem('turizmLastCompany', currentCompanyId);
+            return { ok: true };
+        } catch (error) {
+            return { ok: false, error: 'Giriş sistemiyle bağlantı kurulamadı.' };
+        }
+    }
+
+    async function restoreDesktopSession() {
+        if (!IS_DESKTOP_APP || !desktopToken()) return false;
+        try {
+            const res = await fetch('/api/app-auth?action=me', { cache: 'no-store', headers: authorizedHeaders() });
+            const result = await res.json().catch(() => ({}));
+            if (!res.ok || !result.user) throw new Error(result.error || 'Oturum geçersiz.');
+            currentAppUser = result.user;
+            sessionStorage.setItem('turizmDesktopUser', JSON.stringify(currentAppUser));
+            const allowed = allowedCompanyIds();
+            if (!allowed.includes(currentCompanyId)) currentCompanyId = allowed[0] || 'hazeyn';
+            return true;
+        } catch (error) {
+            clearDesktopSession();
+            return false;
+        }
+    }
+
+    async function desktopApi(action, options = {}) {
+        const method = options.method || 'GET';
+        const request = {
+            method,
+            cache: 'no-store',
+            headers: authorizedHeaders(method === 'POST' ? { 'Content-Type': 'application/json' } : {})
+        };
+        if (method === 'POST') request.body = JSON.stringify(options.body || {});
+        const res = await fetch(`/api/app-auth?action=${encodeURIComponent(action)}`, request);
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(result.error || 'İşlem tamamlanamadı.');
+        return result;
+    }
+
     async function getUploadConfig() {
         if (getUploadConfig.cache) return getUploadConfig.cache;
         if (location.protocol === 'file:') return null;
         try {
-            const password = getAdminPassword();
             const res = await fetch(`/api/data?action=upload-config&company=${encodeURIComponent(currentCompanyId)}`, {
                 cache: 'no-store',
-                headers: password ? { 'x-admin-password': password, 'x-company-id': currentCompanyId } : { 'x-company-id': currentCompanyId }
+                headers: authorizedHeaders()
             });
             if (!res.ok) return null;
             const cfg = await res.json();
@@ -675,8 +801,7 @@
     }
 
     async function uploadImageToSupabase(file, folder) {
-        const password = getAdminPassword();
-        if (!password) return null;
+        if (!hasAdminCredential()) return null;
 
         const prepared = await prepareImageBlob(file);
         const originalName = file.name || 'image.jpg';
@@ -689,9 +814,8 @@
                 const direct = await fetch('/api/media-upload', {
                     method: 'POST',
                     headers: {
+                        ...authorizedHeaders(),
                         'Content-Type': prepared.type || 'image/jpeg',
-                        'x-admin-password': password,
-                        'x-company-id': currentCompanyId,
                         'x-file-name': uploadName,
                         'x-upload-folder': folder || 'uploads'
                     },
@@ -715,7 +839,7 @@
 
         const signed = await fetch(`/api/data?action=signed-upload&company=${encodeURIComponent(currentCompanyId)}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-admin-password': password, 'x-company-id': currentCompanyId },
+            headers: authorizedHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ filename: uploadName, type: prepared.type, size: prepared.size, folder: folder || 'uploads' })
         });
         if (!signed.ok) throw new Error('Yükleme izni alınamadı. Admin şifreni tekrar gir.');
@@ -825,10 +949,8 @@
         try {
             const headers = { 'Cache-Control': 'no-cache', Pragma: 'no-cache' };
             if (options.admin === true) {
-                const password = getAdminPassword();
-                if (!password) return null;
-                headers['x-admin-password'] = password;
-                headers['x-company-id'] = currentCompanyId;
+                if (!hasAdminCredential()) return null;
+                Object.assign(headers, authorizedHeaders());
             }
             const query = options.admin === true
                 ? `scope=admin&company=${encodeURIComponent(currentCompanyId)}&ts=${Date.now()}`
@@ -950,7 +1072,7 @@
             delete state.settings.adminPassword;
             delete state.settings.password;
         }
-        if (!options.keepLocalAccounting && location.protocol !== 'file:' && getAdminPassword()) {
+        if (!options.keepLocalAccounting && location.protocol !== 'file:' && hasAdminCredential()) {
             const latest = await fetchRemoteData({ admin: true });
             if (latest) {
                 const remoteStamp = Number(latest?._meta?.updatedAt || 0);
@@ -967,10 +1089,9 @@
 
         if (location.protocol !== 'file:') {
             try {
-                const password = getAdminPassword();
                 const syncedState = clone(state);
                 syncedState._meta = { ...(syncedState._meta || {}), pendingSync: false };
-                const res = await fetch(`/api/data?company=${encodeURIComponent(currentCompanyId)}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': password, 'x-company-id': currentCompanyId }, body: JSON.stringify(syncedState) });
+                const res = await fetch(`/api/data?company=${encodeURIComponent(currentCompanyId)}`, { method: 'POST', headers: authorizedHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(syncedState) });
                 if (!res.ok) {
                     const details = await res.json().catch(() => ({}));
                     throw new Error(details.error || 'Sunucu kaydı başarısız');
@@ -1564,6 +1685,11 @@
 
     async function switchCompanyAccount(companyId) {
         const nextCompanyId = normalizeCompanyId(companyId);
+        if (IS_DESKTOP_APP && adminLoggedIn && !canAccessCompany(nextCompanyId)) {
+            if ($('companySwitcher')) $('companySwitcher').value = currentCompanyId;
+            toast('Bu firma hesabı için yetkin yok.');
+            return false;
+        }
         if (nextCompanyId === currentCompanyId) {
             updateCompanyBranding();
             return true;
@@ -1618,6 +1744,7 @@
         renderPassengerTourSelect();
         renderPassengerAdmin();
         renderAccounting();
+        if (IS_DESKTOP_APP && isAppOwner()) renderDesktopUsers();
         ensurePassengerRows();
     }
 
@@ -1631,11 +1758,79 @@
     }
 
     function switchTab(tab) {
+        if (IS_DESKTOP_APP && tab === 'users' && !isAppOwner()) { toast('Kullanıcı yönetimi yalnızca baş yöneticiye açıktır.'); return; }
         document.querySelectorAll('.admin-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
         document.querySelectorAll('.admin-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
         if (tab === 'accounting') {
             renderAccounting(accountingSearchQuery);
             setTimeout(() => $('accountingSearch')?.focus(), 0);
+        }
+        if (tab === 'users' && isAppOwner()) loadDesktopUsers();
+    }
+
+    function resetDesktopUserForm() {
+        if (!$('desktopUserForm')) return;
+        $('desktopUserForm').reset();
+        $('desktopUserId').value = '';
+        $('desktopUserActive').checked = true;
+    }
+
+    function renderDesktopUsers() {
+        const target = $('desktopUserList');
+        if (!target || !isAppOwner()) return;
+        target.innerHTML = desktopUsers.length ? desktopUsers.map(user => `
+            <article class="desktop-user-card ${user.active === false ? 'inactive' : ''}" data-desktop-user-id="${escapeHtml(user.id)}">
+                <div><b>${escapeHtml(user.displayName)}</b><small>@${escapeHtml(user.username)} • ${user.active === false ? 'Pasif' : 'Aktif'}</small></div>
+                <div class="user-company-badges">${(user.companies || []).map(company => `<span class="${escapeHtml(company)}">${company === 'hakikat' ? 'Hakikat' : 'Hazeyn'}</span>`).join('')}</div>
+                <div class="admin-item-actions"><button class="icon-btn" type="button" data-edit-desktop-user="${escapeHtml(user.id)}">Düzenle</button><button class="icon-btn danger" type="button" data-delete-desktop-user="${escapeHtml(user.id)}">Sil</button></div>
+            </article>`).join('') : '<div class="empty small">Henüz çalışan kullanıcısı oluşturulmadı.</div>';
+    }
+
+    async function loadDesktopUsers() {
+        if (!IS_DESKTOP_APP || !isAppOwner()) return;
+        try {
+            const result = await desktopApi('users');
+            desktopUsers = Array.isArray(result.users) ? result.users : [];
+            renderDesktopUsers();
+        } catch (error) {
+            toast(error.message || 'Kullanıcılar alınamadı.');
+        }
+    }
+
+    function editDesktopUser(id) {
+        const user = desktopUsers.find(item => item.id === id);
+        if (!user) return;
+        $('desktopUserId').value = user.id;
+        $('desktopUserDisplayName').value = user.displayName || '';
+        $('desktopUsername').value = user.username || '';
+        $('desktopUserPassword').value = '';
+        $('desktopUserHazeyn').checked = (user.companies || []).includes('hazeyn');
+        $('desktopUserHakikat').checked = (user.companies || []).includes('hakikat');
+        $('desktopUserActive').checked = user.active !== false;
+        $('desktopUserDisplayName').focus();
+    }
+
+    async function saveDesktopUser(event) {
+        event.preventDefault();
+        if (!isAppOwner()) return;
+        const companies = [];
+        if ($('desktopUserHazeyn').checked) companies.push('hazeyn');
+        if ($('desktopUserHakikat').checked) companies.push('hakikat');
+        const user = {
+            id: $('desktopUserId').value,
+            displayName: $('desktopUserDisplayName').value.trim(),
+            username: $('desktopUsername').value.trim(),
+            password: $('desktopUserPassword').value,
+            companies,
+            active: $('desktopUserActive').checked
+        };
+        try {
+            await desktopApi('save-user', { method: 'POST', body: { user } });
+            resetDesktopUserForm();
+            await loadDesktopUsers();
+            toast('Çalışan kullanıcısı kaydedildi.');
+        } catch (error) {
+            toast(error.message || 'Kullanıcı kaydedilemedi.');
         }
     }
 
@@ -2173,8 +2368,11 @@
         const tr = document.createElement('tr');
         const gender = p.gender || '';
         const roomPeople = p.roomPeople || p.room || '';
+        const accounting = clone(p.accounting || { agreedPrice: '', currency: '', priceSource: 'room', payments: [] });
         tr.dataset.passengerId = p.id || uid('p_');
-        tr._accounting = clone(p.accounting || { agreedPrice: '', currency: '', payments: [] });
+        tr.dataset.priceSource = accounting.priceSource === 'custom' ? 'custom' : 'room';
+        tr._accounting = accounting;
+        tr._createdBy = clone(p.createdBy || null);
         tr.innerHTML = `
         <td><input class="p-name" value="${escapeHtml(p.name || '')}" placeholder="Ad Soyad"></td>
         <td><select class="p-gender"><option value="">Seç</option><option ${gender === 'Kadın' ? 'selected' : ''}>Kadın</option><option ${gender === 'Erkek' ? 'selected' : ''}>Erkek</option></select></td>
@@ -2185,11 +2383,31 @@
         <td><input class="p-pass-start" type="date" value="${escapeHtml(p.passportStart || '')}"></td>
         <td><input class="p-pass-end" type="date" value="${escapeHtml(p.passportEnd || '')}"></td>
         <td><select class="p-room-people"><option value="">Seç</option>${['1', '2', '3', '4', '5+'].map(v => `<option value="${v}" ${String(roomPeople) === v ? 'selected' : ''}>${v} Kişilik</option>`).join('')}</select></td>
+        <td class="desktop-only"><input class="p-custom-price" type="number" min="0" step="0.01" value="${escapeHtml(accounting.agreedPrice)}" placeholder="Otomatik"></td>
+        <td class="desktop-only"><select class="p-custom-currency">${['USD', 'EUR', 'TRY'].map(currency => `<option value="${currency}" ${currency === (accounting.currency || 'USD') ? 'selected' : ''}>${currency}</option>`).join('')}</select></td>
         <td><input class="p-mekke-room-no" value="${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}" placeholder="Örn: M-305"></td>
         <td><input class="p-medine-room-no" value="${escapeHtml(p.medineRoomNo || p.roomNo || '')}" placeholder="Örn: D-214"></td>
         <td><input class="p-note" value="${escapeHtml(p.note || '')}" placeholder="Not"></td>
         <td><button type="button" class="icon-btn danger remove-row">Sil</button></td>`;
         $('passengerTable').querySelector('tbody').appendChild(tr);
+        const priceInput = tr.querySelector('.p-custom-price');
+        if (priceInput) priceInput.addEventListener('input', () => { tr.dataset.priceSource = 'custom'; });
+        const currencyInput = tr.querySelector('.p-custom-currency');
+        if (currencyInput) currencyInput.addEventListener('change', () => { tr.dataset.priceSource = 'custom'; });
+        if (IS_DESKTOP_APP && accounting.agreedPrice === '' && roomPeople) syncPassengerRowPrice(tr, true);
+    }
+
+    function syncPassengerRowPrice(tr, force = false) {
+        if (!tr || (!force && tr.dataset.priceSource === 'custom')) return;
+        const tourId = $('listTourSelect')?.value || $('listTourId')?.value || '';
+        const tour = state?.tours?.find(item => item.id === tourId);
+        const roomPeople = tr.querySelector('.p-room-people')?.value || '';
+        const fallback = passengerTourPrice(tour, { roomPeople });
+        const amountInput = tr.querySelector('.p-custom-price');
+        const currencyInput = tr.querySelector('.p-custom-currency');
+        if (amountInput) amountInput.value = fallback.amount > 0 ? String(fallback.amount) : '';
+        if (currencyInput && fallback.currency) currencyInput.value = fallback.currency;
+        tr.dataset.priceSource = 'room';
     }
 
     function ensurePassengerRows() {
@@ -2206,7 +2424,25 @@
     }
 
     function readPassengers() {
-        return Array.from($('passengerTable').querySelectorAll('tbody tr')).map(tr => ({
+        const tourId = $('listTourSelect')?.value || $('listTourId')?.value || '';
+        const tour = state?.tours?.find(item => item.id === tourId);
+        return Array.from($('passengerTable').querySelectorAll('tbody tr')).map(tr => {
+            const roomPeople = tr.querySelector('.p-room-people').value;
+            const amountInput = tr.querySelector('.p-custom-price');
+            const currencyInput = tr.querySelector('.p-custom-currency');
+            const fallback = passengerTourPrice(tour, { roomPeople });
+            const typedAmount = Number(amountInput?.value);
+            const hasTypedAmount = Boolean(amountInput && amountInput.value !== '' && Number.isFinite(typedAmount) && typedAmount >= 0);
+            const priceSource = tr.dataset.priceSource === 'custom' ? 'custom' : 'room';
+            const desktopAccounting = {
+                ...(tr._accounting || {}),
+                agreedPrice: hasTypedAmount ? typedAmount : fallback.amount,
+                currency: currencyInput?.value || fallback.currency || 'TRY',
+                priceSource,
+                payments: clone(tr._accounting?.payments || [])
+            };
+            const accounting = IS_DESKTOP_APP ? desktopAccounting : clone(tr._accounting || { agreedPrice: '', currency: '', priceSource: 'room', payments: [] });
+            return {
             id: tr.dataset.passengerId || uid('p_'),
             name: tr.querySelector('.p-name').value.trim(),
             gender: tr.querySelector('.p-gender').value.trim(),
@@ -2216,12 +2452,14 @@
             birthDate: tr.querySelector('.p-birth').value,
             passportStart: tr.querySelector('.p-pass-start').value,
             passportEnd: tr.querySelector('.p-pass-end').value,
-            roomPeople: tr.querySelector('.p-room-people').value,
+            roomPeople,
             mekkeRoomNo: tr.querySelector('.p-mekke-room-no')?.value.trim() || '',
             medineRoomNo: tr.querySelector('.p-medine-room-no')?.value.trim() || '',
             note: tr.querySelector('.p-note').value.trim(),
-            accounting: clone(tr._accounting || { agreedPrice: '', currency: '', payments: [] })
-        })).filter(p => p.name || p.gender || p.tc || p.phone || p.passportNo || p.birthDate || p.passportStart || p.passportEnd || p.roomPeople || p.mekkeRoomNo || p.medineRoomNo || p.note);
+            createdBy: clone(tr._createdBy || currentActor()),
+            accounting
+            };
+        }).filter(p => p.name || p.gender || p.tc || p.phone || p.passportNo || p.birthDate || p.passportStart || p.passportEnd || p.roomPeople || p.mekkeRoomNo || p.medineRoomNo || p.note);
     }
 
     async function savePassengerList() {
@@ -2234,12 +2472,15 @@
         if (!passengers.length) { toast('En az 1 yolcu ekle.'); return; }
 
         const id = $('listId').value || uid('l');
+        const existing = state.passengerLists.find(x => x.id === id);
         const item = {
             id, tourId, title: $('listTitle').value.trim(), date: $('listDate').value,
             leader: $('listLeader').value.trim(), notes: $('listNotes').value.trim(),
             originAirport: airportCode($('listOriginAirport')?.value),
             destinationAirport: airportCode($('listDestinationAirport')?.value),
-            passengers, createdAt: new Date().toISOString()
+            passengers,
+            createdBy: clone(existing?.createdBy || currentActor()),
+            createdAt: existing?.createdAt || new Date().toISOString()
         };
 
         const idx = state.passengerLists.findIndex(x => x.id === id);
@@ -2372,7 +2613,13 @@
     async function updatePassengerRoomField(listId, passengerIndex, field, value) {
         const l = state.passengerLists.find(x => x.id === listId);
         if (!l || !l.passengers || !l.passengers[passengerIndex]) return;
-        l.passengers[passengerIndex][field] = value;
+        const passenger = l.passengers[passengerIndex];
+        passenger[field] = value;
+        if (IS_DESKTOP_APP && field === 'roomPeople' && passenger.accounting?.priceSource !== 'custom') {
+            const tour = state.tours.find(item => item.id === l.tourId);
+            const fallback = passengerTourPrice(tour, passenger);
+            passenger.accounting = { ...(passenger.accounting || {}), agreedPrice: fallback.amount, currency: fallback.currency, priceSource: 'room', payments: passenger.accounting?.payments || [] };
+        }
         if (!await saveData()) return;
         if (field === 'roomPeople' || field === 'mekkeRoomNo' || field === 'medineRoomNo' || field === 'roomNo') renderPassengerAdmin();
     }
@@ -2442,11 +2689,12 @@
         const accounting = context.passenger.accounting || { payments: [] };
         const agreed = Number(accounting.agreedPrice);
         const hasAgreed = Number.isFinite(agreed) && agreed >= 0 && accounting.agreedPrice !== '';
+        const isCustom = accounting.priceSource === 'custom';
         const currency = accounting.currency || fallback.currency || 'TRY';
         const payments = (Array.isArray(accounting.payments) ? accounting.payments : []).map(normalizePayment);
         const paid = payments.filter(payment => !payment.voided).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
         const agreedPrice = hasAgreed ? agreed : fallback.amount;
-        return { agreedPrice, currency, payments, paid, balance: agreedPrice - paid, usesProgramPrice: !hasAgreed };
+        return { agreedPrice, currency, payments, paid, balance: agreedPrice - paid, usesProgramPrice: !isCustom, priceSource: isCustom ? 'custom' : 'room' };
     }
 
     function allPassengerContexts() {
@@ -2503,6 +2751,43 @@
         if ($('accountingStatPaid')) $('accountingStatPaid').innerHTML = multiCurrencyHtml(paid);
         if ($('accountingStatBalance')) $('accountingStatBalance').innerHTML = multiCurrencyHtml(balance);
         if ($('accountingStatOpen')) $('accountingStatOpen').textContent = String(openCount);
+        renderProgramBalances();
+    }
+
+    function currencySummary(values) {
+        const entries = ['USD', 'EUR', 'TRY'].filter(currency => Math.abs(Number(values[currency] || 0)) > 0.0001);
+        return entries.length ? entries.map(currency => formatMoney(values[currency], currency)).join(' / ') : '—';
+    }
+
+    function renderProgramBalances() {
+        const target = $('accountingProgramBalances');
+        if (!target) return;
+        const groups = new Map();
+        allPassengerContexts().forEach(context => {
+            const key = context.tour?.id || context.list?.tourId || context.list?.id;
+            if (!groups.has(key)) groups.set(key, {
+                title: context.tour?.title || context.list?.title || 'Programsız Liste',
+                date: context.tour?.departureDate || context.list?.date || '',
+                contract: { USD: 0, EUR: 0, TRY: 0 },
+                paid: { USD: 0, EUR: 0, TRY: 0 },
+                balance: { USD: 0, EUR: 0, TRY: 0 },
+                passengers: 0,
+                open: 0
+            });
+            const group = groups.get(key);
+            const snapshot = passengerAccountSnapshot(context);
+            group.contract[snapshot.currency] += snapshot.agreedPrice;
+            group.paid[snapshot.currency] += snapshot.paid;
+            group.balance[snapshot.currency] += snapshot.balance;
+            group.passengers += 1;
+            if (snapshot.balance > 0.005) group.open += 1;
+        });
+        const items = [...groups.values()].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+        target.innerHTML = items.length ? items.map(group => `
+            <article class="program-balance-card ${group.open ? 'open' : 'paid'}">
+                <header><div><h4>${escapeHtml(group.title)}</h4><small>${escapeHtml(formatDateTR(group.date) || 'Tarih belirtilmemiş')} • ${group.passengers} yolcu</small></div><span>${group.open ? `${group.open} bakiye açık` : 'Tamamı ödendi'}</span></header>
+                <div class="program-balance-values"><span><small>Toplam</small><b>${escapeHtml(currencySummary(group.contract))}</b></span><span><small>Ödenen</small><b>${escapeHtml(currencySummary(group.paid))}</b></span><span><small>Kalan</small><b>${escapeHtml(currencySummary(group.balance))}</b></span></div>
+            </article>`).join('') : '<div class="empty small">Program bazında bakiye göstermek için yolcu kaydı ekleyin.</div>';
     }
 
     function accountingPaymentHistoryHtml(context, snapshot) {
@@ -2513,10 +2798,11 @@
                 <td>${escapeHtml(formatDateDMY(payment.paidAt))}</td>
                 <td>${escapeHtml(formatMoney(payment.amount, snapshot.currency))}</td>
                 <td>${escapeHtml(payment.method || '-')}</td>
+                ${IS_DESKTOP_APP ? `<td>${escapeHtml(actorName(payment.receivedBy, 'Eski kayıt'))}</td>` : ''}
                 <td>${escapeHtml(payment.note || '-')}</td>
                 <td class="payment-actions"><button class="icon-btn" type="button" data-print-receipt="${escapeHtml(payment.id)}">Makbuz</button>${payment.voided ? '' : `<button class="icon-btn danger" type="button" data-void-payment="${escapeHtml(payment.id)}">İptal</button>`}</td>
             </tr>`).join('');
-        return `<div class="accounting-payment-table"><table><thead><tr><th>Makbuz No</th><th>Tarih</th><th>Tutar</th><th>Yöntem</th><th>Not</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+        return `<div class="accounting-payment-table"><table><thead><tr><th>Makbuz No</th><th>Tarih</th><th>Tutar</th><th>Yöntem</th>${IS_DESKTOP_APP ? '<th>Tahsilatı Alan</th>' : ''}<th>Not</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
 
     function accountingProgramType(context) {
@@ -2539,9 +2825,14 @@
         const medineRoom = passenger.medineRoomNo || passenger.roomNo || '';
         const balanceClass = snapshot.balance > 0.005 ? 'open' : snapshot.balance < -0.005 ? 'credit' : 'paid';
         const balanceLabel = snapshot.balance > 0.005 ? 'Kalan' : snapshot.balance < -0.005 ? 'Fazla Ödeme' : 'Ödendi';
+        const auditHtml = IS_DESKTOP_APP ? `<div class="accounting-audit-line"><span>Kaydı yapan: <b>${escapeHtml(actorName(passenger.createdBy || list.createdBy, 'Eski kayıt'))}</b></span>${snapshot.payments.length ? `<span>Son tahsilat: <b>${escapeHtml(actorName(snapshot.payments[snapshot.payments.length - 1].receivedBy, 'Eski kayıt'))}</b></span>` : ''}</div>` : '';
+        const priceEditorTitle = IS_DESKTOP_APP ? 'Kişiye Özel Anlaşma / İndirimli Fiyat' : 'Program Ücreti';
+        const priceSaveLabel = IS_DESKTOP_APP ? 'Özel Fiyatı Kaydet' : 'Fiyatı Kaydet';
+        const priceResetButton = IS_DESKTOP_APP ? '<button class="icon-btn" type="button" data-reset-account-price>Oda Fiyatına Dön</button>' : '';
+        const priceHelp = IS_DESKTOP_APP ? 'İndirim yapacaksan bu yolcuya özel toplam fiyatı yaz. “Oda Fiyatına Dön” seçeneği programdaki oda fiyatını yeniden uygular.' : 'Oda fiyatından farklı anlaşma varsa burada değiştirebilirsin.';
         return `<article class="accounting-card" data-account-card data-list-id="${escapeHtml(list.id)}" data-passenger-id="${escapeHtml(passenger.id)}">
             <header class="accounting-card-head">
-                <div><span class="accounting-tour-type">${escapeHtml(accountingProgramType(context))}</span><h3>${escapeHtml(passenger.name || 'İsimsiz yolcu')}</h3><p>${escapeHtml(tour?.title || list.title || 'Program')} • ${escapeHtml(formatDateTR(tour?.departureDate || list.date) || 'Tarih yok')}</p></div>
+                <div><span class="accounting-tour-type">${escapeHtml(accountingProgramType(context))}</span><h3>${escapeHtml(passenger.name || 'İsimsiz yolcu')}</h3><p>${escapeHtml(tour?.title || list.title || 'Program')} • ${escapeHtml(formatDateTR(tour?.departureDate || list.date) || 'Tarih yok')}</p>${auditHtml}</div>
                 <div class="accounting-balance ${balanceClass}"><small>${balanceLabel}</small><strong>${escapeHtml(formatMoney(Math.abs(snapshot.balance), snapshot.currency))}</strong></div>
             </header>
             <div class="passenger-facts">
@@ -2560,9 +2851,9 @@
                 <summary>Fiyat ve ödeme işlemleri</summary>
                 <div class="accounting-editor-grid">
                     <div class="accounting-form-block">
-                        <h4>Program Ücreti</h4>
-                        <div class="inline-money-form"><input class="account-agreed-price" type="number" min="0" step="0.01" value="${escapeHtml(snapshot.agreedPrice)}" aria-label="Program ücreti"><select class="account-currency" aria-label="Para birimi">${['USD', 'EUR', 'TRY'].map(currency => `<option value="${currency}" ${currency === snapshot.currency ? 'selected' : ''}>${currency}</option>`).join('')}</select><button class="btn btn-outline dark" type="button" data-save-account-price>Fiyatı Kaydet</button></div>
-                        <small>Oda fiyatından farklı anlaşma varsa burada değiştirebilirsin.</small>
+                        <h4>${priceEditorTitle}</h4>
+                        <div class="inline-money-form"><input class="account-agreed-price" type="number" min="0" step="0.01" value="${escapeHtml(snapshot.agreedPrice)}" aria-label="Program ücreti"><select class="account-currency" aria-label="Para birimi">${['USD', 'EUR', 'TRY'].map(currency => `<option value="${currency}" ${currency === snapshot.currency ? 'selected' : ''}>${currency}</option>`).join('')}</select><button class="btn btn-outline dark" type="button" data-save-account-price>${priceSaveLabel}</button>${priceResetButton}</div>
+                        <small>${priceHelp}</small>
                     </div>
                     <div class="accounting-form-block payment-form">
                         <h4>Yeni Ödeme Ekle</h4>
@@ -2613,11 +2904,27 @@
         if (!Number.isFinite(amount) || amount < 0) { toast('Geçerli bir program ücreti yaz.'); return; }
         const context = await latestAccountingContext(listId, passengerId);
         if (!context) { toast('Yolcu kaydı başka bir kullanıcı tarafından değiştirilmiş. Verileri senkronize et.'); return; }
-        context.passenger.accounting = { ...(context.passenger.accounting || {}), agreedPrice: amount, currency, payments: context.passenger.accounting?.payments || [] };
+        context.passenger.accounting = { ...(context.passenger.accounting || {}), agreedPrice: amount, currency, priceSource: 'custom', payments: context.passenger.accounting?.payments || [] };
         const saved = await saveData({ keepLocalAccounting: true });
         if (!saved) return;
         renderAccounting();
         toast('Yolcu program ücreti kaydedildi.');
+    }
+
+    async function resetPassengerAccountPrice(card) {
+        const context = await latestAccountingContext(card.dataset.listId, card.dataset.passengerId);
+        if (!context) { toast('Yolcu kaydı bulunamadı.'); return; }
+        const fallback = passengerTourPrice(context.tour, context.passenger);
+        context.passenger.accounting = {
+            ...(context.passenger.accounting || {}),
+            agreedPrice: fallback.amount,
+            currency: fallback.currency,
+            priceSource: 'room',
+            payments: context.passenger.accounting?.payments || []
+        };
+        if (!await saveData({ keepLocalAccounting: true })) return;
+        renderAccounting(accountingSearchQuery);
+        toast('Programdaki oda fiyatı yeniden uygulandı.');
     }
 
     async function addPassengerPayment(card) {
@@ -2638,10 +2945,11 @@
         if (!context) { if (receiptWindow) receiptWindow.close(); toast('Yolcu kaydı başka bir kullanıcı tarafından değiştirilmiş. Verileri senkronize et.'); return; }
         const snapshot = passengerAccountSnapshot(context);
         if (!snapshot.agreedPrice) { if (receiptWindow) receiptWindow.close(); toast('Önce yolcunun program ücretini kaydet.'); return; }
-        const payment = normalizePayment({ id: uid('pay_'), receiptNo: createReceiptNumber(), amount, paidAt, method, note, createdAt: new Date().toISOString() });
+        const payment = normalizePayment({ id: uid('pay_'), receiptNo: createReceiptNumber(), amount, paidAt, method, note, receivedBy: currentActor(), createdAt: new Date().toISOString() });
         context.passenger.accounting = {
             agreedPrice: snapshot.agreedPrice,
             currency: selectedCurrency || snapshot.currency,
+            priceSource: snapshot.priceSource,
             payments: [...snapshot.payments, payment]
         };
         const saved = await saveData({ keepLocalAccounting: true });
@@ -2663,6 +2971,7 @@
         if (!payment || payment.voided) { renderAccounting(); toast('Bu ödeme kaydı başka bir kullanıcı tarafından zaten değiştirilmiş.'); return; }
         payment.voided = true;
         payment.voidedAt = new Date().toISOString();
+        payment.voidedBy = currentActor();
         const saved = await saveData({ keepLocalAccounting: true });
         if (!saved) return;
         renderAccounting();
@@ -2680,9 +2989,15 @@
         const programDate = context.tour?.departureDate || context.list.date || '';
         const company = currentCompany();
         const logoUrl = companyLogoUrl();
+        const receiptLogoStyle = IS_DESKTOP_APP
+            ? 'width:58mm;height:21mm;object-fit:contain;object-position:left center;background:transparent;border:0;border-radius:0;padding:0'
+            : 'width:52mm;height:20mm;object-fit:contain;background:#111;border-radius:4px;padding:3mm';
+        const receiptAuditDetails = IS_DESKTOP_APP
+            ? `<div class="detail"><small>Kaydı Yapan</small><b>${escapeHtml(actorName(context.passenger.createdBy || context.list.createdBy, 'Eski kayıt'))}</b></div><div class="detail"><small>Tahsilatı Alan</small><b>${escapeHtml(actorName(payment.receivedBy, 'Eski kayıt'))}</b></div>`
+            : '';
         const receiptHtml = `<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>${escapeHtml(payment.receiptNo)} Tahsilat Makbuzu</title><style>
-            @page{size:A4 portrait;margin:15mm}*{box-sizing:border-box}body{margin:0;background:#eee;color:#17130d;font-family:Arial,sans-serif}.receipt{width:180mm;min-height:125mm;margin:12mm auto;background:#fff;border:2px solid #1b1812;padding:12mm;position:relative}.head{display:flex;justify-content:space-between;gap:20px;border-bottom:3px solid #b8892d;padding-bottom:9mm}.head img{width:52mm;height:20mm;object-fit:contain;background:#111;border-radius:4px;padding:3mm}.title{text-align:right}.title h1{margin:0;font-size:25px}.title p{margin:5px 0 0;color:#756342;font-weight:bold}.receipt-no{display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin:8mm 0}.box{border:1px solid #b8aa91;padding:4mm;border-radius:3px}.box small,.detail small{display:block;color:#756342;font-size:11px;text-transform:uppercase;font-weight:bold;margin-bottom:2mm}.box b{font-size:17px}.details{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #b8aa91}.detail{padding:4mm;border-bottom:1px solid #d6cdbd}.detail:nth-child(odd){border-right:1px solid #d6cdbd}.detail:nth-last-child(-n+2){border-bottom:0}.amount{margin:8mm 0;border:2px solid #b8892d;background:#fff9ec;padding:6mm;display:flex;align-items:center;justify-content:space-between}.amount span{font-size:16px;font-weight:bold}.amount strong{font-size:29px}.note{min-height:16mm;border-bottom:1px solid #b8aa91;padding:3mm 0}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:20mm;margin-top:12mm;text-align:center}.signature{border-top:1px solid #222;padding-top:3mm;font-weight:bold}.footer{position:absolute;left:12mm;right:12mm;bottom:8mm;text-align:center;color:#756342;font-size:10px}.void{position:absolute;inset:42% 15%;transform:rotate(-12deg);border:6px solid #b40000;color:#b40000;font-size:48px;font-weight:bold;text-align:center;padding:8px;opacity:.75}@media print{body{background:#fff}.receipt{margin:0;box-shadow:none}}
-        </style></head><body><main class="receipt"><div class="head"><img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(company.name)}"><div class="title"><h1>TAHSİLAT MAKBUZU</h1><p>PAYMENT RECEIPT</p></div></div><div class="receipt-no"><div class="box"><small>Makbuz No</small><b>${escapeHtml(payment.receiptNo)}</b></div><div class="box"><small>Ödeme Tarihi</small><b>${escapeHtml(formatDateDMY(payment.paidAt))}</b></div></div><div class="details"><div class="detail"><small>Yolcu</small><b>${escapeHtml(context.passenger.name)}</b></div><div class="detail"><small>Program</small><b>${escapeHtml(context.tour?.title || context.list.title || '-')}</b></div><div class="detail"><small>Program Tarihi</small><b>${escapeHtml(formatDateTR(programDate) || '-')}</b></div><div class="detail"><small>Oda Tipi</small><b>${escapeHtml(roomPeople ? `${roomPeople} Kişilik Oda` : '-')}</b></div><div class="detail"><small>Ödeme Yöntemi</small><b>${escapeHtml(payment.method || '-')}</b></div><div class="detail"><small>Kalan Bakiye</small><b>${escapeHtml(formatMoney(snapshot.balance, snapshot.currency))}</b></div></div><div class="amount"><span>Tahsil Edilen Tutar</span><strong>${escapeHtml(formatMoney(payment.amount, snapshot.currency))}</strong></div><div class="note"><b>Açıklama:</b> ${escapeHtml(payment.note || 'Program ödemesi')}</div><div class="signatures"><div class="signature">Ödeyen / Yolcu İmzası</div><div class="signature">Kaşe / Yetkili İmza</div></div><div class="footer">${escapeHtml(settings.brand || company.name)} • ${escapeHtml(settings.phone || '')} • ${escapeHtml(settings.address || '')}</div>${payment.voided ? '<div class="void">İPTAL</div>' : ''}</main><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`;
+            @page{size:A4 portrait;margin:15mm}*{box-sizing:border-box}body{margin:0;background:#eee;color:#17130d;font-family:Arial,sans-serif}.receipt{width:180mm;min-height:125mm;margin:12mm auto;background:#fff;border:2px solid #1b1812;padding:12mm;position:relative}.head{display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:3px solid #b8892d;padding-bottom:9mm}.head img{${receiptLogoStyle}}.title{text-align:right}.title h1{margin:0;font-size:25px}.title p{margin:5px 0 0;color:#756342;font-weight:bold}.receipt-no{display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin:8mm 0}.box{border:1px solid #b8aa91;padding:4mm;border-radius:3px}.box small,.detail small{display:block;color:#756342;font-size:11px;text-transform:uppercase;font-weight:bold;margin-bottom:2mm}.box b{font-size:17px}.details{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #b8aa91}.detail{padding:4mm;border-bottom:1px solid #d6cdbd}.detail:nth-child(odd){border-right:1px solid #d6cdbd}.detail:nth-last-child(-n+2){border-bottom:0}.amount{margin:8mm 0;border:2px solid #b8892d;background:#fff9ec;padding:6mm;display:flex;align-items:center;justify-content:space-between}.amount span{font-size:16px;font-weight:bold}.amount strong{font-size:29px}.note{min-height:16mm;border-bottom:1px solid #b8aa91;padding:3mm 0}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:20mm;margin-top:12mm;text-align:center}.signature{border-top:1px solid #222;padding-top:3mm;font-weight:bold}.footer{position:absolute;left:12mm;right:12mm;bottom:8mm;text-align:center;color:#756342;font-size:10px}.void{position:absolute;inset:42% 15%;transform:rotate(-12deg);border:6px solid #b40000;color:#b40000;font-size:48px;font-weight:bold;text-align:center;padding:8px;opacity:.75}@media print{body{background:#fff}.receipt{margin:0;box-shadow:none}}
+        </style></head><body><main class="receipt"><div class="head"><img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(company.name)}"><div class="title"><h1>TAHSİLAT MAKBUZU</h1><p>PAYMENT RECEIPT</p></div></div><div class="receipt-no"><div class="box"><small>Makbuz No</small><b>${escapeHtml(payment.receiptNo)}</b></div><div class="box"><small>Ödeme Tarihi</small><b>${escapeHtml(formatDateDMY(payment.paidAt))}</b></div></div><div class="details"><div class="detail"><small>Yolcu</small><b>${escapeHtml(context.passenger.name)}</b></div><div class="detail"><small>Program</small><b>${escapeHtml(context.tour?.title || context.list.title || '-')}</b></div><div class="detail"><small>Program Tarihi</small><b>${escapeHtml(formatDateTR(programDate) || '-')}</b></div><div class="detail"><small>Oda Tipi</small><b>${escapeHtml(roomPeople ? `${roomPeople} Kişilik Oda` : '-')}</b></div><div class="detail"><small>Ödeme Yöntemi</small><b>${escapeHtml(payment.method || '-')}</b></div><div class="detail"><small>Kalan Bakiye</small><b>${escapeHtml(formatMoney(snapshot.balance, snapshot.currency))}</b></div>${receiptAuditDetails}</div><div class="amount"><span>Tahsil Edilen Tutar</span><strong>${escapeHtml(formatMoney(payment.amount, snapshot.currency))}</strong></div><div class="note"><b>Açıklama:</b> ${escapeHtml(payment.note || 'Program ödemesi')}</div><div class="signatures"><div class="signature">Ödeyen / Yolcu İmzası</div><div class="signature">Kaşe / Yetkili İmza</div></div><div class="footer">${escapeHtml(settings.brand || company.name)} • ${escapeHtml(settings.phone || '')} • ${escapeHtml(settings.address || '')}</div>${payment.voided ? '<div class="void">İPTAL</div>' : ''}</main><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`;
         const receiptWindow = targetWindow || window.open('', '_blank');
         if (!receiptWindow) {
             const blob = new Blob([receiptHtml], { type: 'text/html;charset=utf-8' });
@@ -3022,22 +3337,27 @@
     function bindAdminEvents() {
         $('loginBtn').onclick = async () => {
             const password = $('adminPassword').value;
-            const ok = await validateAdminPassword(password);
+            const username = $('adminUsername')?.value || 'admin';
+            const loginResult = IS_DESKTOP_APP ? await validateDesktopLogin(username, password) : { ok: await validateAdminPassword(password) };
+            const ok = loginResult.ok;
             if (ok) {
                 $('adminPassword').value = '';
                 const loaded = await loadAuthenticatedAdminData();
                 if (!loaded) {
-                    sessionStorage.removeItem(adminPasswordKey());
+                    if (IS_DESKTOP_APP) clearDesktopSession(); else sessionStorage.removeItem(adminPasswordKey());
                     alert('Yonetici verileri guvenli sekilde yuklenemedi. Lutfen baglantini kontrol edip tekrar dene.');
                     return;
                 }
                 adminLoggedIn = true;
                 renderAdmin();
-            } else { alert('Şifre hatalı.'); }
+                if (isAppOwner()) loadDesktopUsers();
+            } else { alert(loginResult.error || 'Şifre hatalı.'); }
         };
         $('adminPassword').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
+        if ($('adminUsername')) $('adminUsername').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
         $('logoutBtn').onclick = () => {
             adminLoggedIn = false;
+            if (IS_DESKTOP_APP) clearDesktopSession();
             sessionStorage.removeItem(adminPasswordKey());
             sessionStorage.removeItem('turizmAdminPassword');
             sessionStorage.removeItem('hazeynAdminPassword');
@@ -3050,6 +3370,8 @@
         document.querySelectorAll('.admin-tab').forEach(btn => btn.onclick = () => switchTab(btn.dataset.tab));
         $('exportBtn').onclick = exportBackup;
         if ($('refreshAdminData')) $('refreshAdminData').onclick = refreshAdminFromServer;
+        if ($('desktopUserForm')) $('desktopUserForm').addEventListener('submit', saveDesktopUser);
+        if ($('desktopUserReset')) $('desktopUserReset').onclick = resetDesktopUserForm;
         const handleAccountingSearch = event => {
             accountingSearchQuery = event.target.value;
             if (event.target.id === 'globalPassengerSearch' && accountingSearchQuery.trim().length >= 2) switchTab('accounting');
@@ -3126,6 +3448,7 @@
         $('savePassengerList').onclick = savePassengerList;
         $('clearPassengerList').onclick = clearPassengerForm;
         $('passengerTable').addEventListener('click', e => { if (e.target.classList.contains('remove-row')) { e.target.closest('tr').remove(); ensurePassengerRows(); } });
+        $('passengerTable').addEventListener('change', e => { if (IS_DESKTOP_APP && e.target.classList.contains('p-room-people')) syncPassengerRowPrice(e.target.closest('tr'), true); });
 
         document.addEventListener('dragstart', (e) => {
             const bannerItem = e.target.closest && e.target.closest('.hero-banner-admin-item');
@@ -3173,6 +3496,8 @@
             const accountingCard = e.target.closest && e.target.closest('[data-account-card]');
             const saveAccountPrice = e.target.closest && e.target.closest('[data-save-account-price]');
             if (saveAccountPrice && accountingCard) { await savePassengerAccountPrice(accountingCard); return; }
+            const resetAccountPrice = e.target.closest && e.target.closest('[data-reset-account-price]');
+            if (resetAccountPrice && accountingCard) { await resetPassengerAccountPrice(accountingCard); return; }
             const addPayment = e.target.closest && e.target.closest('[data-add-payment]');
             if (addPayment && accountingCard) { await addPassengerPayment(accountingCard); return; }
             const printReceipt = e.target.closest && e.target.closest('[data-print-receipt]');
@@ -3183,6 +3508,15 @@
             }
             const voidPayment = e.target.closest && e.target.closest('[data-void-payment]');
             if (voidPayment && accountingCard) { await voidPassengerPayment(accountingCard, voidPayment.dataset.voidPayment); return; }
+
+            const editDesktopUserButton = e.target.closest && e.target.closest('[data-edit-desktop-user]');
+            if (editDesktopUserButton) { editDesktopUser(editDesktopUserButton.dataset.editDesktopUser); return; }
+            const deleteDesktopUserButton = e.target.closest && e.target.closest('[data-delete-desktop-user]');
+            if (deleteDesktopUserButton && confirm('Bu çalışan kullanıcısı silinsin mi?')) {
+                try { await desktopApi('delete-user', { method: 'POST', body: { id: deleteDesktopUserButton.dataset.deleteDesktopUser } }); await loadDesktopUsers(); toast('Çalışan kullanıcısı silindi.'); }
+                catch (error) { toast(error.message || 'Kullanıcı silinemedi.'); }
+                return;
+            }
 
             const delTour = e.target.closest('[data-delete-tour]');
             if (delTour) {
@@ -3246,10 +3580,15 @@
             localStorage.setItem('turizmLastCompany', currentCompanyId);
             updateCompanyBranding();
             bindAdminEvents();
+            if (IS_DESKTOP_APP && await restoreDesktopSession()) {
+                adminLoggedIn = await loadAuthenticatedAdminData();
+                if (!adminLoggedIn) clearDesktopSession();
+                if (adminLoggedIn && isAppOwner()) loadDesktopUsers();
+            }
             renderAdmin();
         }
 
-        state = await loadData();
+        state = state || await loadData();
         if (page === 'public') {
             renderPublic();
             window.addEventListener('focus', refreshPublicData);

@@ -20,3 +20,9 @@ on conflict (id) do nothing;
 insert into public.hazeyn_data (id, data)
 values ('hakikat', '{"settings":{"brand":"Hakikat Turizm Seyahat Acentası"},"tours":[],"reviews":[],"gallery":[],"staff":[],"blogs":[],"passengerLists":[]}'::jsonb)
 on conflict (id) do nothing;
+
+-- Masaüstü uygulamasındaki çalışan hesapları parola özetiyle ayrı ve özel satırda tutulur.
+-- Bu satır public API yanıtlarına hiçbir zaman eklenmez.
+insert into public.hazeyn_data (id, data)
+values ('desktop-users-v1', '{"users":[],"updatedAt":0}'::jsonb)
+on conflict (id) do nothing;
