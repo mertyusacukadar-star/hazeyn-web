@@ -8,7 +8,7 @@
     "dev": "vercel dev",
     "start": "node server.js",
     "build": "node build-sites.mjs",
-    "test": "node tests/app-auth.test.js && node tests/flight-age.test.js && node tests/mobile-pwa.test.js"
+    "test": "node tests/app-auth.test.js && node tests/flight-age.test.js && node tests/mobile-pwa.test.js && node tests/tour-costs.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4"

@@ -62,7 +62,8 @@
             { id: 'b2', category: 'Vize İşlemleri', title: 'Umre Vize İşlemleri Nasıl Yapılır?', summary: 'Pasaport, evrak ve vize süreci hakkında kısa bilgilendirme.', content: 'Umre vize işlemleri için pasaport bilgileri ve gerekli evraklar alınır. Başvuru süreci acenta tarafından takip edilir ve misafire gerekli bilgilendirme yapılır.' },
             { id: 'b3', category: 'Hazırlık', title: 'Umreye Giderken Neler Alınmalı?', summary: 'Yolculuk öncesi çanta hazırlığı ve gerekli eşyalar.', content: 'İhram, rahat terlik, kişisel ilaçlar, küçük çanta, şarj cihazı, pasaport ve gerekli evraklar yolculuk öncesinde hazır edilmelidir.' }
         ],
-        passengerLists: []
+        passengerLists: [],
+        tourCosts: {}
     };
 
     const SEO_DEFAULT_BLOGS = [
@@ -128,6 +129,7 @@
     let desktopUsers = [];
     let selectedPassengerTourGroupId = '';
     let deferredMobileInstallPrompt = null;
+    let selectedCostTourId = '';
     const surnameSortedLists = new Set();
 
     function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
@@ -579,6 +581,27 @@
             });
             return { ...source, id: listId, passengers };
         });
+    }
+
+    const TOUR_COST_FIELDS = ['mekkeHotelFood', 'medineHotelFood', 'devrekamil', 'flight', 'visa', 'bag', 'office', 'extra'];
+
+    function normalizeTourCosts(source) {
+        const normalized = {};
+        if (!source || typeof source !== 'object' || Array.isArray(source)) return normalized;
+        Object.entries(source).forEach(([tourId, record]) => {
+            if (!tourId || !record || typeof record !== 'object') return;
+            const costs = {};
+            TOUR_COST_FIELDS.forEach(field => {
+                const amount = Number(record[field]);
+                costs[field] = Number.isFinite(amount) && amount >= 0 ? amount : 0;
+            });
+            normalized[String(tourId)] = {
+                ...record,
+                ...costs,
+                currency: ['USD', 'EUR', 'TRY'].includes(record.currency) ? record.currency : 'USD'
+            };
+        });
+        return normalized;
     }
 
     /* PASAPORT KONTROLÜ: uçuş tarihinde en az 6 ay geçerlilik */
@@ -1115,7 +1138,8 @@
             blogs: currentCompanyId === 'hakikat'
                 ? (Array.isArray(data.blogs) ? data.blogs : d.blogs)
                 : mergeSeoDefaultBlogs(Array.isArray(data.blogs) ? data.blogs : d.blogs),
-            passengerLists: normalizePassengerLists(Array.isArray(data.passengerLists) ? data.passengerLists : [])
+            passengerLists: normalizePassengerLists(Array.isArray(data.passengerLists) ? data.passengerLists : []),
+            tourCosts: normalizeTourCosts(data.tourCosts)
         };
     }
 
@@ -1771,6 +1795,7 @@
         history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
         getUploadConfig.cache = null;
         accountingSearchQuery = '';
+        selectedCostTourId = '';
         updateCompanyBranding();
 
         if (!adminLoggedIn) {
@@ -1814,6 +1839,7 @@
         renderPassengerTourSelect();
         renderPassengerAdmin();
         renderAccounting();
+        if (IS_APP_MODE) renderCostAccounting();
         if (IS_APP_MODE && isAppOwner()) renderDesktopUsers();
         ensurePassengerRows();
     }
@@ -1834,6 +1860,7 @@
         if (tab === 'accounting') {
             renderAccounting(accountingSearchQuery);
         }
+        if (tab === 'costs' && IS_APP_MODE) renderCostAccounting();
         if (tab === 'users' && isAppOwner()) loadDesktopUsers();
     }
 
@@ -2880,6 +2907,148 @@
             </article>`).join('') : '<div class="empty small">Program bazında bakiye göstermek için yolcu kaydı ekleyin.</div>';
     }
 
+    function costRecordForTour(tourId) {
+        return normalizeTourCosts(state?.tourCosts || {})[String(tourId || '')] || null;
+    }
+
+    function tourContextsForCost(tourId) {
+        return allPassengerContexts().filter(context => String(context.tour?.id || context.list?.tourId || '') === String(tourId || ''));
+    }
+
+    function preferredCostCurrency(tourId, record) {
+        if (record?.currency) return record.currency;
+        const totals = { USD: 0, EUR: 0, TRY: 0 };
+        tourContextsForCost(tourId).forEach(context => {
+            const snapshot = passengerAccountSnapshot(context);
+            totals[snapshot.currency] = (totals[snapshot.currency] || 0) + snapshot.agreedPrice;
+        });
+        const detected = Object.entries(totals).sort((a, b) => b[1] - a[1])[0];
+        if (detected && detected[1] > 0) return detected[0];
+        const tour = (state.tours || []).find(item => String(item.id) === String(tourId));
+        return currencyFromText(tour?.price || Object.values(tour?.roomPrices || {})[0] || '') || 'USD';
+    }
+
+    function collectCostValues() {
+        const values = {};
+        document.querySelectorAll('[data-cost-field]').forEach(input => {
+            const amount = Number(input.value);
+            values[input.dataset.costField] = Number.isFinite(amount) && amount >= 0 ? amount : 0;
+        });
+        return values;
+    }
+
+    function calculateTourCostSummary(tourId, currency, costs) {
+        const totals = { contract: 0, paid: 0, balance: 0, passengers: 0, matchingPassengers: 0, expenses: 0, otherCurrencies: {} };
+        tourContextsForCost(tourId).forEach(context => {
+            const snapshot = passengerAccountSnapshot(context);
+            totals.passengers += 1;
+            if (snapshot.currency !== currency) {
+                if (!totals.otherCurrencies[snapshot.currency]) totals.otherCurrencies[snapshot.currency] = { contract: 0, paid: 0, passengers: 0 };
+                totals.otherCurrencies[snapshot.currency].contract += snapshot.agreedPrice;
+                totals.otherCurrencies[snapshot.currency].paid += snapshot.paid;
+                totals.otherCurrencies[snapshot.currency].passengers += 1;
+                return;
+            }
+            totals.matchingPassengers += 1;
+            totals.contract += snapshot.agreedPrice;
+            totals.paid += snapshot.paid;
+            totals.balance += snapshot.balance;
+        });
+        totals.expenses = TOUR_COST_FIELDS.reduce((sum, field) => sum + Number(costs?.[field] || 0), 0);
+        totals.projectedProfit = totals.contract - totals.expenses;
+        totals.cashPosition = totals.paid - totals.expenses;
+        return totals;
+    }
+
+    function setCostMoney(id, amount, currency, profitStyle = false) {
+        const element = $(id);
+        if (!element) return;
+        element.textContent = formatMoney(amount, currency);
+        if (profitStyle) {
+            element.classList.toggle('negative', Number(amount) < -0.005);
+            element.classList.toggle('positive', Number(amount) >= -0.005);
+        }
+    }
+
+    function renderCostCalculation() {
+        if (!IS_APP_MODE || !$('costTourSelect')) return;
+        const tourId = $('costTourSelect').value;
+        const currency = $('costCurrency')?.value || 'USD';
+        if (!tourId) return;
+        const summary = calculateTourCostSummary(tourId, currency, collectCostValues());
+        setCostMoney('costContractTotal', summary.contract, currency);
+        setCostMoney('costPaidTotal', summary.paid, currency);
+        setCostMoney('costExpenseTotal', summary.expenses, currency);
+        setCostMoney('costProjectedProfit', summary.projectedProfit, currency, true);
+        setCostMoney('costCashPosition', summary.cashPosition, currency, true);
+        setCostMoney('costNetProfitBottom', summary.projectedProfit, currency, true);
+        if ($('costPassengerCount')) $('costPassengerCount').textContent = `${summary.passengers} yolcu${summary.matchingPassengers !== summary.passengers ? ` • ${summary.matchingPassengers} ${currency} hesabında` : ''}`;
+        if ($('costReceivableTotal')) $('costReceivableTotal').textContent = `Kalan alacak: ${formatMoney(summary.balance, currency)}`;
+        if ($('costCurrencyBadge')) $('costCurrencyBadge').textContent = currency;
+        const otherEntries = Object.entries(summary.otherCurrencies);
+        if ($('costCurrencyWarning')) {
+            $('costCurrencyWarning').hidden = otherEntries.length === 0;
+            $('costCurrencyWarning').textContent = otherEntries.length
+                ? `Bu turda ayrıca ${otherEntries.map(([code, item]) => `${item.passengers} yolcu için ${formatMoney(item.contract, code)}`).join(' ve ')} sözleşme bulunuyor. Para birimleri birbirine çevrilmeden ayrı tutulur.`
+                : '';
+        }
+    }
+
+    function loadSelectedTourCosts() {
+        const tourId = $('costTourSelect')?.value || '';
+        selectedCostTourId = tourId;
+        const hasTour = Boolean(tourId);
+        if ($('costEmptyState')) $('costEmptyState').hidden = hasTour;
+        if ($('costWorkspace')) $('costWorkspace').hidden = !hasTour;
+        if (!hasTour) return;
+        const record = costRecordForTour(tourId) || {};
+        const currency = preferredCostCurrency(tourId, record);
+        if ($('costCurrency')) $('costCurrency').value = currency;
+        TOUR_COST_FIELDS.forEach(field => {
+            const input = document.querySelector(`[data-cost-field="${field}"]`);
+            if (input) input.value = Number(record[field] || 0) > 0 ? String(record[field]) : '';
+        });
+        if ($('costAuditText')) {
+            const updatedAt = record.updatedAt ? new Date(record.updatedAt) : null;
+            const validDate = updatedAt && !Number.isNaN(updatedAt.getTime());
+            $('costAuditText').textContent = record.updatedAt
+                ? `Son kayıt: ${validDate ? updatedAt.toLocaleString('tr-TR') : record.updatedAt} • ${actorName(record.updatedBy, 'Eski kayıt')}`
+                : 'Henüz maliyet kaydı yok.';
+        }
+        renderCostCalculation();
+    }
+
+    function renderCostAccounting() {
+        if (!IS_APP_MODE || !$('costTourSelect') || !state) return;
+        const select = $('costTourSelect');
+        const tours = [...(state.tours || [])].sort((a, b) => String(b.departureDate || '').localeCompare(String(a.departureDate || '')));
+        select.innerHTML = '<option value="">Tur seçin</option>' + tours.map(tour => `<option value="${escapeHtml(tour.id)}">${escapeHtml(tour.title || 'İsimsiz tur')} • ${escapeHtml(formatDateTR(tour.departureDate) || 'Tarih yok')}</option>`).join('');
+        const availableIds = new Set(tours.map(tour => String(tour.id)));
+        if (!availableIds.has(String(selectedCostTourId))) {
+            const withPassengers = tours.find(tour => tourContextsForCost(tour.id).length > 0);
+            selectedCostTourId = String(withPassengers?.id || tours[0]?.id || '');
+        }
+        select.value = selectedCostTourId;
+        loadSelectedTourCosts();
+    }
+
+    async function saveTourCosts(event) {
+        event?.preventDefault();
+        const tourId = $('costTourSelect')?.value || '';
+        if (!tourId) { toast('Önce bir tur seç.'); return; }
+        const currency = $('costCurrency')?.value || 'USD';
+        state.tourCosts = normalizeTourCosts(state.tourCosts || {});
+        state.tourCosts[tourId] = {
+            ...collectCostValues(),
+            currency,
+            updatedAt: new Date().toISOString(),
+            updatedBy: currentActor()
+        };
+        if (!await saveData()) return;
+        renderCostAccounting();
+        toast('Tur maliyetleri ve net kâr hesabı kaydedildi.');
+    }
+
     function accountingPaymentHistoryHtml(context, snapshot) {
         if (!snapshot.payments.length) return '<div class="empty small">Henüz ödeme kaydı yok.</div>';
         const rows = [...snapshot.payments].reverse().map(payment => `
@@ -3502,6 +3671,12 @@
         };
         if ($('accountingSearch')) $('accountingSearch').addEventListener('input', handleAccountingSearch);
         if ($('globalPassengerSearch')) $('globalPassengerSearch').addEventListener('input', handleAccountingSearch);
+        if ($('costTourSelect')) $('costTourSelect').addEventListener('change', event => { selectedCostTourId = event.target.value; loadSelectedTourCosts(); });
+        if ($('costCurrency')) $('costCurrency').addEventListener('change', renderCostCalculation);
+        if ($('tourCostForm')) {
+            $('tourCostForm').addEventListener('submit', saveTourCosts);
+            $('tourCostForm').addEventListener('input', event => { if (event.target.matches('[data-cost-field]')) renderCostCalculation(); });
+        }
 
         $('tourForm').addEventListener('submit', saveTour);
         $('tourReset').onclick = resetTourForm;

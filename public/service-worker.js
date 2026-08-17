@@ -1,9 +1,9 @@
-const CACHE_NAME = 'turizm-muhasebe-mobile-v1';
+const CACHE_NAME = 'turizm-muhasebe-mobile-v2-costs';
 const APP_SHELL = [
   '/admin.html?mobile=1',
   '/manifest.webmanifest',
-  '/style.css?v=20260816-mobile1',
-  '/app.js?v=20260816-mobile1',
+  '/style.css?v=20260818-cost1',
+  '/app.js?v=20260818-cost1',
   '/vendor/exceljs.min.js?v=4.4.0',
   '/assets/mobile-app-icon-192.png',
   '/assets/mobile-app-icon-512.png',

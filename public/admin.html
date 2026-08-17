@@ -9,10 +9,10 @@
     <meta name="apple-mobile-web-app-title" content="Turizm Muhasebe" />
     <meta name="mobile-web-app-capable" content="yes" />
     <title>Hazeyn &amp; Hakikat • Turizm Muhasebe</title>
-    <link rel="manifest" href="/manifest.webmanifest?v=20260816-mobile1" />
+    <link rel="manifest" href="/manifest.webmanifest?v=20260818-cost1" />
     <link rel="icon" type="image/png" sizes="192x192" href="/assets/mobile-app-icon-192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/mobile-app-icon-180.png" />
-    <link rel="stylesheet" href="style.css?v=20260816-mobile1" />
+    <link rel="stylesheet" href="style.css?v=20260818-cost1" />
 </head>
 <body data-page="admin" class="admin-body">
     <div id="mobileInstallBar" class="mobile-install-bar" hidden>
@@ -48,6 +48,7 @@
             <button class="admin-tab" data-tab="blog">Merak Edilenler / Blog</button>
             <button class="admin-tab" data-tab="passengers">Yolcu Listesi PDF</button>
             <button class="admin-tab" data-tab="accounting">Muhasebe &amp; Makbuz</button>
+            <button class="admin-tab desktop-only" data-tab="costs">Maliyet &amp; Net Kâr</button>
             <button class="admin-tab desktop-only desktop-owner-only" data-tab="users">Kullanıcılar &amp; Yetkiler</button>
             <button class="admin-tab" data-tab="settings">Site Ayarları</button>
             <a class="admin-view" id="sidebarPublicLink" data-company-public-link href="index.html">Siteyi Gör</a>
@@ -282,6 +283,50 @@
                 </div>
             </section>
 
+            <section class="admin-panel desktop-only" id="tab-costs">
+                <div class="cost-hero admin-card">
+                    <div>
+                        <span class="section-kicker">TUR BAZINDA MALİYET</span>
+                        <h2>Maliyet &amp; Net Kâr Hesabı</h2>
+                        <p>Turu seç, giderleri yaz ve kaydet. Toplam sözleşme gelirinden giderler düşülerek beklenen net kâr; tahsil edilen tutardan giderler düşülerek mevcut nakit durumu hesaplanır.</p>
+                    </div>
+                    <div class="cost-tour-controls">
+                        <label>Tur Seç<select id="costTourSelect"><option value="">Tur seçin</option></select></label>
+                        <label>Para Birimi<select id="costCurrency"><option value="USD">USD</option><option value="EUR">EUR</option><option value="TRY">TRY</option></select></label>
+                    </div>
+                </div>
+
+                <div id="costEmptyState" class="empty accounting-empty">Maliyet hesabı için bir tur seçin.</div>
+                <div id="costWorkspace" hidden>
+                    <div class="cost-summary-grid">
+                        <article><span>Toplam Sözleşme Geliri</span><strong id="costContractTotal">—</strong><small id="costPassengerCount">0 yolcu</small></article>
+                        <article><span>Tahsil Edilen</span><strong id="costPaidTotal">—</strong><small id="costReceivableTotal">Kalan alacak: —</small></article>
+                        <article class="cost-expense-card"><span>Toplam Gider</span><strong id="costExpenseTotal">—</strong><small>Girilen sekiz maliyet kalemi</small></article>
+                        <article class="cost-profit-card"><span>Beklenen Net Kâr</span><strong id="costProjectedProfit">—</strong><small>Toplam gelir − toplam gider</small></article>
+                    </div>
+
+                    <form id="tourCostForm" class="admin-card cost-form">
+                        <div class="cost-form-heading"><div><h3>Tur Giderleri</h3><p>Her kaleme bu turun toplam giderini yaz.</p></div><span id="costCurrencyBadge">USD</span></div>
+                        <div class="cost-input-grid">
+                            <label><span>Mekke Yemek ve Otel</span><input data-cost-field="mekkeHotelFood" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
+                            <label><span>Medine Yemek ve Otel</span><input data-cost-field="medineHotelFood" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
+                            <label><span>Devrekamil</span><input data-cost-field="devrekamil" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
+                            <label><span>Uçak</span><input data-cost-field="flight" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
+                            <label><span>Vize</span><input data-cost-field="visa" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
+                            <label><span>Çanta</span><input data-cost-field="bag" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
+                            <label><span>Ofis</span><input data-cost-field="office" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
+                            <label><span>Ekstra</span><input data-cost-field="extra" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
+                        </div>
+                        <div id="costCurrencyWarning" class="cost-currency-warning" hidden></div>
+                        <div class="cost-result-strip">
+                            <div><span>Mevcut Nakit Durumu</span><strong id="costCashPosition">—</strong><small>Tahsil edilen − gider</small></div>
+                            <div><span>Beklenen Net Kâr</span><strong id="costNetProfitBottom">—</strong><small>Tüm alacaklar tahsil edildiğinde</small></div>
+                        </div>
+                        <div class="cost-save-row"><small id="costAuditText">Henüz maliyet kaydı yok.</small><button class="btn btn-gold" type="submit">Maliyetleri Kaydet</button></div>
+                    </form>
+                </div>
+            </section>
+
             <section class="admin-panel" id="tab-passengers">
                 <div class="admin-card form">
                     <h2>Yolcu Listesi Oluştur</h2>
@@ -454,6 +499,6 @@
     </div>
     <script src="vendor/exceljs.min.js?v=4.4.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=20260816-mobile1"></script>
+    <script src="app.js?v=20260818-cost1"></script>
 </body>
 </html>
