@@ -9,10 +9,10 @@
     <meta name="apple-mobile-web-app-title" content="Turizm Muhasebe" />
     <meta name="mobile-web-app-capable" content="yes" />
     <title>Hazeyn &amp; Hakikat • Turizm Muhasebe</title>
-    <link rel="manifest" href="/manifest.webmanifest?v=20260818-cost2" />
+    <link rel="manifest" href="/manifest.webmanifest?v=20260818-permissions2" />
     <link rel="icon" type="image/png" sizes="192x192" href="/assets/mobile-app-icon-192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/mobile-app-icon-180.png" />
-    <link rel="stylesheet" href="style.css?v=20260818-cost2" />
+    <link rel="stylesheet" href="style.css?v=20260818-permissions2" />
 </head>
 <body data-page="admin" class="admin-body">
     <div id="mobileInstallBar" class="mobile-install-bar" hidden>
@@ -40,15 +40,15 @@
         <aside class="admin-sidebar">
             <img src="assets/logo.png" alt="Hazeyn Turizm" data-company-logo="sidebar" />
             <div class="sidebar-company-label"><span>AKTİF FİRMA</span><b data-company-name>Hazeyn Turizm</b></div>
-            <button class="admin-tab active" data-tab="dashboard">Genel Bakış</button>
-            <button class="admin-tab" data-tab="tours">Turlar</button>
+            <button class="admin-tab active" data-tab="dashboard" data-permission="viewDashboard">Genel Bakış</button>
+            <button class="admin-tab" data-tab="tours" data-permission="viewTours">Turlar</button>
             <button class="admin-tab" data-tab="reviews">Google Yorumları</button>
             <button class="admin-tab" data-tab="gallery">Galeri</button>
             <button class="admin-tab" data-tab="staff">Deneyimli Kadro</button>
             <button class="admin-tab" data-tab="blog">Merak Edilenler / Blog</button>
-            <button class="admin-tab" data-tab="passengers">Yolcu Listesi PDF</button>
-            <button class="admin-tab" data-tab="accounting">Muhasebe &amp; Makbuz</button>
-            <button class="admin-tab desktop-only" data-tab="costs">Maliyet &amp; Net Kâr</button>
+            <button class="admin-tab" data-tab="passengers" data-permission="viewPassengers">Yolcu Listesi PDF</button>
+            <button class="admin-tab" data-tab="accounting" data-permission="viewAccounting">Muhasebe &amp; Makbuz</button>
+            <button class="admin-tab desktop-only" data-tab="costs" data-permission="viewCosts">Maliyet &amp; Net Kâr</button>
             <button class="admin-tab desktop-only desktop-owner-only" data-tab="users">Kullanıcılar &amp; Yetkiler</button>
             <button class="admin-tab" data-tab="settings">Site Ayarları</button>
             <a class="admin-view" id="sidebarPublicLink" data-company-public-link href="index.html">Siteyi Gör</a>
@@ -60,9 +60,9 @@
                 <div class="admin-topbar-actions">
                     <div class="desktop-only signed-user"><small>Giriş yapan</small><b id="signedUserName">—</b></div>
                     <label class="company-switcher"><span>Firma hesabı</span><select id="companySwitcher"><option value="hazeyn">Hazeyn Turizm</option><option value="hakikat">Hakikat Turizm</option></select></label>
-                    <label class="global-passenger-search"><span>Tüm programlarda yolcu ara</span><input id="globalPassengerSearch" type="search" placeholder="Ad veya soyad yazın..." autocomplete="off" /></label>
+                    <label class="global-passenger-search" data-permission="viewAccounting"><span>Tüm programlarda yolcu ara</span><input id="globalPassengerSearch" type="search" placeholder="Ad veya soyad yazın..." autocomplete="off" /></label>
                     <button id="refreshAdminData" class="btn btn-outline dark" type="button">Senkronize Et</button>
-                    <button id="exportBtn" class="btn btn-outline dark">Yedek İndir</button>
+                    <button id="exportBtn" class="btn btn-outline dark" data-permission="exportBackup">Yedek İndir</button>
                 </div>
             </div>
             <div id="toast" class="toast"></div>
@@ -85,7 +85,7 @@
 
             <section class="admin-panel" id="tab-tours">
                 <div class="admin-grid two">
-                    <form class="admin-card form" id="tourForm">
+                    <form class="admin-card form" id="tourForm" data-manage-permission="manageTours">
                         <h2>Tur Ekle / Düzenle</h2>
                         <input type="hidden" id="tourId" />
                         <label>Sayfa Adresi (Slug) <small>Boş bırakırsan başlık ve tarihten otomatik oluşturulur</small><input id="tourSlug" placeholder="25-eylul-2026-umre-programi" /></label>
@@ -307,7 +307,7 @@
                         <article class="cost-profit-card"><span>Beklenen Net Kâr</span><strong id="costProjectedProfit">—</strong><small>Toplam gelir − toplam gider</small></article>
                     </div>
 
-                    <form id="tourCostForm" class="admin-card cost-form">
+                    <form id="tourCostForm" class="admin-card cost-form" data-manage-permission="manageCosts">
                         <div class="cost-form-heading"><div><h3>Tur Giderleri</h3><p>Her kaleme toplam borcu ve ödediğin tutarı yaz; kalanı uygulama hesaplasın.</p></div><span id="costCurrencyBadge">USD</span></div>
                         <div class="cost-input-grid">
                             <div class="cost-item"><h4>Mekke Yemek ve Otel</h4><div class="cost-item-fields"><label>Toplam Gider<input data-cost-field="mekkeHotelFood" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label><label>Ödediğim<input data-cost-paid-field="mekkeHotelFood" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label></div><strong class="cost-item-remaining" data-cost-remaining-field="mekkeHotelFood">Kalan Ödenecek: —</strong></div>
@@ -330,7 +330,7 @@
             </section>
 
             <section class="admin-panel" id="tab-passengers">
-                <div class="admin-card form">
+                <div class="admin-card form" id="passengerEditorCard" data-manage-permission="managePassengers">
                     <h2>Yolcu Listesi Oluştur</h2>
                     <input type="hidden" id="listId" />
                     <input type="hidden" id="listTourId" />
@@ -384,7 +384,7 @@
                     <form class="admin-card form" id="desktopUserForm">
                         <span class="section-kicker">SADECE BAŞ YÖNETİCİ</span>
                         <h2>Çalışan Kullanıcısı Oluştur</h2>
-                        <p class="hint-text">Çalışanın adını, kullanıcı adını ve erişebileceği firmayı seç. Çalışan yalnızca verdiğin firma hesabını açabilir.</p>
+                        <p class="hint-text">Çalışanın erişebileceği firmayı ve uygulamada yapabileceği işlemleri seç. Kapattığın bölüm görünmez; kapattığın işlem sunucu tarafından da engellenir.</p>
                         <input type="hidden" id="desktopUserId" />
                         <label>Çalışanın Adı Soyadı<input id="desktopUserDisplayName" placeholder="Örn: Ahmet Yılmaz" required /></label>
                         <label>Kullanıcı Adı<input id="desktopUsername" placeholder="Örn: ahmet" minlength="3" required /></label>
@@ -393,6 +393,31 @@
                             <legend>Görebileceği Firma</legend>
                             <label><input id="desktopUserHazeyn" type="checkbox" value="hazeyn" /> Hazeyn Turizm</label>
                             <label><input id="desktopUserHakikat" type="checkbox" value="hakikat" /> Hakikat Turizm</label>
+                        </fieldset>
+                        <fieldset class="app-permission-fieldset">
+                            <legend>Uygulama Yetkileri</legend>
+                            <div class="permission-toolbar"><button class="icon-btn" id="desktopPermissionsAll" type="button">Tümünü Seç</button><button class="icon-btn" id="desktopPermissionsNone" type="button">Tümünü Kaldır</button></div>
+                            <h4>Görebileceği Bölümler</h4>
+                            <div class="permission-grid">
+                                <label><input type="checkbox" data-app-permission="viewDashboard" /> Genel Bakış</label>
+                                <label><input type="checkbox" data-app-permission="viewTours" /> Turlar</label>
+                                <label><input type="checkbox" data-app-permission="viewPassengers" /> Yolcu Listesi PDF</label>
+                                <label><input type="checkbox" data-app-permission="viewAccounting" /> Muhasebe &amp; Makbuz</label>
+                                <label><input type="checkbox" data-app-permission="viewCosts" /> Maliyet &amp; Net Kâr</label>
+                            </div>
+                            <h4>Yapabileceği İşlemler</h4>
+                            <div class="permission-grid permission-actions-grid">
+                                <label><input type="checkbox" data-app-permission="manageTours" /> Tur ekle / düzenle / arşivle</label>
+                                <label><input type="checkbox" data-app-permission="managePassengers" /> Yolcu listesi ekle / düzenle</label>
+                                <label><input type="checkbox" data-app-permission="deletePassengerLists" /> Yolcu listesi sil</label>
+                                <label><input type="checkbox" data-app-permission="exportPassengerLists" /> Yolcu PDF ve Excel indir</label>
+                                <label><input type="checkbox" data-app-permission="managePrices" /> Yolcu fiyatını değiştir</label>
+                                <label><input type="checkbox" data-app-permission="recordPayments" /> Ödeme kaydet</label>
+                                <label><input type="checkbox" data-app-permission="voidPayments" /> Ödeme iptal et</label>
+                                <label><input type="checkbox" data-app-permission="printReceipts" /> Makbuz aç / yazdır</label>
+                                <label><input type="checkbox" data-app-permission="manageCosts" /> Tur giderlerini kaydet</label>
+                                <label><input type="checkbox" data-app-permission="exportBackup" /> Yedek indir</label>
+                            </div>
                         </fieldset>
                         <label class="inline-check"><input id="desktopUserActive" type="checkbox" checked /> Kullanıcı aktif</label>
                         <div class="form-actions"><button class="btn btn-gold" type="submit">Kullanıcıyı Kaydet</button><button class="btn btn-outline dark" id="desktopUserReset" type="button">Temizle</button></div>
@@ -501,6 +526,6 @@
     </div>
     <script src="vendor/exceljs.min.js?v=4.4.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=20260818-cost2"></script>
+    <script src="app.js?v=20260818-permissions2"></script>
 </body>
 </html>

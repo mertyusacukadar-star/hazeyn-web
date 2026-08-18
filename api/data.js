@@ -6,7 +6,7 @@ const {
   sanitizeAdminState, sanitizePublicState,
   ensureBucket
 } = require('./_supabase');
-const { authorizeDataRequest, applyDesktopAudit } = require('./_appAuth');
+const { authorizeDataRequest, applyDesktopAudit, filterStateByPermissions, assertStateChangeAllowed } = require('./_appAuth');
 
 function cleanFileName(name){
   const ext = path.extname(String(name || '')).toLowerCase() || '.jpg';
@@ -75,7 +75,10 @@ module.exports = async function handler(req, res){
       if(authorization.kind === 'desktop'){
         const { data: existing, error: readError } = await client.from(TABLE).select('data').eq('id', companyRowId(companyId)).maybeSingle();
         if(readError) throw readError;
-        dataToSave = applyDesktopAudit(dataToSave, existing && existing.data ? existing.data : companyDefaultData(companyId), authorization);
+        const previousState = existing && existing.data ? existing.data : companyDefaultData(companyId);
+        dataToSave = filterStateByPermissions(dataToSave, previousState, authorization);
+        assertStateChangeAllowed(dataToSave, previousState, authorization);
+        dataToSave = applyDesktopAudit(dataToSave, previousState, authorization);
       }
       const { error } = await client.from(TABLE).upsert({id: companyRowId(companyId), data: dataToSave, updated_at: new Date().toISOString()}, {onConflict:'id'});
       if(error) throw error;
@@ -83,7 +86,7 @@ module.exports = async function handler(req, res){
       return res.status(200).json({ok:true, company:companyId});
     } catch(err){
       console.error(err);
-      return res.status(500).json({ok:false, error:'Veri kaydı yapılamadı.'});
+      return res.status(Number(err && err.statusCode) || 500).json({ok:false, error:err && err.statusCode ? err.message : 'Veri kaydı yapılamadı.'});
     }
   }
 

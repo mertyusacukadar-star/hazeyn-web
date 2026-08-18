@@ -42,11 +42,15 @@ const auth = require('../api/_appAuth');
     username:'ayse',
     password:'workerpass',
     companies:['hakikat'],
+    permissions:{viewAccounting:true, recordPayments:true, printReceipts:false},
     active:true
   });
   const employeeLogin = await auth.login('ayse', 'workerpass');
   assert(employeeLogin);
   assert.deepStrictEqual(employeeLogin.user.companies, ['hakikat']);
+  assert.strictEqual(employeeLogin.user.permissions.viewAccounting, true);
+  assert.strictEqual(employeeLogin.user.permissions.recordPayments, true);
+  assert.strictEqual(employeeLogin.user.permissions.manageCosts, false);
 
   const request = {headers:{authorization:`Bearer ${employeeLogin.token}`}};
   assert(await auth.authorizeDataRequest(request, 'hakikat'));
@@ -59,6 +63,18 @@ const auth = require('../api/_appAuth');
   assert.strictEqual(next.passengerLists[0].createdBy.name, 'Ayşe Çalışan');
   assert.strictEqual(next.passengerLists[0].passengers[0].createdBy.name, 'Ayşe Çalışan');
   assert.strictEqual(next.passengerLists[0].passengers[0].accounting.payments[0].receivedBy.name, 'Ayşe Çalışan');
+
+  const permissionAuth = await auth.authorizeDataRequest(request, 'hakikat');
+  assert.throws(() => auth.assertStateChangeAllowed({tours:[{id:'t1'}]}, {tours:[]}, permissionAuth), /yetkin yok/);
+  assert.throws(() => auth.assertStateChangeAllowed({tourCosts:{t1:{flight:100}}}, {tourCosts:{}}, permissionAuth), /yetkin yok/);
+  const filteredState = auth.filterStateByPermissions({tours:[{id:'changed'}], tourCosts:{t1:{flight:100}}, settings:{brand:'changed'}}, {tours:[{id:'safe'}], tourCosts:{}, settings:{brand:'safe'}}, permissionAuth);
+  assert.deepStrictEqual(filteredState.tours, [{id:'safe'}]);
+  assert.deepStrictEqual(filteredState.tourCosts, {});
+  assert.deepStrictEqual(filteredState.settings, {brand:'safe'});
+  const previousPaymentState = {passengerLists:[{id:'l1', passengers:[{id:'p1', accounting:{agreedPrice:1000, currency:'USD', priceSource:'room', payments:[]}}]}]};
+  const nextPaymentState = JSON.parse(JSON.stringify(previousPaymentState));
+  nextPaymentState.passengerLists[0].passengers[0].accounting.payments.push({id:'pay2', amount:100, paidAt:'2026-08-18', method:'Nakit'});
+  assert.doesNotThrow(() => auth.assertStateChangeAllowed(nextPaymentState, previousPaymentState, permissionAuth));
 
   const previous = JSON.parse(JSON.stringify(next));
   next.passengerLists[0].passengers[0].accounting.payments[0].receivedBy = {name:'Sahte Kullanıcı'};

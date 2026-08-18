@@ -131,6 +131,17 @@
     let deferredMobileInstallPrompt = null;
     let selectedCostTourId = '';
     const surnameSortedLists = new Set();
+    const APP_PERMISSION_DEFINITIONS = [
+        ['viewDashboard', 'Genel Bakış'], ['viewTours', 'Turları Gör'], ['manageTours', 'Tur Yönet'],
+        ['viewPassengers', 'Yolcu Listelerini Gör'], ['managePassengers', 'Yolcu Yönet'], ['deletePassengerLists', 'Yolcu Listesi Sil'], ['exportPassengerLists', 'PDF / Excel'],
+        ['viewAccounting', 'Muhasebeyi Gör'], ['managePrices', 'Fiyat Değiştir'], ['recordPayments', 'Ödeme Al'], ['voidPayments', 'Ödeme İptal'], ['printReceipts', 'Makbuz Yazdır'],
+        ['viewCosts', 'Maliyetleri Gör'], ['manageCosts', 'Maliyet Yönet'], ['exportBackup', 'Yedek İndir']
+    ];
+    const APP_TAB_PERMISSIONS = { dashboard: 'viewDashboard', tours: 'viewTours', passengers: 'viewPassengers', accounting: 'viewAccounting', costs: 'viewCosts' };
+    const APP_ACTION_VIEW_PERMISSIONS = {
+        manageTours: 'viewTours', managePassengers: 'viewPassengers', deletePassengerLists: 'viewPassengers', exportPassengerLists: 'viewPassengers',
+        managePrices: 'viewAccounting', recordPayments: 'viewAccounting', voidPayments: 'viewAccounting', printReceipts: 'viewAccounting', manageCosts: 'viewCosts'
+    };
 
     function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
     function uid(prefix) { return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -196,6 +207,26 @@
 
     function isAppOwner() {
         return Boolean(IS_APP_MODE && currentAppUser && currentAppUser.role === 'owner');
+    }
+
+    function normalizeAppPermissions(source) {
+        const explicit = source && typeof source === 'object' && !Array.isArray(source);
+        return Object.fromEntries(APP_PERMISSION_DEFINITIONS.map(([key]) => [key, explicit ? source[key] === true : true]));
+    }
+
+    function hasPermission(permission) {
+        if (!IS_APP_MODE || !permission || isAppOwner()) return true;
+        return normalizeAppPermissions(currentAppUser?.permissions)[permission] === true;
+    }
+
+    function permissionLabel(permission) {
+        return APP_PERMISSION_DEFINITIONS.find(([key]) => key === permission)?.[1] || 'Bu işlem';
+    }
+
+    function requirePermission(permission) {
+        if (hasPermission(permission)) return true;
+        toast(`${permissionLabel(permission)} yetkin yok.`);
+        return false;
     }
 
     function allowedCompanyIds() {
@@ -304,6 +335,41 @@
             publicLink.hidden = !company.publicUrl;
             publicLink.href = company.publicUrl || '#';
         });
+        applyPermissionUI();
+    }
+
+    function applyPermissionUI() {
+        if (!IS_APP_MODE || page !== 'admin') return;
+        document.querySelectorAll('[data-permission]').forEach(element => {
+            const allowed = hasPermission(element.dataset.permission);
+            element.hidden = !allowed;
+            element.style.display = allowed ? '' : 'none';
+        });
+        [['tourForm', 'manageTours'], ['passengerEditorCard', 'managePassengers']].forEach(([id, permission]) => {
+            const element = $(id);
+            if (!element) return;
+            const allowed = hasPermission(permission);
+            element.hidden = !allowed;
+            element.style.display = allowed ? '' : 'none';
+        });
+        const canManageCosts = hasPermission('manageCosts');
+        if ($('tourCostForm')) {
+            $('tourCostForm').classList.toggle('permission-readonly', !canManageCosts);
+            $('tourCostForm').querySelectorAll('[data-cost-field], [data-cost-paid-field], button[type="submit"]').forEach(control => { control.disabled = !canManageCosts; });
+        }
+        if ($('tab-users')) {
+            $('tab-users').hidden = !isAppOwner();
+            $('tab-users').style.display = isAppOwner() ? '' : 'none';
+        }
+        if (adminLoggedIn) {
+            const active = document.querySelector('.admin-tab.active[data-tab]');
+            const activePermission = active && APP_TAB_PERMISSIONS[active.dataset.tab];
+            const activeDenied = !active || (active.dataset.tab === 'users' && !isAppOwner()) || (activePermission && !hasPermission(activePermission));
+            if (activeDenied) {
+                const firstAllowed = ['dashboard', 'tours', 'passengers', 'accounting', 'costs'].find(tab => hasPermission(APP_TAB_PERMISSIONS[tab]));
+                if (firstAllowed) switchTab(firstAllowed);
+            }
+        }
     }
 
     function slugifyTR(value) {
@@ -1832,16 +1898,15 @@
         if (!isLogged) return;
 
         fillSettingsForm();
-        renderDashboard();
-        renderTourAdmin();
+        if (hasPermission('viewDashboard')) renderDashboard();
+        if (hasPermission('viewTours')) renderTourAdmin();
         renderReviewAdmin();
         renderGalleryAdmin();
         renderStaffAdmin();
         renderBlogAdmin();
-        renderPassengerTourSelect();
-        renderPassengerAdmin();
-        renderAccounting();
-        if (IS_APP_MODE) renderCostAccounting();
+        if (hasPermission('viewPassengers')) { renderPassengerTourSelect(); renderPassengerAdmin(); }
+        if (hasPermission('viewAccounting')) renderAccounting();
+        if (IS_APP_MODE && hasPermission('viewCosts')) renderCostAccounting();
         if (IS_APP_MODE && isAppOwner()) renderDesktopUsers();
         ensurePassengerRows();
     }
@@ -1857,6 +1922,8 @@
 
     function switchTab(tab) {
         if (IS_APP_MODE && tab === 'users' && !isAppOwner()) { toast('Kullanıcı yönetimi yalnızca baş yöneticiye açıktır.'); return; }
+        const requiredPermission = APP_TAB_PERMISSIONS[tab];
+        if (IS_APP_MODE && requiredPermission && !requirePermission(requiredPermission)) return;
         document.querySelectorAll('.admin-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
         document.querySelectorAll('.admin-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
         if (tab === 'accounting') {
@@ -1871,6 +1938,20 @@
         $('desktopUserForm').reset();
         $('desktopUserId').value = '';
         $('desktopUserActive').checked = true;
+        document.querySelectorAll('[data-app-permission]').forEach(input => { input.checked = true; });
+    }
+
+    function permissionSelectionFromForm() {
+        const permissions = {};
+        document.querySelectorAll('[data-app-permission]').forEach(input => { permissions[input.dataset.appPermission] = input.checked; });
+        Object.entries(APP_ACTION_VIEW_PERMISSIONS).forEach(([action, view]) => { if (permissions[action]) permissions[view] = true; });
+        return normalizeAppPermissions(permissions);
+    }
+
+    function permissionBadges(user) {
+        const permissions = normalizeAppPermissions(user?.permissions);
+        const labels = APP_PERMISSION_DEFINITIONS.filter(([key]) => permissions[key]).map(([, label]) => label);
+        return labels.length ? labels.map(label => `<span>${escapeHtml(label)}</span>`).join('') : '<em>Yetki verilmemiş</em>';
     }
 
     function renderDesktopUsers() {
@@ -1880,6 +1961,7 @@
             <article class="desktop-user-card ${user.active === false ? 'inactive' : ''}" data-desktop-user-id="${escapeHtml(user.id)}">
                 <div><b>${escapeHtml(user.displayName)}</b><small>@${escapeHtml(user.username)} • ${user.active === false ? 'Pasif' : 'Aktif'}</small></div>
                 <div class="user-company-badges">${(user.companies || []).map(company => `<span class="${escapeHtml(company)}">${company === 'hakikat' ? 'Hakikat' : 'Hazeyn'}</span>`).join('')}</div>
+                <div class="user-permission-badges">${permissionBadges(user)}</div>
                 <div class="admin-item-actions"><button class="icon-btn" type="button" data-edit-desktop-user="${escapeHtml(user.id)}">Düzenle</button><button class="icon-btn danger" type="button" data-delete-desktop-user="${escapeHtml(user.id)}">Sil</button></div>
             </article>`).join('') : '<div class="empty small">Henüz çalışan kullanıcısı oluşturulmadı.</div>';
     }
@@ -1905,6 +1987,8 @@
         $('desktopUserHazeyn').checked = (user.companies || []).includes('hazeyn');
         $('desktopUserHakikat').checked = (user.companies || []).includes('hakikat');
         $('desktopUserActive').checked = user.active !== false;
+        const permissions = normalizeAppPermissions(user.permissions);
+        document.querySelectorAll('[data-app-permission]').forEach(input => { input.checked = permissions[input.dataset.appPermission] === true; });
         $('desktopUserDisplayName').focus();
     }
 
@@ -1914,12 +1998,18 @@
         const companies = [];
         if ($('desktopUserHazeyn').checked) companies.push('hazeyn');
         if ($('desktopUserHakikat').checked) companies.push('hakikat');
+        const permissions = permissionSelectionFromForm();
+        if (!['viewDashboard', 'viewTours', 'viewPassengers', 'viewAccounting', 'viewCosts'].some(key => permissions[key])) {
+            toast('Çalışan için en az bir bölüm görme yetkisi seç.');
+            return;
+        }
         const user = {
             id: $('desktopUserId').value,
             displayName: $('desktopUserDisplayName').value.trim(),
             username: $('desktopUsername').value.trim(),
             password: $('desktopUserPassword').value,
             companies,
+            permissions,
             active: $('desktopUserActive').checked
         };
         try {
@@ -2064,11 +2154,12 @@
         const statusLabels = { active: 'Aktif', completed: 'Sona Ermiş', draft: 'Taslak' };
         list.innerHTML = state.tours.map(t => normalizeTour(t)).map(t => `<div class="admin-item">
         <div><h3>${escapeHtml(t.title)} <small>(${escapeHtml(t.type === 'umre' ? 'Umre' : t.type === 'hac' ? 'Hac' : 'Yurt İçi')} · ${escapeHtml(statusLabels[t.status] || t.status)})</small></h3><p>${t.departureDate ? 'Kalkış: ' + escapeHtml(formatDateTR(t.departureDate)) + '\n' : ''}${escapeHtml(durationLabel(t))}\n${escapeHtml(departureCityLabel(t))}\n/${escapeHtml(t.slug)}\n${escapeHtml(capacityLabel(t))}\n${escapeHtml(String(t.cardText || '').trim() || pricePreview(t))}</p></div>
-        <div class="admin-item-actions"><button class="icon-btn" data-edit-tour="${escapeHtml(t.id)}">Düzenle</button>${t.status === 'completed' ? '' : `<button class="icon-btn danger" data-delete-tour="${escapeHtml(t.id)}">${t.status === 'draft' ? 'Taslağı Sil' : 'Sona Erdir'}</button>`}</div>
+        ${hasPermission('manageTours') ? `<div class="admin-item-actions"><button class="icon-btn" data-edit-tour="${escapeHtml(t.id)}">Düzenle</button>${t.status === 'completed' ? '' : `<button class="icon-btn danger" data-delete-tour="${escapeHtml(t.id)}">${t.status === 'draft' ? 'Taslağı Sil' : 'Sona Erdir'}</button>`}</div>` : ''}
     </div>`).join('');
     }
 
     function editTour(id) {
+        if (!requirePermission('manageTours')) return;
         const found = state.tours.find(x => x.id === id);
         if (!found) return;
         const t = normalizeTour(found);
@@ -2122,6 +2213,7 @@
 
     async function saveTour(e) {
         e.preventDefault();
+        if (!requirePermission('manageTours')) return;
         const id = $('tourId').value || uid('t');
         const existing = state.tours.find(x => x.id === id) || {};
         const image = tempTourImage || $('tourImage').value.trim() || ($('tourType').value === 'yurtici' ? 'assets/yurtici.svg' : 'assets/hotel.svg');
@@ -2561,6 +2653,7 @@
     }
 
     async function savePassengerList() {
+        if (!requirePermission('managePassengers')) return;
         const passengers = readPassengers();
         const tourId = $('listTourSelect').value || $('listTourId').value || '';
         const selectedTour = state.tours.find(t => t.id === tourId);
@@ -2589,6 +2682,7 @@
     }
 
     function editPassengerList(id) {
+        if (!requirePermission('managePassengers')) return;
         const l = state.passengerLists.find(x => x.id === id);
         if (!l) return; switchTab('passengers');
         renderPassengerTourSelect(l.tourId || '');
@@ -2607,7 +2701,8 @@
         const warningClass = status.level === 'danger' ? 'passport-warning' : status.level === 'missing' ? 'passport-missing' : '';
 
         const isSurnameView = surnameSortedLists.has(listId);
-        return `<tr class="passenger-order-row ${warningClass} ${roomBandClass}" draggable="${isSurnameView ? 'false' : 'true'}" data-list-id="${escapeHtml(listId)}" data-passenger-index="${originalIndex}">
+        const canManagePassengers = hasPermission('managePassengers');
+        return `<tr class="passenger-order-row ${warningClass} ${roomBandClass}" draggable="${isSurnameView || !canManagePassengers ? 'false' : 'true'}" data-list-id="${escapeHtml(listId)}" data-passenger-index="${originalIndex}">
         <td class="drag-cell"><span class="drag-handle" title="${isSurnameView ? 'Manuel sıralama için soyad görünümünü kapat' : 'Tut sürükle'}">☰</span> ${i + 1}</td>
         <td>${escapeHtml(p.name)}</td>
         <td>${escapeHtml(p.gender)}</td>
@@ -2617,9 +2712,9 @@
         <td>${escapeHtml(formatDateDMY(p.birthDate))}</td>
         <td>${escapeHtml(formatDateDMY(p.passportStart))}</td>
         <td>${escapeHtml(formatDateDMY(p.passportEnd))}<span class="passport-status ${status.level}">${escapeHtml(status.label)}</span></td>
-        <td><select class="inline-room-people" data-list-id="${escapeHtml(listId)}" data-room-people-index="${originalIndex}">${['', '1', '2', '3', '4', '5+'].map(v => `<option value="${v}" ${String(p.roomPeople || p.room || '') === v ? 'selected' : ''}>${v ? v + ' Kişilik' : 'Seç'}</option>`).join('')}</select></td>
-        <td><input class="inline-room-no" data-list-id="${escapeHtml(listId)}" data-room-field="mekkeRoomNo" data-room-no-index="${originalIndex}" value="${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}" placeholder="Mekke"></td>
-        <td><input class="inline-room-no" data-list-id="${escapeHtml(listId)}" data-room-field="medineRoomNo" data-room-no-index="${originalIndex}" value="${escapeHtml(p.medineRoomNo || p.roomNo || '')}" placeholder="Medine"></td>
+        <td><select class="inline-room-people" data-list-id="${escapeHtml(listId)}" data-room-people-index="${originalIndex}" ${canManagePassengers ? '' : 'disabled'}>${['', '1', '2', '3', '4', '5+'].map(v => `<option value="${v}" ${String(p.roomPeople || p.room || '') === v ? 'selected' : ''}>${v ? v + ' Kişilik' : 'Seç'}</option>`).join('')}</select></td>
+        <td><input class="inline-room-no" data-list-id="${escapeHtml(listId)}" data-room-field="mekkeRoomNo" data-room-no-index="${originalIndex}" value="${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}" placeholder="Mekke" ${canManagePassengers ? '' : 'disabled'}></td>
+        <td><input class="inline-room-no" data-list-id="${escapeHtml(listId)}" data-room-field="medineRoomNo" data-room-no-index="${originalIndex}" value="${escapeHtml(p.medineRoomNo || p.roomNo || '')}" placeholder="Medine" ${canManagePassengers ? '' : 'disabled'}></td>
         <td>${escapeHtml(p.note)}</td>
     </tr>`;
     }
@@ -2688,13 +2783,10 @@
                 <p class="hint-text"><b>Manuel sıra korunur:</b> ☰ işaretinden yolcuyu taşıyabilirsin. İstersen soyad düğmesiyle geçici olarak aynı soyadları yan yana görebilirsin.</p>
             </div>
             <div class="admin-item-actions">
-                <button class="icon-btn" data-edit-list="${escapeHtml(l.id)}">Düzenle</button>
+                ${hasPermission('managePassengers') ? `<button class="icon-btn" data-edit-list="${escapeHtml(l.id)}">Düzenle</button>` : ''}
                 <button class="icon-btn surname-toggle-btn ${surnameSortedLists.has(l.id) ? 'active' : ''}" data-surname-toggle="${escapeHtml(l.id)}">${surnameSortedLists.has(l.id) ? 'Manuel Sıraya Dön' : 'Soyada Göre Grupla'}</button>
-                <button class="icon-btn excel-btn" data-excel-list="${escapeHtml(l.id)}">Excel Oda Listesi</button>
-                <button class="icon-btn flight-excel-btn" data-flight-excel-list="${escapeHtml(l.id)}">Excel Uçuş Listesi</button>
-                <button class="icon-btn" data-print-list="${escapeHtml(l.id)}" data-ori="portrait">PDF (Dikey)</button>
-                <button class="icon-btn" data-print-list="${escapeHtml(l.id)}" data-ori="landscape">PDF (Yatay)</button>
-                <button class="icon-btn danger" data-delete-list="${escapeHtml(l.id)}">Sil</button>
+                ${hasPermission('exportPassengerLists') ? `<button class="icon-btn excel-btn" data-excel-list="${escapeHtml(l.id)}">Excel Oda Listesi</button><button class="icon-btn flight-excel-btn" data-flight-excel-list="${escapeHtml(l.id)}">Excel Uçuş Listesi</button><button class="icon-btn" data-print-list="${escapeHtml(l.id)}" data-ori="portrait">PDF (Dikey)</button><button class="icon-btn" data-print-list="${escapeHtml(l.id)}" data-ori="landscape">PDF (Yatay)</button>` : ''}
+                ${hasPermission('deletePassengerLists') ? `<button class="icon-btn danger" data-delete-list="${escapeHtml(l.id)}">Sil</button>` : ''}
             </div>
         </div>
         <input type="checkbox" id="filter-expiring-${escapeHtml(l.id)}" class="filter-expiring-cb">
@@ -2715,6 +2807,7 @@
     }
 
     async function updatePassengerRoomField(listId, passengerIndex, field, value) {
+        if (!requirePermission('managePassengers')) return;
         const l = state.passengerLists.find(x => x.id === listId);
         if (!l || !l.passengers || !l.passengers[passengerIndex]) return;
         const passenger = l.passengers[passengerIndex];
@@ -2905,7 +2998,7 @@
                 <div class="program-balance-values"><span><small>Toplam</small><b>${escapeHtml(currencySummary(group.contract))}</b></span><span><small>Ödenen</small><b>${escapeHtml(currencySummary(group.paid))}</b></span><span><small>Kalan</small><b>${escapeHtml(currencySummary(group.balance))}</b></span></div>
                 ${group.debtors.length ? `<details class="program-debtor-list"><summary>${group.debtors.length} borçlu yolcuyu göster</summary><div class="program-debtor-rows">${group.debtors
                     .sort((a, b) => b.balance - a.balance)
-                    .map(debtor => `<div class="program-debtor-row"><div><b>${escapeHtml(debtor.name)}</b><small>${escapeHtml(debtor.roomPeople ? `${debtor.roomPeople} kişilik oda` : 'Oda belirtilmemiş')}${debtor.phone ? ` • ${escapeHtml(debtor.phone)}` : ''}</small></div><strong>${escapeHtml(formatMoney(debtor.balance, debtor.currency))}</strong><button class="icon-btn" type="button" data-open-debtor="${escapeHtml(debtor.passengerId)}" data-debtor-list="${escapeHtml(debtor.listId)}" data-debtor-name="${escapeHtml(debtor.name)}">Ödeme Aç</button></div>`).join('')}</div></details>` : ''}
+                    .map(debtor => `<div class="program-debtor-row"><div><b>${escapeHtml(debtor.name)}</b><small>${escapeHtml(debtor.roomPeople ? `${debtor.roomPeople} kişilik oda` : 'Oda belirtilmemiş')}${debtor.phone ? ` • ${escapeHtml(debtor.phone)}` : ''}</small></div><strong>${escapeHtml(formatMoney(debtor.balance, debtor.currency))}</strong>${hasPermission('viewAccounting') ? `<button class="icon-btn" type="button" data-open-debtor="${escapeHtml(debtor.passengerId)}" data-debtor-list="${escapeHtml(debtor.listId)}" data-debtor-name="${escapeHtml(debtor.name)}">Ödeme Aç</button>` : ''}</div>`).join('')}</div></details>` : ''}
             </article>`).join('') : '<div class="empty small">Program bazında bakiye göstermek için yolcu kaydı ekleyin.</div>';
     }
 
@@ -3057,6 +3150,7 @@
 
     async function saveTourCosts(event) {
         event?.preventDefault();
+        if (!requirePermission('manageCosts')) return;
         const tourId = $('costTourSelect')?.value || '';
         if (!tourId) { toast('Önce bir tur seç.'); return; }
         const currency = $('costCurrency')?.value || 'USD';
@@ -3082,7 +3176,7 @@
                 <td>${escapeHtml(payment.method || '-')}</td>
                 ${IS_APP_MODE ? `<td>${escapeHtml(actorName(payment.receivedBy, 'Eski kayıt'))}</td>` : ''}
                 <td>${escapeHtml(payment.note || '-')}</td>
-                <td class="payment-actions"><button class="icon-btn" type="button" data-print-receipt="${escapeHtml(payment.id)}">Makbuz</button>${payment.voided ? '' : `<button class="icon-btn danger" type="button" data-void-payment="${escapeHtml(payment.id)}">İptal</button>`}</td>
+                <td class="payment-actions">${hasPermission('printReceipts') ? `<button class="icon-btn" type="button" data-print-receipt="${escapeHtml(payment.id)}">Makbuz</button>` : ''}${payment.voided || !hasPermission('voidPayments') ? '' : `<button class="icon-btn danger" type="button" data-void-payment="${escapeHtml(payment.id)}">İptal</button>`}${!hasPermission('printReceipts') && (payment.voided || !hasPermission('voidPayments')) ? '—' : ''}</td>
             </tr>`).join('');
         return `<div class="accounting-payment-table"><table><thead><tr><th>Makbuz No</th><th>Tarih</th><th>Tutar</th><th>Yöntem</th>${IS_APP_MODE ? '<th>Tahsilatı Alan</th>' : ''}<th>Not</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
@@ -3112,6 +3206,11 @@
         const priceSaveLabel = IS_APP_MODE ? 'Özel Fiyatı Kaydet' : 'Fiyatı Kaydet';
         const priceResetButton = IS_APP_MODE ? '<button class="icon-btn" type="button" data-reset-account-price>Oda Fiyatına Dön</button>' : '';
         const priceHelp = IS_APP_MODE ? 'İndirim yapacaksan bu yolcuya özel toplam fiyatı yaz. “Oda Fiyatına Dön” seçeneği programdaki oda fiyatını yeniden uygular.' : 'Oda fiyatından farklı anlaşma varsa burada değiştirebilirsin.';
+        const canManagePrice = hasPermission('managePrices');
+        const canRecordPayment = hasPermission('recordPayments');
+        const accountingEditorTitle = canManagePrice || canRecordPayment ? 'Fiyat ve ödeme işlemleri' : 'Ödeme geçmişi';
+        const priceEditorHtml = canManagePrice ? `<div class="accounting-form-block"><h4>${priceEditorTitle}</h4><div class="inline-money-form"><input class="account-agreed-price" type="number" min="0" step="0.01" value="${escapeHtml(snapshot.agreedPrice)}" aria-label="Program ücreti"><select class="account-currency" aria-label="Para birimi">${['USD', 'EUR', 'TRY'].map(currency => `<option value="${currency}" ${currency === snapshot.currency ? 'selected' : ''}>${currency}</option>`).join('')}</select><div class="account-price-actions"><button class="btn btn-outline dark" type="button" data-save-account-price>${priceSaveLabel}</button>${priceResetButton}</div></div><small>${priceHelp}</small></div>` : '';
+        const paymentEditorHtml = canRecordPayment ? `<div class="accounting-form-block payment-form"><h4>Yeni Ödeme Ekle</h4><div class="payment-fields"><label>Tutar<input class="payment-amount" type="number" min="0.01" step="0.01" placeholder="200"></label><label>Tarih<input class="payment-date" type="date" value="${todayIso()}"></label><label>Ödeme Yöntemi<select class="payment-method"><option>Nakit</option><option>Havale / EFT</option><option>Kredi Kartı</option><option>Diğer</option></select></label><label>Not<input class="payment-note" placeholder="Kapora, ikinci ödeme..."></label></div><button class="btn btn-gold" type="button" data-add-payment>${hasPermission('printReceipts') ? 'Ödemeyi Kaydet ve Makbuz Yazdır' : 'Ödemeyi Kaydet'}</button></div>` : '';
         return `<article class="accounting-card" data-account-card data-list-id="${escapeHtml(list.id)}" data-passenger-id="${escapeHtml(passenger.id)}">
             <header class="accounting-card-head">
                 <div><span class="accounting-tour-type">${escapeHtml(accountingProgramType(context))}</span><h3>${escapeHtml(passenger.name || 'İsimsiz yolcu')}</h3><p>${escapeHtml(tour?.title || list.title || 'Program')} • ${escapeHtml(formatDateTR(tour?.departureDate || list.date) || 'Tarih yok')}</p>${auditHtml}</div>
@@ -3130,19 +3229,8 @@
                 <span><small>Kalan Bakiye</small><strong>${escapeHtml(formatMoney(snapshot.balance, snapshot.currency))}</strong></span>
             </div>
             <details class="accounting-editor" ${accountingSearchQuery ? 'open' : ''}>
-                <summary>Fiyat ve ödeme işlemleri</summary>
-                <div class="accounting-editor-grid">
-                    <div class="accounting-form-block">
-                        <h4>${priceEditorTitle}</h4>
-                        <div class="inline-money-form"><input class="account-agreed-price" type="number" min="0" step="0.01" value="${escapeHtml(snapshot.agreedPrice)}" aria-label="Program ücreti"><select class="account-currency" aria-label="Para birimi">${['USD', 'EUR', 'TRY'].map(currency => `<option value="${currency}" ${currency === snapshot.currency ? 'selected' : ''}>${currency}</option>`).join('')}</select><div class="account-price-actions"><button class="btn btn-outline dark" type="button" data-save-account-price>${priceSaveLabel}</button>${priceResetButton}</div></div>
-                        <small>${priceHelp}</small>
-                    </div>
-                    <div class="accounting-form-block payment-form">
-                        <h4>Yeni Ödeme Ekle</h4>
-                        <div class="payment-fields"><label>Tutar<input class="payment-amount" type="number" min="0.01" step="0.01" placeholder="200"></label><label>Tarih<input class="payment-date" type="date" value="${todayIso()}"></label><label>Ödeme Yöntemi<select class="payment-method"><option>Nakit</option><option>Havale / EFT</option><option>Kredi Kartı</option><option>Diğer</option></select></label><label>Not<input class="payment-note" placeholder="Kapora, ikinci ödeme..."></label></div>
-                        <button class="btn btn-gold" type="button" data-add-payment>Ödemeyi Kaydet ve Makbuz Yazdır</button>
-                    </div>
-                </div>
+                <summary>${accountingEditorTitle}</summary>
+                ${priceEditorHtml || paymentEditorHtml ? `<div class="accounting-editor-grid">${priceEditorHtml}${paymentEditorHtml}</div>` : ''}
                 <div class="payment-history"><h4>Ödeme Geçmişi</h4>${accountingPaymentHistoryHtml(context, snapshot)}</div>
             </details>
         </article>`;
@@ -3181,6 +3269,7 @@
     }
 
     async function savePassengerAccountPrice(card) {
+        if (!requirePermission('managePrices')) return;
         const listId = card.dataset.listId;
         const passengerId = card.dataset.passengerId;
         const amount = Number(card.querySelector('.account-agreed-price')?.value);
@@ -3196,6 +3285,7 @@
     }
 
     async function resetPassengerAccountPrice(card) {
+        if (!requirePermission('managePrices')) return;
         const context = await latestAccountingContext(card.dataset.listId, card.dataset.passengerId);
         if (!context) { toast('Yolcu kaydı bulunamadı.'); return; }
         const fallback = passengerTourPrice(context.tour, context.passenger);
@@ -3212,6 +3302,7 @@
     }
 
     async function addPassengerPayment(card) {
+        if (!requirePermission('recordPayments')) return;
         const listId = card.dataset.listId;
         const passengerId = card.dataset.passengerId;
         const currentContext = getPassengerContext(listId, passengerId);
@@ -3224,7 +3315,7 @@
         if (!Number.isFinite(amount) || amount <= 0) { toast('Ödeme tutarı 0’dan büyük olmalı.'); return; }
         const currentSnapshot = passengerAccountSnapshot(currentContext);
         if (!currentSnapshot.agreedPrice) { toast('Önce yolcunun program ücretini kaydet.'); return; }
-        const receiptWindow = window.open('', '_blank');
+        const receiptWindow = hasPermission('printReceipts') ? window.open('', '_blank') : null;
         const context = await latestAccountingContext(listId, passengerId);
         if (!context) { if (receiptWindow) receiptWindow.close(); toast('Yolcu kaydı başka bir kullanıcı tarafından değiştirilmiş. Verileri senkronize et.'); return; }
         const snapshot = passengerAccountSnapshot(context);
@@ -3239,11 +3330,14 @@
         const saved = await saveData({ keepLocalAccounting: true });
         if (!saved) { if (receiptWindow) receiptWindow.close(); return; }
         renderAccounting();
-        const opened = printPaymentReceipt(context.list.id, context.passenger.id, payment.id, receiptWindow);
-        toast(opened ? 'Ödeme kaydedildi; makbuz yazdırmaya hazır.' : 'Ödeme kaydedildi; makbuz dosyası indirildi.');
+        if (hasPermission('printReceipts')) {
+            const opened = printPaymentReceipt(context.list.id, context.passenger.id, payment.id, receiptWindow);
+            toast(opened ? 'Ödeme kaydedildi; makbuz yazdırmaya hazır.' : 'Ödeme kaydedildi; makbuz dosyası indirildi.');
+        } else toast('Ödeme kaydedildi.');
     }
 
     async function voidPassengerPayment(card, paymentId) {
+        if (!requirePermission('voidPayments')) return;
         const listId = card.dataset.listId;
         const passengerId = card.dataset.passengerId;
         const currentContext = getPassengerContext(listId, passengerId);
@@ -3263,6 +3357,7 @@
     }
 
     function printPaymentReceipt(listId, passengerId, paymentId, targetWindow) {
+        if (!requirePermission('printReceipts')) { if (targetWindow) targetWindow.close(); return false; }
         const context = getPassengerContext(listId, passengerId);
         if (!context) { if (targetWindow) targetWindow.close(); return false; }
         const snapshot = passengerAccountSnapshot(context);
@@ -3313,6 +3408,7 @@
     }
 
     async function exportRoomingExcel(id) {
+        if (!requirePermission('exportPassengerLists')) return;
         const list = state.passengerLists.find(item => item.id === id);
         if (!list) return;
         if (!window.ExcelJS) {
@@ -3429,6 +3525,7 @@
     }
 
     async function exportFlightExcel(id) {
+        if (!requirePermission('exportPassengerLists')) return;
         const list = state.passengerLists.find(item => item.id === id);
         if (!list) return;
         if (!window.ExcelJS) {
@@ -3588,6 +3685,7 @@
     }
 
     function printList(id, orientation = 'landscape') {
+        if (!requirePermission('exportPassengerLists')) return;
         const l = state.passengerLists.find(x => x.id === id);
         if (!l) return;
         const tourTitle = (state.tours.find(t => t.id === l.tourId) || {}).title || l.title || '-';
@@ -3628,6 +3726,7 @@
     }
 
     function exportBackup() {
+        if (!requirePermission('exportBackup')) return;
         const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
@@ -3687,7 +3786,18 @@
         if ($('refreshAdminData')) $('refreshAdminData').onclick = refreshAdminFromServer;
         if ($('desktopUserForm')) $('desktopUserForm').addEventListener('submit', saveDesktopUser);
         if ($('desktopUserReset')) $('desktopUserReset').onclick = resetDesktopUserForm;
+        if ($('desktopPermissionsAll')) $('desktopPermissionsAll').onclick = () => document.querySelectorAll('[data-app-permission]').forEach(input => { input.checked = true; });
+        if ($('desktopPermissionsNone')) $('desktopPermissionsNone').onclick = () => document.querySelectorAll('[data-app-permission]').forEach(input => { input.checked = false; });
+        document.querySelectorAll('[data-app-permission]').forEach(input => input.addEventListener('change', () => {
+            const viewPermission = APP_ACTION_VIEW_PERMISSIONS[input.dataset.appPermission];
+            if (input.checked && viewPermission) {
+                const viewInput = document.querySelector(`[data-app-permission="${viewPermission}"]`);
+                if (viewInput) viewInput.checked = true;
+            }
+        }));
+        if ($('desktopUserForm')) resetDesktopUserForm();
         const handleAccountingSearch = event => {
+            if (!requirePermission('viewAccounting')) return;
             accountingSearchQuery = event.target.value;
             if (event.target.id === 'globalPassengerSearch' && accountingSearchQuery.trim().length >= 2) switchTab('accounting');
             renderAccounting(accountingSearchQuery);
@@ -3765,10 +3875,10 @@
         ['listOriginAirport', 'listDestinationAirport'].forEach(id => {
             if ($(id)) $(id).addEventListener('input', event => { event.target.value = airportCode(event.target.value); });
         });
-        $('addPassengerRow').onclick = () => passengerRow();
+        $('addPassengerRow').onclick = () => { if (requirePermission('managePassengers')) passengerRow(); };
         $('savePassengerList').onclick = savePassengerList;
         $('clearPassengerList').onclick = clearPassengerForm;
-        $('passengerTable').addEventListener('click', e => { if (e.target.classList.contains('remove-row')) { e.target.closest('tr').remove(); ensurePassengerRows(); } });
+        $('passengerTable').addEventListener('click', e => { if (e.target.classList.contains('remove-row') && requirePermission('managePassengers')) { e.target.closest('tr').remove(); ensurePassengerRows(); } });
         $('passengerTable').addEventListener('change', e => { if (IS_APP_MODE && e.target.classList.contains('p-room-people')) syncPassengerRowPrice(e.target.closest('tr'), true); });
 
         document.addEventListener('dragstart', (e) => {
@@ -3776,6 +3886,7 @@
             if (bannerItem) { dragHeroBannerInfo = { id: bannerItem.dataset.heroBannerId }; bannerItem.classList.add('dragging'); if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', JSON.stringify(dragHeroBannerInfo)); } return; }
             const row = e.target.closest && e.target.closest('.passenger-order-row');
             if (!row) return;
+            if (!hasPermission('managePassengers')) { e.preventDefault(); return; }
             if (surnameSortedLists.has(row.dataset.listId)) { e.preventDefault(); toast('Manuel taşıma için önce “Manuel Sıraya Dön” düğmesine bas.'); return; }
             dragPassengerInfo = { listId: row.dataset.listId, index: Number(row.dataset.passengerIndex) }; row.classList.add('dragging'); if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', JSON.stringify(dragPassengerInfo)); }
         });
@@ -3785,6 +3896,7 @@
             if (bannerItem && dragHeroBannerInfo) { e.preventDefault(); bannerItem.classList.add('drag-over'); if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'; return; }
             const row = e.target.closest && e.target.closest('.passenger-order-row');
             if (!row || !dragPassengerInfo || row.dataset.listId !== dragPassengerInfo.listId) return;
+            if (!requirePermission('managePassengers')) { dragPassengerInfo = null; return; }
             e.preventDefault(); row.classList.add('drag-over'); if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
         });
 
@@ -3826,6 +3938,7 @@
 
             const openDebtor = e.target.closest && e.target.closest('[data-open-debtor]');
             if (openDebtor) {
+                if (!requirePermission('viewAccounting')) return;
                 const debtorName = String(openDebtor.dataset.debtorName || '').trim();
                 accountingSearchQuery = debtorName;
                 renderAccounting(debtorName);
@@ -3862,6 +3975,7 @@
 
             const delTour = e.target.closest('[data-delete-tour]');
             if (delTour) {
+                if (!requirePermission('manageTours')) return;
                 const tourId = delTour.dataset.deleteTour;
                 const foundTour = state.tours.find(x => x.id === tourId);
                 if (foundTour && normalizedTourStatus(foundTour) === 'draft' && confirm('Taslak program silinsin mi?')) {
@@ -3911,7 +4025,10 @@
             if (flightExcelBtn) exportFlightExcel(flightExcelBtn.dataset.flightExcelList);
 
             const delList = e.target.closest('[data-delete-list]');
-            if (delList && confirm('Yolcu listesi silinsin mi?')) { surnameSortedLists.delete(delList.dataset.deleteList); state.passengerLists = state.passengerLists.filter(x => x.id !== delList.dataset.deleteList); if (!await saveData()) return; renderPassengerAdmin(); renderDashboard(); toast('Liste silindi.'); }
+            if (delList) {
+                if (!requirePermission('deletePassengerLists')) return;
+                if (confirm('Yolcu listesi silinsin mi?')) { surnameSortedLists.delete(delList.dataset.deleteList); state.passengerLists = state.passengerLists.filter(x => x.id !== delList.dataset.deleteList); if (!await saveData()) return; renderPassengerAdmin(); renderDashboard(); toast('Liste silindi.'); }
+            }
         });
     }
 

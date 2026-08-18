@@ -9,6 +9,12 @@ const {
 
 const USERS_ROW_ID = process.env.DESKTOP_USERS_ROW_ID || 'desktop-users-v1';
 const SESSION_HOURS = Math.max(1, Math.min(24, Number(process.env.DESKTOP_SESSION_HOURS || 12)));
+const PERMISSION_KEYS = [
+  'viewDashboard', 'viewTours', 'manageTours',
+  'viewPassengers', 'managePassengers', 'deletePassengerLists', 'exportPassengerLists',
+  'viewAccounting', 'managePrices', 'recordPayments', 'voidPayments', 'printReceipts',
+  'viewCosts', 'manageCosts', 'exportBackup'
+];
 
 function secureEqual(left, right){
   const a = Buffer.from(String(left || ''), 'utf8');
@@ -39,6 +45,148 @@ function normalizeUsername(value){
 function normalizeCompanies(value){
   const requested = Array.isArray(value) ? value : [];
   return [...new Set(requested.map(normalizeCompanyId))].filter(id => id === 'hazeyn' || id === 'hakikat');
+}
+
+function normalizePermissions(value){
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+  return Object.fromEntries(PERMISSION_KEYS.map(key => [key, source ? source[key] === true : true]));
+}
+
+function hasUserPermission(user, permission){
+  if(!permission || (user && user.role === 'owner')) return true;
+  return normalizePermissions(user && user.permissions)[permission] === true;
+}
+
+function permissionError(permission){
+  const labels = {
+    manageTours:'Tur ekleme, düzenleme veya arşivleme',
+    managePassengers:'Yolcu listesi ekleme veya düzenleme',
+    deletePassengerLists:'Yolcu listesi silme',
+    managePrices:'Yolcu fiyatı değiştirme',
+    recordPayments:'Ödeme kaydetme',
+    voidPayments:'Ödeme iptal etme',
+    manageCosts:'Tur gideri değiştirme'
+  };
+  const error = new Error(`${labels[permission] || 'Bu işlem'} yetkin yok.`);
+  error.statusCode = 403;
+  return error;
+}
+
+function comparable(value){
+  return JSON.stringify(value === undefined ? null : value);
+}
+
+function passengerStructure(lists){
+  return (Array.isArray(lists) ? lists : []).map(list => {
+    const { passengers, createdBy, ...listFields } = list || {};
+    return {
+      ...listFields,
+      passengers:(Array.isArray(passengers) ? passengers : []).map(passenger => {
+        const { accounting, createdBy:passengerCreatedBy, ...passengerFields } = passenger || {};
+        return passengerFields;
+      })
+    };
+  });
+}
+
+function passengerMap(lists){
+  const result = new Map();
+  (Array.isArray(lists) ? lists : []).forEach(list => {
+    (Array.isArray(list && list.passengers) ? list.passengers : []).forEach(passenger => {
+      result.set(`${String(list.id)}:${String(passenger.id)}`, passenger || {});
+    });
+  });
+  return result;
+}
+
+function paymentCore(payment){
+  const { receivedBy, voidedBy, voidedAt, createdAt, voided, ...core } = payment || {};
+  return core;
+}
+
+function cloneValue(value){
+  return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
+function filterStateByPermissions(nextState, previousState, auth){
+  if(!auth || auth.kind !== 'desktop' || !auth.user || auth.user.role === 'owner') return nextState;
+  const user = auth.user;
+  const next = nextState && typeof nextState === 'object' ? nextState : {};
+  const previous = previousState && typeof previousState === 'object' ? previousState : {};
+  const restore = key => {
+    if(previous[key] === undefined) delete next[key];
+    else next[key] = cloneValue(previous[key]);
+  };
+  ['settings', 'reviews', 'gallery', 'staff', 'blogs', 'banners'].forEach(restore);
+  if(!hasUserPermission(user, 'manageTours')) restore('tours');
+  if(!hasUserPermission(user, 'manageCosts')) restore('tourCosts');
+
+  if(!hasUserPermission(user, 'managePassengers')){
+    const nextLists = new Map((Array.isArray(next.passengerLists) ? next.passengerLists : []).map(list => [String(list.id), list]));
+    const mayDeleteLists = hasUserPermission(user, 'deletePassengerLists');
+    next.passengerLists = (Array.isArray(previous.passengerLists) ? previous.passengerLists : [])
+      .filter(list => !mayDeleteLists || nextLists.has(String(list.id)))
+      .map(list => {
+        const restoredList = cloneValue(list);
+        const candidateList = nextLists.get(String(list.id));
+        const candidatePassengers = new Map((Array.isArray(candidateList && candidateList.passengers) ? candidateList.passengers : []).map(passenger => [String(passenger.id), passenger]));
+        (restoredList.passengers || []).forEach(passenger => {
+          const candidate = candidatePassengers.get(String(passenger.id));
+          if(candidate && candidate.accounting) passenger.accounting = cloneValue(candidate.accounting);
+        });
+        return restoredList;
+      });
+  }
+  return next;
+}
+
+function assertStateChangeAllowed(nextState, previousState, auth){
+  if(!auth || auth.kind !== 'desktop' || !auth.user || auth.user.role === 'owner') return;
+  const user = auth.user;
+  const next = nextState && typeof nextState === 'object' ? nextState : {};
+  const previous = previousState && typeof previousState === 'object' ? previousState : {};
+  const requirePermission = permission => { if(!hasUserPermission(user, permission)) throw permissionError(permission); };
+
+  if(comparable(next.tours || []) !== comparable(previous.tours || [])) requirePermission('manageTours');
+  if(comparable(next.tourCosts || {}) !== comparable(previous.tourCosts || {})) requirePermission('manageCosts');
+  if(comparable(passengerStructure(next.passengerLists)) !== comparable(passengerStructure(previous.passengerLists))) {
+    const nextIds = new Set((next.passengerLists || []).map(list => String(list.id)));
+    const previousIds = new Set((previous.passengerLists || []).map(list => String(list.id)));
+    const deletedList = [...previousIds].some(id => !nextIds.has(id));
+    requirePermission(deletedList ? 'deletePassengerLists' : 'managePassengers');
+  }
+
+  const oldPassengers = passengerMap(previous.passengerLists);
+  const newPassengers = passengerMap(next.passengerLists);
+  oldPassengers.forEach((oldPassenger, key) => {
+    const newPassenger = newPassengers.get(key);
+    if(!newPassenger) return;
+    const oldAccounting = oldPassenger.accounting || {};
+    const newAccounting = newPassenger.accounting || {};
+    const oldPrice = { agreedPrice:oldAccounting.agreedPrice, currency:oldAccounting.currency, priceSource:oldAccounting.priceSource };
+    const newPrice = { agreedPrice:newAccounting.agreedPrice, currency:newAccounting.currency, priceSource:newAccounting.priceSource };
+    const roomChanged = String(oldPassenger.roomPeople || oldPassenger.room || '') !== String(newPassenger.roomPeople || newPassenger.room || '');
+    if(comparable(oldPrice) !== comparable(newPrice) && !(roomChanged && newAccounting.priceSource === 'room')) requirePermission('managePrices');
+
+    const oldPayments = new Map((Array.isArray(oldAccounting.payments) ? oldAccounting.payments : []).map(payment => [String(payment.id), payment]));
+    const newPayments = new Map((Array.isArray(newAccounting.payments) ? newAccounting.payments : []).map(payment => [String(payment.id), payment]));
+    newPayments.forEach((payment, paymentId) => {
+      const oldPayment = oldPayments.get(paymentId);
+      if(!oldPayment) { requirePermission('recordPayments'); return; }
+      if(comparable(paymentCore(payment)) !== comparable(paymentCore(oldPayment))) requirePermission('recordPayments');
+      if(Boolean(payment.voided) !== Boolean(oldPayment.voided)) requirePermission('voidPayments');
+    });
+    oldPayments.forEach((_payment, paymentId) => { if(!newPayments.has(paymentId)) requirePermission('voidPayments'); });
+  });
+  newPassengers.forEach((newPassenger, key) => {
+    if(oldPassengers.has(key)) return;
+    const payments = newPassenger && newPassenger.accounting && Array.isArray(newPassenger.accounting.payments) ? newPassenger.accounting.payments : [];
+    if(payments.length) requirePermission('recordPayments');
+  });
+
+  ['settings', 'reviews', 'gallery', 'staff', 'blogs', 'banners'].forEach(key => {
+    if(comparable(next[key]) !== comparable(previous[key])) throw permissionError('manageSiteContent');
+  });
 }
 
 function hashPassword(password, salt = crypto.randomBytes(18).toString('hex')){
@@ -127,6 +275,7 @@ function publicUser(user){
     displayName: String(user.displayName || user.username),
     role: user.role === 'owner' ? 'owner' : 'employee',
     companies: user.role === 'owner' ? ['hazeyn', 'hakikat'] : normalizeCompanies(user.companies),
+    permissions: user.role === 'owner' ? normalizePermissions(null) : normalizePermissions(user.permissions),
     active: user.active !== false,
     createdAt: String(user.createdAt || ''),
     updatedAt: String(user.updatedAt || '')
@@ -140,6 +289,7 @@ function ownerUser(){
     displayName: 'Baş Yönetici',
     role: 'owner',
     companies: ['hazeyn', 'hakikat'],
+    permissions: normalizePermissions(null),
     active: true,
     authVersion: 'owner-v1'
   };
@@ -232,10 +382,12 @@ async function saveEmployee(input){
   const username = normalizeUsername(input && input.username);
   const displayName = String(input && input.displayName || '').trim().slice(0, 80);
   const companies = normalizeCompanies(input && input.companies);
+  const permissions = normalizePermissions(input && input.permissions);
   const password = String(input && input.password || '');
   if(username.length < 3) throw new Error('Kullanıcı adı en az 3 karakter olmalı.');
   if(!displayName) throw new Error('Çalışanın adını yaz.');
   if(!companies.length) throw new Error('En az bir firma yetkisi seç.');
+  if(!['viewDashboard', 'viewTours', 'viewPassengers', 'viewAccounting', 'viewCosts'].some(key => permissions[key])) throw new Error('En az bir bölüm görme yetkisi seç.');
   const duplicate = store.users.find(user => normalizeUsername(user.username) === username && String(user.id) !== id);
   if(duplicate) throw new Error('Bu kullanıcı adı zaten kullanılıyor.');
   const existingIndex = store.users.findIndex(user => String(user.id) === id);
@@ -250,6 +402,7 @@ async function saveEmployee(input){
     displayName,
     role: 'employee',
     companies,
+    permissions,
     active: input.active !== false,
     createdAt: existing && existing.createdAt || now,
     updatedAt: now,
@@ -282,6 +435,11 @@ module.exports = {
   authenticateDesktopRequest,
   authorizeDataRequest,
   applyDesktopAudit,
+  PERMISSION_KEYS,
+  normalizePermissions,
+  hasUserPermission,
+  filterStateByPermissions,
+  assertStateChangeAllowed,
   saveEmployee,
   deleteEmployee
 };

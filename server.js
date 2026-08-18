@@ -15,6 +15,8 @@ const {
   authenticateDesktopRequest,
   authorizeDataRequest,
   applyDesktopAudit,
+  filterStateByPermissions,
+  assertStateChangeAllowed,
   saveEmployee,
   deleteEmployee
 } = require('./api/_appAuth');
@@ -290,7 +292,10 @@ const server = http.createServer(async (req, res) => {
         if(authorization.kind === 'desktop'){
           const { data: existing, error: readError } = await client.from(TABLE).select('data').eq('id', companyRowId(companyId)).maybeSingle();
           if(readError) throw readError;
-          data = applyDesktopAudit(data, existing && existing.data ? existing.data : companyDefaultData(companyId), authorization);
+          const previousState = existing && existing.data ? existing.data : companyDefaultData(companyId);
+          data = filterStateByPermissions(data, previousState, authorization);
+          assertStateChangeAllowed(data, previousState, authorization);
+          data = applyDesktopAudit(data, previousState, authorization);
         }
         const { error } = await client.from(TABLE).upsert({
           id: companyRowId(companyId),
@@ -308,7 +313,8 @@ const server = http.createServer(async (req, res) => {
         send(res, 200, JSON.stringify({ok:true, source:'supabase', company:companyId}), 'application/json; charset=utf-8');
       } catch(e) {
         console.error('Supabase veri kayıt hatası:', e);
-        send(res, 502, JSON.stringify({ok:false, error:'Merkezi veri kaydı yapılamadı.'}), 'application/json; charset=utf-8');
+        const status = Number(e && e.statusCode) || 502;
+        send(res, status, JSON.stringify({ok:false, error:e && e.statusCode ? e.message : 'Merkezi veri kaydı yapılamadı.'}), 'application/json; charset=utf-8');
       }
     });
     return;
