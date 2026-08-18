@@ -594,6 +594,8 @@
             TOUR_COST_FIELDS.forEach(field => {
                 const amount = Number(record[field]);
                 costs[field] = Number.isFinite(amount) && amount >= 0 ? amount : 0;
+                const paidAmount = Number(record[`${field}Paid`]);
+                costs[`${field}Paid`] = Number.isFinite(paidAmount) && paidAmount >= 0 ? paidAmount : 0;
             });
             normalized[String(tourId)] = {
                 ...record,
@@ -2934,11 +2936,15 @@
             const amount = Number(input.value);
             values[input.dataset.costField] = Number.isFinite(amount) && amount >= 0 ? amount : 0;
         });
+        document.querySelectorAll('[data-cost-paid-field]').forEach(input => {
+            const amount = Number(input.value);
+            values[`${input.dataset.costPaidField}Paid`] = Number.isFinite(amount) && amount >= 0 ? amount : 0;
+        });
         return values;
     }
 
     function calculateTourCostSummary(tourId, currency, costs) {
-        const totals = { contract: 0, paid: 0, balance: 0, passengers: 0, matchingPassengers: 0, expenses: 0, otherCurrencies: {} };
+        const totals = { contract: 0, paid: 0, balance: 0, passengers: 0, matchingPassengers: 0, expenses: 0, expensePayments: 0, expenseBalance: 0, otherCurrencies: {} };
         tourContextsForCost(tourId).forEach(context => {
             const snapshot = passengerAccountSnapshot(context);
             totals.passengers += 1;
@@ -2955,8 +2961,10 @@
             totals.balance += snapshot.balance;
         });
         totals.expenses = TOUR_COST_FIELDS.reduce((sum, field) => sum + Number(costs?.[field] || 0), 0);
+        totals.expensePayments = TOUR_COST_FIELDS.reduce((sum, field) => sum + Number(costs?.[`${field}Paid`] || 0), 0);
+        totals.expenseBalance = totals.expenses - totals.expensePayments;
         totals.projectedProfit = totals.contract - totals.expenses;
-        totals.cashPosition = totals.paid - totals.expenses;
+        totals.cashPosition = totals.paid - totals.expensePayments;
         return totals;
     }
 
@@ -2975,13 +2983,26 @@
         const tourId = $('costTourSelect').value;
         const currency = $('costCurrency')?.value || 'USD';
         if (!tourId) return;
-        const summary = calculateTourCostSummary(tourId, currency, collectCostValues());
+        const costs = collectCostValues();
+        const summary = calculateTourCostSummary(tourId, currency, costs);
         setCostMoney('costContractTotal', summary.contract, currency);
         setCostMoney('costPaidTotal', summary.paid, currency);
         setCostMoney('costExpenseTotal', summary.expenses, currency);
+        setCostMoney('costExpensePaidTotal', summary.expensePayments, currency);
+        setCostMoney('costExpenseBalance', summary.expenseBalance, currency, true);
         setCostMoney('costProjectedProfit', summary.projectedProfit, currency, true);
         setCostMoney('costCashPosition', summary.cashPosition, currency, true);
         setCostMoney('costNetProfitBottom', summary.projectedProfit, currency, true);
+        if ($('costExpenseBalanceLabel')) $('costExpenseBalanceLabel').textContent = summary.expenseBalance < -0.005 ? 'Giderlere fazla ödeme yapılmış' : 'Gider toplamı − ödenen';
+        TOUR_COST_FIELDS.forEach(field => {
+            const remainingElement = document.querySelector(`[data-cost-remaining-field="${field}"]`);
+            if (!remainingElement) return;
+            const remaining = Number(costs[field] || 0) - Number(costs[`${field}Paid`] || 0);
+            remainingElement.textContent = remaining < -0.005
+                ? `Fazla Ödeme: ${formatMoney(Math.abs(remaining), currency)}`
+                : `Kalan Ödenecek: ${formatMoney(remaining, currency)}`;
+            remainingElement.classList.toggle('credit', remaining < -0.005);
+        });
         if ($('costPassengerCount')) $('costPassengerCount').textContent = `${summary.passengers} yolcu${summary.matchingPassengers !== summary.passengers ? ` • ${summary.matchingPassengers} ${currency} hesabında` : ''}`;
         if ($('costReceivableTotal')) $('costReceivableTotal').textContent = `Kalan alacak: ${formatMoney(summary.balance, currency)}`;
         if ($('costCurrencyBadge')) $('costCurrencyBadge').textContent = currency;
@@ -3007,6 +3028,8 @@
         TOUR_COST_FIELDS.forEach(field => {
             const input = document.querySelector(`[data-cost-field="${field}"]`);
             if (input) input.value = Number(record[field] || 0) > 0 ? String(record[field]) : '';
+            const paidInput = document.querySelector(`[data-cost-paid-field="${field}"]`);
+            if (paidInput) paidInput.value = Number(record[`${field}Paid`] || 0) > 0 ? String(record[`${field}Paid`]) : '';
         });
         if ($('costAuditText')) {
             const updatedAt = record.updatedAt ? new Date(record.updatedAt) : null;
@@ -3675,7 +3698,7 @@
         if ($('costCurrency')) $('costCurrency').addEventListener('change', renderCostCalculation);
         if ($('tourCostForm')) {
             $('tourCostForm').addEventListener('submit', saveTourCosts);
-            $('tourCostForm').addEventListener('input', event => { if (event.target.matches('[data-cost-field]')) renderCostCalculation(); });
+            $('tourCostForm').addEventListener('input', event => { if (event.target.matches('[data-cost-field], [data-cost-paid-field]')) renderCostCalculation(); });
         }
 
         $('tourForm').addEventListener('submit', saveTour);

@@ -34,7 +34,15 @@ const summary = sandbox.calculate('tour-1', 'USD', {
   visa: 100,
   bag: 25,
   office: 75,
-  extra: 50
+  extra: 50,
+  mekkeHotelFoodPaid: 150,
+  medineHotelFoodPaid: 100,
+  devrekamilPaid: 50,
+  flightPaid: 400,
+  visaPaid: 100,
+  bagPaid: 0,
+  officePaid: 50,
+  extraPaid: 25
 });
 
 assert.strictEqual(summary.passengers, 3);
@@ -43,14 +51,27 @@ assert.strictEqual(summary.contract, 2700);
 assert.strictEqual(summary.paid, 2275);
 assert.strictEqual(summary.balance, 425);
 assert.strictEqual(summary.expenses, 1400);
+assert.strictEqual(summary.expensePayments, 875);
+assert.strictEqual(summary.expenseBalance, 525);
 assert.strictEqual(summary.projectedProfit, 1300);
-assert.strictEqual(summary.cashPosition, 875);
+assert.strictEqual(summary.cashPosition, 1400);
 assert.strictEqual(summary.otherCurrencies.TRY.contract, 15000);
 
 [
   'mekkeHotelFood', 'medineHotelFood', 'devrekamil', 'flight',
   'visa', 'bag', 'office', 'extra'
 ].forEach(field => assert(admin.includes(`data-cost-field="${field}"`), `${field} maliyet alanı eksik`));
+
+[
+  'mekkeHotelFood', 'medineHotelFood', 'devrekamil', 'flight',
+  'visa', 'bag', 'office', 'extra'
+].forEach(field => {
+  assert(admin.includes(`data-cost-paid-field="${field}"`), `${field} ödenen alanı eksik`);
+  assert(admin.includes(`data-cost-remaining-field="${field}"`), `${field} kalan ödeme göstergesi eksik`);
+});
+
+assert(admin.includes('id="costExpensePaidTotal"'), 'Toplam gider ödemesi eksik');
+assert(admin.includes('id="costExpenseBalance"'), 'Kalan gider borcu eksik');
 
 assert(admin.includes('id="tab-costs"') && admin.includes('desktop-only'), 'Maliyet ekranı yalnızca uygulama modunda olmalı');
 assert(styles.includes('.mobile-app .cost-hero'), 'Mobil maliyet görünümü eksik');

@@ -9,10 +9,10 @@
     <meta name="apple-mobile-web-app-title" content="Turizm Muhasebe" />
     <meta name="mobile-web-app-capable" content="yes" />
     <title>Hazeyn &amp; Hakikat • Turizm Muhasebe</title>
-    <link rel="manifest" href="/manifest.webmanifest?v=20260818-cost1" />
+    <link rel="manifest" href="/manifest.webmanifest?v=20260818-cost2" />
     <link rel="icon" type="image/png" sizes="192x192" href="/assets/mobile-app-icon-192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/mobile-app-icon-180.png" />
-    <link rel="stylesheet" href="style.css?v=20260818-cost1" />
+    <link rel="stylesheet" href="style.css?v=20260818-cost2" />
 </head>
 <body data-page="admin" class="admin-body">
     <div id="mobileInstallBar" class="mobile-install-bar" hidden>
@@ -288,7 +288,7 @@
                     <div>
                         <span class="section-kicker">TUR BAZINDA MALİYET</span>
                         <h2>Maliyet &amp; Net Kâr Hesabı</h2>
-                        <p>Turu seç, giderleri yaz ve kaydet. Toplam sözleşme gelirinden giderler düşülerek beklenen net kâr; tahsil edilen tutardan giderler düşülerek mevcut nakit durumu hesaplanır.</p>
+                        <p>Turu seç; her giderin toplamını ve şimdiye kadar ödediğin tutarı yaz. Uygulama kalan ödemeyi, mevcut nakdi ve beklenen net kârı otomatik hesaplar.</p>
                     </div>
                     <div class="cost-tour-controls">
                         <label>Tur Seç<select id="costTourSelect"><option value="">Tur seçin</option></select></label>
@@ -302,24 +302,26 @@
                         <article><span>Toplam Sözleşme Geliri</span><strong id="costContractTotal">—</strong><small id="costPassengerCount">0 yolcu</small></article>
                         <article><span>Tahsil Edilen</span><strong id="costPaidTotal">—</strong><small id="costReceivableTotal">Kalan alacak: —</small></article>
                         <article class="cost-expense-card"><span>Toplam Gider</span><strong id="costExpenseTotal">—</strong><small>Girilen sekiz maliyet kalemi</small></article>
+                        <article class="cost-payment-card"><span>Giderlere Ödediğim</span><strong id="costExpensePaidTotal">—</strong><small>Şimdiye kadar yapılan ödemeler</small></article>
+                        <article class="cost-debt-card"><span>Kalan Ödenecek</span><strong id="costExpenseBalance">—</strong><small id="costExpenseBalanceLabel">Gider toplamı − ödenen</small></article>
                         <article class="cost-profit-card"><span>Beklenen Net Kâr</span><strong id="costProjectedProfit">—</strong><small>Toplam gelir − toplam gider</small></article>
                     </div>
 
                     <form id="tourCostForm" class="admin-card cost-form">
-                        <div class="cost-form-heading"><div><h3>Tur Giderleri</h3><p>Her kaleme bu turun toplam giderini yaz.</p></div><span id="costCurrencyBadge">USD</span></div>
+                        <div class="cost-form-heading"><div><h3>Tur Giderleri</h3><p>Her kaleme toplam borcu ve ödediğin tutarı yaz; kalanı uygulama hesaplasın.</p></div><span id="costCurrencyBadge">USD</span></div>
                         <div class="cost-input-grid">
-                            <label><span>Mekke Yemek ve Otel</span><input data-cost-field="mekkeHotelFood" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
-                            <label><span>Medine Yemek ve Otel</span><input data-cost-field="medineHotelFood" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
-                            <label><span>Devrekamil</span><input data-cost-field="devrekamil" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
-                            <label><span>Uçak</span><input data-cost-field="flight" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
-                            <label><span>Vize</span><input data-cost-field="visa" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
-                            <label><span>Çanta</span><input data-cost-field="bag" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
-                            <label><span>Ofis</span><input data-cost-field="office" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
-                            <label><span>Ekstra</span><input data-cost-field="extra" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
+                            <div class="cost-item"><h4>Mekke Yemek ve Otel</h4><div class="cost-item-fields"><label>Toplam Gider<input data-cost-field="mekkeHotelFood" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label><label>Ödediğim<input data-cost-paid-field="mekkeHotelFood" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label></div><strong class="cost-item-remaining" data-cost-remaining-field="mekkeHotelFood">Kalan Ödenecek: —</strong></div>
+                            <div class="cost-item"><h4>Medine Yemek ve Otel</h4><div class="cost-item-fields"><label>Toplam Gider<input data-cost-field="medineHotelFood" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label><label>Ödediğim<input data-cost-paid-field="medineHotelFood" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label></div><strong class="cost-item-remaining" data-cost-remaining-field="medineHotelFood">Kalan Ödenecek: —</strong></div>
+                            <div class="cost-item"><h4>Devrekamil</h4><div class="cost-item-fields"><label>Toplam Gider<input data-cost-field="devrekamil" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label><label>Ödediğim<input data-cost-paid-field="devrekamil" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label></div><strong class="cost-item-remaining" data-cost-remaining-field="devrekamil">Kalan Ödenecek: —</strong></div>
+                            <div class="cost-item"><h4>Uçak</h4><div class="cost-item-fields"><label>Toplam Gider<input data-cost-field="flight" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label><label>Ödediğim<input data-cost-paid-field="flight" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label></div><strong class="cost-item-remaining" data-cost-remaining-field="flight">Kalan Ödenecek: —</strong></div>
+                            <div class="cost-item"><h4>Vize</h4><div class="cost-item-fields"><label>Toplam Gider<input data-cost-field="visa" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label><label>Ödediğim<input data-cost-paid-field="visa" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label></div><strong class="cost-item-remaining" data-cost-remaining-field="visa">Kalan Ödenecek: —</strong></div>
+                            <div class="cost-item"><h4>Çanta</h4><div class="cost-item-fields"><label>Toplam Gider<input data-cost-field="bag" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label><label>Ödediğim<input data-cost-paid-field="bag" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label></div><strong class="cost-item-remaining" data-cost-remaining-field="bag">Kalan Ödenecek: —</strong></div>
+                            <div class="cost-item"><h4>Ofis</h4><div class="cost-item-fields"><label>Toplam Gider<input data-cost-field="office" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label><label>Ödediğim<input data-cost-paid-field="office" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label></div><strong class="cost-item-remaining" data-cost-remaining-field="office">Kalan Ödenecek: —</strong></div>
+                            <div class="cost-item"><h4>Ekstra</h4><div class="cost-item-fields"><label>Toplam Gider<input data-cost-field="extra" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label><label>Ödediğim<input data-cost-paid-field="extra" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label></div><strong class="cost-item-remaining" data-cost-remaining-field="extra">Kalan Ödenecek: —</strong></div>
                         </div>
                         <div id="costCurrencyWarning" class="cost-currency-warning" hidden></div>
                         <div class="cost-result-strip">
-                            <div><span>Mevcut Nakit Durumu</span><strong id="costCashPosition">—</strong><small>Tahsil edilen − gider</small></div>
+                            <div><span>Mevcut Net Nakit</span><strong id="costCashPosition">—</strong><small>Tahsil edilen − giderlere ödenen</small></div>
                             <div><span>Beklenen Net Kâr</span><strong id="costNetProfitBottom">—</strong><small>Tüm alacaklar tahsil edildiğinde</small></div>
                         </div>
                         <div class="cost-save-row"><small id="costAuditText">Henüz maliyet kaydı yok.</small><button class="btn btn-gold" type="submit">Maliyetleri Kaydet</button></div>
@@ -499,6 +501,6 @@
     </div>
     <script src="vendor/exceljs.min.js?v=4.4.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=20260818-cost1"></script>
+    <script src="app.js?v=20260818-cost2"></script>
 </body>
 </html>
