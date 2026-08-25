@@ -9,10 +9,10 @@
     <meta name="apple-mobile-web-app-title" content="Turizm Muhasebe" />
     <meta name="mobile-web-app-capable" content="yes" />
     <title>Hazeyn &amp; Hakikat • Turizm Muhasebe</title>
-    <link rel="manifest" href="/manifest.webmanifest?v=20260818-permissions2" />
+    <link rel="manifest" href="/manifest.webmanifest?v=20260825-whatsapp1" />
     <link rel="icon" type="image/png" sizes="192x192" href="/assets/mobile-app-icon-192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/mobile-app-icon-180.png" />
-    <link rel="stylesheet" href="style.css?v=20260818-permissions2" />
+    <link rel="stylesheet" href="style.css?v=20260825-whatsapp1" />
 </head>
 <body data-page="admin" class="admin-body">
     <div id="mobileInstallBar" class="mobile-install-bar" hidden>
@@ -80,6 +80,14 @@
                     <h2>Nasıl kullanılır?</h2>
                     <p>Turları, yolcu listelerini, ödemeleri ve makbuzları buradan yönetebilirsin. Kaydettiğin değişiklikler bilgisayar ve telefonda aynı veriden otomatik güncellenir.</p><p>Yolcuların manuel sırası korunur. İstersen kayıtlı listede “Aynı Soyadları Göster” düğmesiyle aynı soyadlıları geçici olarak yan yana görebilir, düğmeye tekrar basarak kendi sıralamana dönebilirsin.</p>
                     <p>Yolcu listesinde <b>PDF / Yazdır</b> butonuna basınca yazdırma ekranı açılır. Yazıcı seçebilir veya “PDF olarak kaydet” diyebilirsin.</p>
+                </div>
+                <div class="admin-card desktop-only whatsapp-integration-card" id="whatsappIntegrationCard">
+                    <div>
+                        <span class="section-kicker">KURUMSAL WHATSAPP</span>
+                        <h2>+90 332 351 43 51</h2>
+                        <p>Yeni yolcu kaydında kayıt mesajı, ödeme alındığında PDF makbuzu otomatik gönderilir.</p>
+                    </div>
+                    <span class="whatsapp-status checking" id="whatsappIntegrationStatus">Bağlantı kontrol ediliyor…</span>
                 </div>
             </section>
 
@@ -415,6 +423,8 @@
                                 <label><input type="checkbox" data-app-permission="recordPayments" /> Ödeme kaydet</label>
                                 <label><input type="checkbox" data-app-permission="voidPayments" /> Ödeme iptal et</label>
                                 <label><input type="checkbox" data-app-permission="printReceipts" /> Makbuz aç / yazdır</label>
+                                <label><input type="checkbox" data-app-permission="sendWelcomeWhatsApp" /> Yolcuya WhatsApp kayıt mesajı gönder</label>
+                                <label><input type="checkbox" data-app-permission="sendReceiptWhatsApp" /> WhatsApp’tan PDF makbuz gönder</label>
                                 <label><input type="checkbox" data-app-permission="manageCosts" /> Tur giderlerini kaydet</label>
                                 <label><input type="checkbox" data-app-permission="exportBackup" /> Yedek indir</label>
                             </div>
@@ -526,6 +536,6 @@
     </div>
     <script src="vendor/exceljs.min.js?v=4.4.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=20260818-permissions2"></script>
+    <script src="app.js?v=20260825-whatsapp1"></script>
 </body>
 </html>

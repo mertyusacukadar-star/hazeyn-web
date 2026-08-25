@@ -13,6 +13,7 @@ const PERMISSION_KEYS = [
   'viewDashboard', 'viewTours', 'manageTours',
   'viewPassengers', 'managePassengers', 'deletePassengerLists', 'exportPassengerLists',
   'viewAccounting', 'managePrices', 'recordPayments', 'voidPayments', 'printReceipts',
+  'sendWelcomeWhatsApp', 'sendReceiptWhatsApp',
   'viewCosts', 'manageCosts', 'exportBackup'
 ];
 
@@ -65,6 +66,8 @@ function permissionError(permission){
     managePrices:'Yolcu fiyatı değiştirme',
     recordPayments:'Ödeme kaydetme',
     voidPayments:'Ödeme iptal etme',
+    sendWelcomeWhatsApp:'WhatsApp kayıt mesajı gönderme',
+    sendReceiptWhatsApp:'WhatsApp makbuzu gönderme',
     manageCosts:'Tur gideri değiştirme'
   };
   const error = new Error(`${labels[permission] || 'Bu işlem'} yetkin yok.`);

@@ -78,3 +78,22 @@ node server.js
 ```
 
 Lokal kullanımda Supabase görsel yükleme devreye girmez; görseller tarayıcı/JSON mantığında çalışır. Canlı yayın için Vercel + Supabase kullan.
+## Kurumsal WhatsApp bağlantısı
+
+Uygulama yeni yolcu kaydında kayıt mesajı, ödeme kaydında ise tahsilat
+makbuzunu PDF olarak gönderebilir. Gönderim tarayıcıdan değil, erişim anahtarı
+gizli kalacak şekilde sunucudaki Meta WhatsApp Business Cloud API bağlantısından
+yapılır.
+
+WhatsApp Manager'da iki Türkçe `Utility` şablonu oluşturup onaylat:
+
+- `yolcu_kaydi_olusturuldu`: Metin gövdesi
+  `Hayırlı olsun, kaydınız oluşturulmuştur. Program ve ödeme bilgileriniz için acentamızla iletişime geçebilirsiniz.`
+- `odeme_makbuzu_pdf`: Belge başlıklı şablon. Metin gövdesi
+  `Ödemeniz alınmıştır. Tahsilat makbuzunuz PDF olarak ektedir. Hayırlı yolculuklar dileriz.`
+
+Ardından Vercel ortam değişkenlerine `ENV.example` dosyasındaki
+`WHATSAPP_*` değerlerini gir. `WHATSAPP_ACCESS_TOKEN` kalıcı sistem kullanıcısı
+erişim anahtarı, `WHATSAPP_PHONE_NUMBER_ID` ise 0332 351 4 351 numarasının Meta
+telefon numarası kimliği olmalıdır. Bu gizli değerleri `public` klasörüne veya
+uygulama verisine yazma.

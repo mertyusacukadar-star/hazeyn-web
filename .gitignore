@@ -1,6 +1,8 @@
 node_modules/
 release/
 *.log
+output/
+tmp/
 .env
 .env.*
 !.env.example

@@ -9,6 +9,7 @@ const permissions = [
   'viewDashboard', 'viewTours', 'manageTours',
   'viewPassengers', 'managePassengers', 'deletePassengerLists', 'exportPassengerLists',
   'viewAccounting', 'managePrices', 'recordPayments', 'voidPayments', 'printReceipts',
+  'sendWelcomeWhatsApp', 'sendReceiptWhatsApp',
   'viewCosts', 'manageCosts', 'exportBackup'
 ];
 

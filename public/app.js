@@ -130,17 +130,20 @@
     let selectedPassengerTourGroupId = '';
     let deferredMobileInstallPrompt = null;
     let selectedCostTourId = '';
+    let whatsappIntegrationStatus = null;
     const surnameSortedLists = new Set();
     const APP_PERMISSION_DEFINITIONS = [
         ['viewDashboard', 'Genel Bakış'], ['viewTours', 'Turları Gör'], ['manageTours', 'Tur Yönet'],
         ['viewPassengers', 'Yolcu Listelerini Gör'], ['managePassengers', 'Yolcu Yönet'], ['deletePassengerLists', 'Yolcu Listesi Sil'], ['exportPassengerLists', 'PDF / Excel'],
         ['viewAccounting', 'Muhasebeyi Gör'], ['managePrices', 'Fiyat Değiştir'], ['recordPayments', 'Ödeme Al'], ['voidPayments', 'Ödeme İptal'], ['printReceipts', 'Makbuz Yazdır'],
+        ['sendWelcomeWhatsApp', 'WhatsApp Kayıt Mesajı'], ['sendReceiptWhatsApp', 'WhatsApp PDF Makbuz'],
         ['viewCosts', 'Maliyetleri Gör'], ['manageCosts', 'Maliyet Yönet'], ['exportBackup', 'Yedek İndir']
     ];
     const APP_TAB_PERMISSIONS = { dashboard: 'viewDashboard', tours: 'viewTours', passengers: 'viewPassengers', accounting: 'viewAccounting', costs: 'viewCosts' };
     const APP_ACTION_VIEW_PERMISSIONS = {
         manageTours: 'viewTours', managePassengers: 'viewPassengers', deletePassengerLists: 'viewPassengers', exportPassengerLists: 'viewPassengers',
-        managePrices: 'viewAccounting', recordPayments: 'viewAccounting', voidPayments: 'viewAccounting', printReceipts: 'viewAccounting', manageCosts: 'viewCosts'
+        managePrices: 'viewAccounting', recordPayments: 'viewAccounting', voidPayments: 'viewAccounting', printReceipts: 'viewAccounting',
+        sendWelcomeWhatsApp: 'viewPassengers', sendReceiptWhatsApp: 'viewAccounting', manageCosts: 'viewCosts'
     };
 
     function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
@@ -939,6 +942,104 @@
         const result = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(result.error || 'İşlem tamamlanamadı.');
         return result;
+    }
+
+    function renderWhatsAppIntegrationStatus() {
+        const target = $('whatsappIntegrationStatus');
+        if (!target || !IS_APP_MODE) return;
+        target.className = 'whatsapp-status';
+        if (!whatsappIntegrationStatus) {
+            target.classList.add('checking');
+            target.textContent = 'Bağlantı kontrol ediliyor…';
+            return;
+        }
+        if (whatsappIntegrationStatus.connected) {
+            target.classList.add('ready');
+            target.textContent = 'Meta bağlantısı hazır • otomatik gönderim açık';
+            return;
+        }
+        if (whatsappIntegrationStatus.error) {
+            target.classList.add('error');
+            target.textContent = whatsappIntegrationStatus.error;
+            return;
+        }
+        target.classList.add('waiting');
+        target.textContent = 'Meta bağlantısı bekliyor • erişim anahtarı ve telefon kimliği gerekli';
+    }
+
+    async function whatsappApi(action, body) {
+        const method = body ? 'POST' : 'GET';
+        const response = await fetch(`/api/whatsapp?action=${encodeURIComponent(action)}&company=${encodeURIComponent(currentCompanyId)}`, {
+            method,
+            cache: 'no-store',
+            headers: authorizedHeaders(body ? { 'Content-Type': 'application/json' } : {}),
+            ...(body ? { body: JSON.stringify(body) } : {})
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const error = new Error(result.error || 'WhatsApp işlemi tamamlanamadı.');
+            error.configured = result.configured;
+            throw error;
+        }
+        return result;
+    }
+
+    async function loadWhatsAppIntegrationStatus(force = false) {
+        if (!IS_APP_MODE || !adminLoggedIn) return null;
+        if (whatsappIntegrationStatus && !force) return whatsappIntegrationStatus;
+        whatsappIntegrationStatus = null;
+        renderWhatsAppIntegrationStatus();
+        try {
+            whatsappIntegrationStatus = await whatsappApi('status');
+        } catch (error) {
+            whatsappIntegrationStatus = { connected: false, error: error.message || 'WhatsApp bağlantısı kontrol edilemedi.' };
+        }
+        renderWhatsAppIntegrationStatus();
+        return whatsappIntegrationStatus;
+    }
+
+    async function sendWhatsAppWelcome(listId, passengerId, { silent = false } = {}) {
+        if (!requirePermission('sendWelcomeWhatsApp')) return false;
+        try {
+            const status = await loadWhatsAppIntegrationStatus();
+            if (!status?.connected) throw new Error('Kurumsal WhatsApp bağlantısı henüz tamamlanmadı.');
+            await whatsappApi('welcome', { listId, passengerId });
+            if (!silent) toast('“Hayırlı olsun, kaydınız oluşturulmuştur” mesajı WhatsApp’tan gönderildi.');
+            return true;
+        } catch (error) {
+            if (!silent) toast(`WhatsApp kayıt mesajı gönderilemedi: ${error.message}`);
+            return false;
+        }
+    }
+
+    async function sendNewPassengerWelcomeMessages(list, previousList) {
+        if (!IS_APP_MODE || !hasPermission('sendWelcomeWhatsApp')) return;
+        const previousIds = new Set((previousList?.passengers || []).map(passenger => String(passenger.id)));
+        const recipients = (list.passengers || []).filter(passenger => passenger.phone && !previousIds.has(String(passenger.id)));
+        if (!recipients.length) return;
+        const status = await loadWhatsAppIntegrationStatus();
+        if (!status?.connected) {
+            toast('Yolcular kaydedildi; kurumsal WhatsApp bağlantısı tamamlanmadığı için kayıt mesajları bekliyor.');
+            return;
+        }
+        const results = await Promise.allSettled(recipients.map(passenger => sendWhatsAppWelcome(list.id, passenger.id, { silent: true })));
+        const sent = results.filter(result => result.status === 'fulfilled' && result.value === true).length;
+        const failed = recipients.length - sent;
+        toast(failed ? `${sent} yolcuya WhatsApp kayıt mesajı gönderildi; ${failed} mesaj gönderilemedi.` : `${sent} yolcuya WhatsApp kayıt mesajı gönderildi.`);
+    }
+
+    async function sendWhatsAppReceipt(listId, passengerId, paymentId, { silent = false } = {}) {
+        if (!requirePermission('sendReceiptWhatsApp')) return false;
+        try {
+            const status = await loadWhatsAppIntegrationStatus();
+            if (!status?.connected) throw new Error('Kurumsal WhatsApp bağlantısı henüz tamamlanmadı.');
+            const result = await whatsappApi('receipt', { listId, passengerId, paymentId });
+            if (!silent) toast(`${result.receiptNo || 'Makbuz'} PDF olarak WhatsApp’tan gönderildi.`);
+            return true;
+        } catch (error) {
+            if (!silent) toast(`PDF makbuz WhatsApp’tan gönderilemedi: ${error.message}`);
+            return false;
+        }
     }
 
     async function getUploadConfig() {
@@ -1857,6 +1958,7 @@
             return true;
         }
         currentCompanyId = nextCompanyId;
+        whatsappIntegrationStatus = null;
         localStorage.setItem('turizmLastCompany', currentCompanyId);
         const url = new URL(location.href);
         url.searchParams.set('company', currentCompanyId);
@@ -1909,6 +2011,7 @@
         if (IS_APP_MODE && hasPermission('viewCosts')) renderCostAccounting();
         if (IS_APP_MODE && isAppOwner()) renderDesktopUsers();
         ensurePassengerRows();
+        if (IS_APP_MODE) loadWhatsAppIntegrationStatus();
     }
 
     function renderDashboard() {
@@ -2678,7 +2781,9 @@
         if (idx > -1) state.passengerLists[idx] = item; else state.passengerLists.unshift(item);
         if (IS_APP_MODE) selectedPassengerTourGroupId = tourId ? `tour:${tourId}` : 'legacy';
 
-        if (!await saveData({ keepLocalAccounting: IS_APP_MODE })) return; clearPassengerForm(); renderPassengerAdmin(); renderDashboard(); toast('Yolcu listesi ve muhasebe fiyatları kaydedildi.');
+        if (!await saveData({ keepLocalAccounting: IS_APP_MODE })) return;
+        clearPassengerForm(); renderPassengerAdmin(); renderDashboard(); toast('Yolcu listesi ve muhasebe fiyatları kaydedildi.');
+        await sendNewPassengerWelcomeMessages(item, existing);
     }
 
     function editPassengerList(id) {
@@ -3176,7 +3281,7 @@
                 <td>${escapeHtml(payment.method || '-')}</td>
                 ${IS_APP_MODE ? `<td>${escapeHtml(actorName(payment.receivedBy, 'Eski kayıt'))}</td>` : ''}
                 <td>${escapeHtml(payment.note || '-')}</td>
-                <td class="payment-actions">${hasPermission('printReceipts') ? `<button class="icon-btn" type="button" data-print-receipt="${escapeHtml(payment.id)}">Makbuz</button>` : ''}${payment.voided || !hasPermission('voidPayments') ? '' : `<button class="icon-btn danger" type="button" data-void-payment="${escapeHtml(payment.id)}">İptal</button>`}${!hasPermission('printReceipts') && (payment.voided || !hasPermission('voidPayments')) ? '—' : ''}</td>
+                <td class="payment-actions">${hasPermission('printReceipts') ? `<button class="icon-btn" type="button" data-print-receipt="${escapeHtml(payment.id)}">Makbuz</button>` : ''}${!payment.voided && hasPermission('sendReceiptWhatsApp') ? `<button class="icon-btn whatsapp-action" type="button" data-send-receipt-whatsapp="${escapeHtml(payment.id)}">WhatsApp PDF</button>` : ''}${payment.voided || !hasPermission('voidPayments') ? '' : `<button class="icon-btn danger" type="button" data-void-payment="${escapeHtml(payment.id)}">İptal</button>`}${!hasPermission('printReceipts') && !hasPermission('sendReceiptWhatsApp') && (payment.voided || !hasPermission('voidPayments')) ? '—' : ''}</td>
             </tr>`).join('');
         return `<div class="accounting-payment-table"><table><thead><tr><th>Makbuz No</th><th>Tarih</th><th>Tutar</th><th>Yöntem</th>${IS_APP_MODE ? '<th>Tahsilatı Alan</th>' : ''}<th>Not</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
@@ -3211,6 +3316,7 @@
         const accountingEditorTitle = canManagePrice || canRecordPayment ? 'Fiyat ve ödeme işlemleri' : 'Ödeme geçmişi';
         const priceEditorHtml = canManagePrice ? `<div class="accounting-form-block"><h4>${priceEditorTitle}</h4><div class="inline-money-form"><input class="account-agreed-price" type="number" min="0" step="0.01" value="${escapeHtml(snapshot.agreedPrice)}" aria-label="Program ücreti"><select class="account-currency" aria-label="Para birimi">${['USD', 'EUR', 'TRY'].map(currency => `<option value="${currency}" ${currency === snapshot.currency ? 'selected' : ''}>${currency}</option>`).join('')}</select><div class="account-price-actions"><button class="btn btn-outline dark" type="button" data-save-account-price>${priceSaveLabel}</button>${priceResetButton}</div></div><small>${priceHelp}</small></div>` : '';
         const paymentEditorHtml = canRecordPayment ? `<div class="accounting-form-block payment-form"><h4>Yeni Ödeme Ekle</h4><div class="payment-fields"><label>Tutar<input class="payment-amount" type="number" min="0.01" step="0.01" placeholder="200"></label><label>Tarih<input class="payment-date" type="date" value="${todayIso()}"></label><label>Ödeme Yöntemi<select class="payment-method"><option>Nakit</option><option>Havale / EFT</option><option>Kredi Kartı</option><option>Diğer</option></select></label><label>Not<input class="payment-note" placeholder="Kapora, ikinci ödeme..."></label></div><button class="btn btn-gold" type="button" data-add-payment>${hasPermission('printReceipts') ? 'Ödemeyi Kaydet ve Makbuz Yazdır' : 'Ödemeyi Kaydet'}</button></div>` : '';
+        const welcomeMessageHtml = IS_APP_MODE && hasPermission('sendWelcomeWhatsApp') ? `<button class="icon-btn whatsapp-action" type="button" data-send-welcome-whatsapp>WhatsApp Kayıt Mesajı</button>` : '';
         return `<article class="accounting-card" data-account-card data-list-id="${escapeHtml(list.id)}" data-passenger-id="${escapeHtml(passenger.id)}">
             <header class="accounting-card-head">
                 <div><span class="accounting-tour-type">${escapeHtml(accountingProgramType(context))}</span><h3>${escapeHtml(passenger.name || 'İsimsiz yolcu')}</h3><p>${escapeHtml(tour?.title || list.title || 'Program')} • ${escapeHtml(formatDateTR(tour?.departureDate || list.date) || 'Tarih yok')}</p>${auditHtml}</div>
@@ -3228,6 +3334,7 @@
                 <span><small>Toplam Ödeme</small><strong>${escapeHtml(formatMoney(snapshot.paid, snapshot.currency))}</strong></span>
                 <span><small>Kalan Bakiye</small><strong>${escapeHtml(formatMoney(snapshot.balance, snapshot.currency))}</strong></span>
             </div>
+            ${welcomeMessageHtml ? `<div class="accounting-audit-line">${welcomeMessageHtml}</div>` : ''}
             <details class="accounting-editor" ${accountingSearchQuery ? 'open' : ''}>
                 <summary>${accountingEditorTitle}</summary>
                 ${priceEditorHtml || paymentEditorHtml ? `<div class="accounting-editor-grid">${priceEditorHtml}${paymentEditorHtml}</div>` : ''}
@@ -3334,6 +3441,7 @@
             const opened = printPaymentReceipt(context.list.id, context.passenger.id, payment.id, receiptWindow);
             toast(opened ? 'Ödeme kaydedildi; makbuz yazdırmaya hazır.' : 'Ödeme kaydedildi; makbuz dosyası indirildi.');
         } else toast('Ödeme kaydedildi.');
+        if (hasPermission('sendReceiptWhatsApp')) await sendWhatsAppReceipt(context.list.id, context.passenger.id, payment.id);
     }
 
     async function voidPassengerPayment(card, paymentId) {
@@ -3955,10 +4063,20 @@
             if (resetAccountPrice && accountingCard) { await resetPassengerAccountPrice(accountingCard); return; }
             const addPayment = e.target.closest && e.target.closest('[data-add-payment]');
             if (addPayment && accountingCard) { await addPassengerPayment(accountingCard); return; }
+            const sendWelcome = e.target.closest && e.target.closest('[data-send-welcome-whatsapp]');
+            if (sendWelcome && accountingCard) {
+                await sendWhatsAppWelcome(accountingCard.dataset.listId, accountingCard.dataset.passengerId);
+                return;
+            }
             const printReceipt = e.target.closest && e.target.closest('[data-print-receipt]');
             if (printReceipt && accountingCard) {
                 const opened = printPaymentReceipt(accountingCard.dataset.listId, accountingCard.dataset.passengerId, printReceipt.dataset.printReceipt);
                 if (!opened) toast('Makbuz dosyası indirildi; açıp yazdırabilirsin.');
+                return;
+            }
+            const sendReceipt = e.target.closest && e.target.closest('[data-send-receipt-whatsapp]');
+            if (sendReceipt && accountingCard) {
+                await sendWhatsAppReceipt(accountingCard.dataset.listId, accountingCard.dataset.passengerId, sendReceipt.dataset.sendReceiptWhatsapp);
                 return;
             }
             const voidPayment = e.target.closest && e.target.closest('[data-void-payment]');
