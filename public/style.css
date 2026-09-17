@@ -1105,3 +1105,22 @@ body:not(.desktop-app) .desktop-only{display:none!important}
 .camera-review textarea { width:100%; min-height:115px; font-family:monospace; font-size:14px; letter-spacing:1px; }
 .camera-review input { width:100%; max-width:240px; padding:9px; }
 .camera-review small { font-weight:400; }
+
+body.camera-open { overflow:hidden; }
+.passport-live-scanner { position:fixed; inset:0; z-index:100000; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:calc(16px + env(safe-area-inset-top)) 12px calc(18px + env(safe-area-inset-bottom)); color:#fff; background:#050505; }
+.passport-camera-stage { position:absolute; inset:0; display:grid; place-items:center; overflow:hidden; }
+.passport-camera-stage video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.passport-camera-stage::after { content:""; position:absolute; inset:0; background:rgba(0,0,0,.42); pointer-events:none; }
+.passport-guide { position:relative; z-index:2; width:min(92vw,720px); aspect-ratio:1.42; border:3px solid #e6bd67; border-radius:18px; box-shadow:0 0 0 200vmax rgba(0,0,0,.58),0 0 22px rgba(230,189,103,.55); overflow:hidden; }
+.passport-guide::before,.passport-guide::after { content:""; position:absolute; left:3%; right:3%; height:22%; border-left:2px solid rgba(255,255,255,.8); border-right:2px solid rgba(255,255,255,.8); }
+.passport-guide::before { top:6%; border-top:2px solid rgba(255,255,255,.8); }
+.passport-guide::after { bottom:5%; border-bottom:2px solid rgba(255,255,255,.8); }
+.passport-guide span { position:absolute; top:10px; left:10px; right:10px; text-align:center; padding:7px; border-radius:8px; background:rgba(0,0,0,.62); font-weight:700; }
+.passport-guide i { position:absolute; left:4%; right:4%; bottom:6%; height:21%; display:flex; align-items:center; justify-content:center; border:2px dashed #e6bd67; color:#fff; background:rgba(230,189,103,.13); font-style:normal; font-weight:800; letter-spacing:3px; }
+.passport-scanner-close { position:absolute; z-index:4; top:calc(12px + env(safe-area-inset-top)); right:16px; width:46px; height:46px; border:0; border-radius:50%; color:#fff; background:rgba(0,0,0,.72); font-size:32px; line-height:1; }
+.passport-scanner-message { position:absolute; z-index:3; left:16px; right:16px; bottom:calc(92px + env(safe-area-inset-bottom)); text-align:center; font-size:17px; font-weight:700; text-shadow:0 2px 4px #000; }
+.passport-scan-progress { position:absolute; z-index:3; bottom:calc(68px + env(safe-area-inset-bottom)); display:flex; gap:7px; }
+.passport-scan-progress b { width:28px; height:5px; border-radius:5px; background:rgba(255,255,255,.35); }
+.passport-scan-progress b.active { background:#e6bd67; }
+.passport-manual-capture { position:absolute; z-index:3; bottom:calc(14px + env(safe-area-inset-bottom)); min-width:150px; }
+@media (orientation:landscape) and (max-height:600px) { .passport-guide { width:min(70vw,650px); } }

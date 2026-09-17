@@ -48,9 +48,8 @@
         const panel = document.createElement('div');
         panel.className = 'document-reader';
         panel.innerHTML = `<strong>Kimlik / Pasaport okut</strong><p>Önce yukarıdan programı seçin. Kamerayla okumada belgenin altındaki MRZ satırlarını net çekin.</p>
-          <button type="button" class="btn btn-gold" data-camera>Kamerayla okut</button>
+          <button type="button" class="btn btn-gold" data-camera>Canlı kamerayla okut</button>
           <button type="button" class="btn btn-outline dark" data-scan>NFC ile okut</button>
-          <input data-camera-file type="file" accept="image/*" capture="environment" hidden>
           <div data-camera-tools class="camera-review" hidden>
             <label>Okunan MRZ satırları <small>Pasaportta 2, kimlikte 3 satır. Hataları düzeltebilirsiniz.</small><textarea data-mrz rows="4" spellcheck="false" autocapitalize="characters"></textarea></label>
             <label>T.C. kimlik no <small>MRZ’de yoksa mevcut yolcuyla eşleştirmek için girin.</small><input data-tc inputmode="numeric" autocomplete="off" maxlength="11"></label>
@@ -60,7 +59,7 @@
         document.getElementById('passengerTable').closest('.table-wrap').before(panel);
         let pending = null;
         const status = panel.querySelector('[data-status]');
-        const cameraInput = panel.querySelector('[data-camera-file]');
+        const cameraButton = panel.querySelector('[data-camera]');
         const cameraTools = panel.querySelector('[data-camera-tools]');
         const signature = () => JSON.stringify(hooks.context());
         const dialog = document.createElement('dialog');
@@ -68,33 +67,30 @@
         document.body.append(dialog);
         function clear() { pending = null; dialog.close(); dialog.replaceChildren(); }
         dialog.addEventListener('cancel', clear);
-        panel.querySelector('[data-camera]').onclick = () => {
+        cameraButton.onclick = async () => {
             try {
                 if (!hooks.allowed()) throw Error('Yolcu düzenleme yetkiniz yok.');
                 if (!hooks.context().tourId) throw Error('Önce kayıt yapılacak programı seçin.');
                 pending = { token: crypto.randomUUID(), signature: signature() };
                 cameraTools.hidden = true;
-                cameraInput.value = '';
-                cameraInput.click();
-            } catch (error) { status.textContent = error.message; }
-        };
-        cameraInput.onchange = async () => {
-            if (!cameraInput.files?.length || !pending) { pending = null; return; }
-            const token = pending.token;
-            try {
-                if (!root.TurizmMrzCamera?.readImage) throw Error('Kamera okuyucu yüklenemedi.');
-                const raw = await root.TurizmMrzCamera.readImage(cameraInput.files[0], message => { status.textContent = message; });
+                cameraButton.disabled = true;
+                if (!root.TurizmMrzCamera?.captureLive || !root.TurizmMrzCamera?.readDocument) throw Error('Canlı kamera okuyucu yüklenemedi.');
+                const token = pending.token;
+                const image = await root.TurizmMrzCamera.captureLive(message => { status.textContent = message; });
+                const read = await root.TurizmMrzCamera.readDocument(image, message => { status.textContent = message; });
                 if (!pending || pending.token !== token || signature() !== pending.signature) throw Error('Program veya liste değişti. Fotoğrafı yeniden çekin.');
-                panel.querySelector('[data-mrz]').value = raw.trim();
+                pending.visualText = read.visualText;
+                panel.querySelector('[data-mrz]').value = read.mrzText.trim();
                 cameraTools.hidden = false;
-                status.textContent = 'MRZ satırlarını ve varsa T.C. numarasını kontrol edip “Satırları işle”ye basın.';
+                status.textContent = 'Okunan MRZ satırlarını ve varsa T.C. numarasını kontrol edip “Satırları işle”ye basın.';
             } catch (error) { pending = null; status.textContent = error.message; }
+            finally { cameraButton.disabled = false; }
         };
         panel.querySelector('[data-parse]').onclick = async () => {
             try {
                 if (!pending || signature() !== pending.signature || !hooks.allowed()) throw Error('Program veya liste değişti. Yeniden okutun.');
                 const parser = await import('/vendor/mrz/lib/index.js');
-                const documentData = root.TurizmMrzCamera.parseText(panel.querySelector('[data-mrz]').value, parser.parse, panel.querySelector('[data-tc]').value);
+                const documentData = root.TurizmMrzCamera.parseText(panel.querySelector('[data-mrz]').value, parser.parse, panel.querySelector('[data-tc]').value, new Date(), pending.visualText || '');
                 root.turizmNfcResult({requestId:pending.token, document:documentData});
                 cameraTools.hidden = true;
             } catch (error) { status.textContent = error.message; }

@@ -8,6 +8,8 @@ const manifest = JSON.parse(read('public/manifest.webmanifest'));
 const admin = read('public/admin.html');
 const app = read('public/app.js');
 const worker = read('public/service-worker.js');
+const reader = read('public/document-reader.js');
+const camera = read('public/mrz-camera.js');
 
 assert.strictEqual(manifest.display, 'standalone');
 assert.strictEqual(manifest.start_url, '/admin.html?mobile=1');
@@ -18,6 +20,9 @@ assert(admin.includes('apple-mobile-web-app-capable'));
 assert(app.includes("const IS_MOBILE_APP = page === 'admin' && appQuery.get('mobile') === '1';"));
 assert(app.includes("navigator.serviceWorker.register('/service-worker.js')"));
 assert(worker.includes("url.pathname.startsWith('/api/')"), 'API ve muhasebe verileri önbelleğe alınmamalı');
+assert(camera.includes('navigator.mediaDevices.getUserMedia'), 'Canlı kamera akışı kullanılmalı');
+assert(camera.includes('passport-guide'), 'Pasaport hizalama çerçevesi bulunmalı');
+assert(!reader.includes('type="file"'), 'Kamera akışı dosya yükleme alanı kullanmamalı');
 
 function pngDimensions(relativePath) {
   const bytes = fs.readFileSync(path.join(root, relativePath));
