@@ -9,7 +9,7 @@
     }
     function normalize(input) {
         if (!input || input.version !== 1 || !['passport','identity'].includes(input.documentType)) throw Error('Belge biçimi desteklenmiyor.');
-        const result = { documentType: input.documentType };
+        const result = { documentType: input.documentType, source: input.source === 'camera' ? 'camera' : 'nfc' };
         for (const key of fields) {
             const value = String(input[key] || '').trim();
             if (!value) continue;
@@ -37,7 +37,7 @@
         const next = { ...existing };
         fields.forEach(key => { if (document[key]) next[key] = document[key]; });
         next.documentReadAt = new Date().toISOString();
-        next.documentVerification = 'not-verified';
+        next.documentVerification = document.source === 'camera' ? 'mrz-checked' : 'not-verified';
         return next;
     }
     const api = { validTc, normalize, match, merge };
@@ -47,18 +47,58 @@
     root.installDocumentReader = function (hooks) {
         const panel = document.createElement('div');
         panel.className = 'document-reader';
-        panel.innerHTML = `<strong>Kimlik / Pasaport okut</strong><p>Önce yukarıdan programı seçin. Belgeyi okuttuktan sonra değişiklikleri kontrol edin.</p>
-          <button type="button" class="btn btn-gold" data-scan>NFC ile okut</button>
+        panel.innerHTML = `<strong>Kimlik / Pasaport okut</strong><p>Önce yukarıdan programı seçin. Kamerayla okumada belgenin altındaki MRZ satırlarını net çekin.</p>
+          <button type="button" class="btn btn-gold" data-camera>Kamerayla okut</button>
+          <button type="button" class="btn btn-outline dark" data-scan>NFC ile okut</button>
+          <input data-camera-file type="file" accept="image/*" capture="environment" hidden>
+          <div data-camera-tools class="camera-review" hidden>
+            <label>Okunan MRZ satırları <small>Pasaportta 2, kimlikte 3 satır. Hataları düzeltebilirsiniz.</small><textarea data-mrz rows="4" spellcheck="false" autocapitalize="characters"></textarea></label>
+            <label>T.C. kimlik no <small>MRZ’de yoksa mevcut yolcuyla eşleştirmek için girin.</small><input data-tc inputmode="numeric" autocomplete="off" maxlength="11"></label>
+            <button type="button" class="btn btn-gold" data-parse>Satırları işle</button>
+          </div>
           <span data-status role="status" aria-live="polite"></span>`;
         document.getElementById('passengerTable').closest('.table-wrap').before(panel);
         let pending = null;
         const status = panel.querySelector('[data-status]');
+        const cameraInput = panel.querySelector('[data-camera-file]');
+        const cameraTools = panel.querySelector('[data-camera-tools]');
         const signature = () => JSON.stringify(hooks.context());
         const dialog = document.createElement('dialog');
         dialog.className = 'document-preview';
         document.body.append(dialog);
         function clear() { pending = null; dialog.close(); dialog.replaceChildren(); }
         dialog.addEventListener('cancel', clear);
+        panel.querySelector('[data-camera]').onclick = () => {
+            try {
+                if (!hooks.allowed()) throw Error('Yolcu düzenleme yetkiniz yok.');
+                if (!hooks.context().tourId) throw Error('Önce kayıt yapılacak programı seçin.');
+                pending = { token: crypto.randomUUID(), signature: signature() };
+                cameraTools.hidden = true;
+                cameraInput.value = '';
+                cameraInput.click();
+            } catch (error) { status.textContent = error.message; }
+        };
+        cameraInput.onchange = async () => {
+            if (!cameraInput.files?.length || !pending) { pending = null; return; }
+            const token = pending.token;
+            try {
+                if (!root.TurizmMrzCamera?.readImage) throw Error('Kamera okuyucu yüklenemedi.');
+                const raw = await root.TurizmMrzCamera.readImage(cameraInput.files[0], message => { status.textContent = message; });
+                if (!pending || pending.token !== token || signature() !== pending.signature) throw Error('Program veya liste değişti. Fotoğrafı yeniden çekin.');
+                panel.querySelector('[data-mrz]').value = raw.trim();
+                cameraTools.hidden = false;
+                status.textContent = 'MRZ satırlarını ve varsa T.C. numarasını kontrol edip “Satırları işle”ye basın.';
+            } catch (error) { pending = null; status.textContent = error.message; }
+        };
+        panel.querySelector('[data-parse]').onclick = async () => {
+            try {
+                if (!pending || signature() !== pending.signature || !hooks.allowed()) throw Error('Program veya liste değişti. Yeniden okutun.');
+                const parser = await import('/vendor/mrz/lib/index.js');
+                const documentData = root.TurizmMrzCamera.parseText(panel.querySelector('[data-mrz]').value, parser.parse, panel.querySelector('[data-tc]').value);
+                root.turizmNfcResult({requestId:pending.token, document:documentData});
+                cameraTools.hidden = true;
+            } catch (error) { status.textContent = error.message; }
+        };
         panel.querySelector('[data-scan]').onclick = () => {
             try {
                 if (!hooks.allowed()) throw Error('Yolcu düzenleme yetkiniz yok.');
@@ -83,7 +123,9 @@
                 const title = document.createElement('h2');
                 title.textContent = old ? 'Mevcut yolcuyu güncelle' : 'Yeni yolcu ekle'; dialog.append(title);
                 const description = document.createElement('p');
-                description.textContent = hooks.context().tourTitle + ' — Çip bilgileri okundu; belgenin dijital imzası doğrulanmadı.'; dialog.append(description);
+                description.textContent = hooks.context().tourTitle + (data.source === 'camera'
+                    ? ' — Kameradan okunan MRZ kontrol rakamları doğrulandı. Çip ve belge imzası doğrulanmadı.'
+                    : ' — Çip bilgileri okundu; belgenin dijital imzası doğrulanmadı.'); dialog.append(description);
                 const table = document.createElement('table');
                 const labels = {name:'Ad soyad',tc:'T.C.',gender:'Cinsiyet',birthDate:'Doğum tarihi',passportNo:'Pasaport no',passportStart:'Pasaport başlangıç',passportEnd:'Pasaport bitiş',identityNo:'Kimlik seri no',identityEnd:'Kimlik bitiş',nationality:'Uyruk',issuingCountry:'Düzenleyen ülke',placeOfBirth:'Doğum yeri',issuingAuthority:'Düzenleyen makam'};
                 for (const key of fields) if (data[key]) {
@@ -93,7 +135,7 @@
                 }
                 dialog.append(table);
                 const note = document.createElement('p');
-                note.textContent = 'Tablo: alan / eski değer / okunan değer. Belgedeki Latin harfli ad yazımı kullanılacaktır. Okunmayan alanlar korunur. Fotoğraf kalıcı kayda eklenmez; buradan indirebilirsiniz.'; dialog.append(note);
+                note.textContent = 'Tablo: alan / eski değer / okunan değer. Belgedeki Latin harfli ad yazımı kullanılacaktır. Okunmayan alanlar korunur.' + (data.source === 'camera' ? ' Kamera okuması çip fotoğrafını içermez.' : ' Çip fotoğrafı kalıcı kayda eklenmez; buradan indirebilirsiniz.'); dialog.append(note);
                 if (response.document.warning) { const warning = document.createElement('p'); warning.textContent = String(response.document.warning).slice(0,250); dialog.append(warning); }
                 if (photo) {
                     if (photo.startsWith('data:image/jpeg;')) { const img = document.createElement('img'); img.src = photo; img.alt = 'Belgeden okunan fotoğraf'; img.width = 120; dialog.append(img); }

@@ -1098,3 +1098,10 @@ body:not(.desktop-app) .desktop-only{display:none!important}
 .document-preview td { padding:8px; border-bottom:1px solid #ddd; overflow-wrap:anywhere; }
 .document-preview button { margin:12px 8px 0 0; padding:10px 14px; cursor:pointer; }
 .document-preview img { display:block; margin-top:12px; }
+
+.camera-review { display:grid; gap:10px; margin-top:14px; max-width:620px; }
+.camera-review[hidden] { display:none; }
+.camera-review label { display:grid; gap:5px; font-weight:600; }
+.camera-review textarea { width:100%; min-height:115px; font-family:monospace; font-size:14px; letter-spacing:1px; }
+.camera-review input { width:100%; max-width:240px; padding:9px; }
+.camera-review small { font-weight:400; }

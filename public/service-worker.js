@@ -1,10 +1,11 @@
-const CACHE_NAME = 'turizm-muhasebe-mobile-v7-nfc';
+const CACHE_NAME = 'turizm-muhasebe-mobile-v8-camera';
 const APP_SHELL = [
   '/admin.html?mobile=1',
   '/manifest.webmanifest',
-  '/style.css?v=20260917-nfc1',
-  '/document-reader.js?v=20260917-nfc1',
-  '/app.js?v=20260917-nfc1',
+  '/style.css?v=20260917-camera1',
+  '/mrz-camera.js?v=20260917-camera1',
+  '/document-reader.js?v=20260917-camera1',
+  '/app.js?v=20260917-camera1',
   '/vendor/exceljs.min.js?v=4.4.0',
   '/assets/mobile-app-icon-192.png',
   '/assets/mobile-app-icon-512.png',
