@@ -2666,6 +2666,7 @@
         tr.dataset.priceSource = accounting.priceSource === 'custom' ? 'custom' : 'room';
         tr._accounting = accounting;
         tr._createdBy = clone(p.createdBy || null);
+        tr._document = Object.fromEntries(['identityNo', 'identityEnd', 'nationality', 'issuingCountry', 'placeOfBirth', 'issuingAuthority', 'documentReadAt', 'documentVerification'].filter(key => p[key]).map(key => [key, p[key]]));
         tr.innerHTML = `
         <td><input class="p-name" value="${escapeHtml(p.name || '')}" placeholder="Ad Soyad"></td>
         <td><select class="p-gender"><option value="">Seç</option><option ${gender === 'Kadın' ? 'selected' : ''}>Kadın</option><option ${gender === 'Erkek' ? 'selected' : ''}>Erkek</option></select></td>
@@ -2736,6 +2737,7 @@
             };
             const accounting = IS_APP_MODE ? desktopAccounting : clone(tr._accounting || { agreedPrice: '', currency: '', priceSource: 'room', payments: [] });
             return {
+            ...tr._document,
             id: tr.dataset.passengerId || uid('p_'),
             name: tr.querySelector('.p-name').value.trim(),
             gender: tr.querySelector('.p-gender').value.trim(),
@@ -3844,6 +3846,37 @@
     }
 
     function bindAdminEvents() {
+        window.installDocumentReader?.({
+            allowed: () => hasPermission('managePassengers'),
+            context: () => ({
+                companyId: currentCompanyId,
+                tourId: $('listTourSelect').value,
+                tourTitle: state.tours.find(t => t.id === $('listTourSelect').value)?.title || '',
+                listId: $('listId').value,
+                actor: currentActor(),
+                // A changed form invalidates an in-flight read, including a reset to the same tour.
+                form: JSON.stringify(readPassengers())
+            }),
+            find: data => {
+                const currentId = $('listId').value;
+                const tourId = $('listTourSelect').value;
+                const others = state.passengerLists.filter(l => l.tourId === tourId && l.id !== currentId).flatMap(l => l.passengers || []);
+                const current = readPassengers();
+                const found = window.TurizmDocumentRules.match([...current, ...others], data);
+                if (found && !current.includes(found)) throw Error('Bu yolcu seçili programın başka bir listesinde. O listeyi Düzenle ile açıp tekrar okutun.');
+                return found;
+            },
+            apply: data => {
+                const passengers = readPassengers();
+                const others = state.passengerLists.filter(l => l.tourId === $('listTourSelect').value && l.id !== $('listId').value).flatMap(l => l.passengers || []);
+                const found = window.TurizmDocumentRules.match([...passengers, ...others], data);
+                if (found && !passengers.includes(found)) throw Error('Yolcu başka listede; ilgili listeyi açın.');
+                const item = window.TurizmDocumentRules.merge(found || { id: uid('p_') }, data);
+                if (found) passengers[passengers.indexOf(found)] = item; else passengers.push(item);
+                $('passengerTable').querySelector('tbody').replaceChildren();
+                passengers.forEach(passengerRow);
+            }
+        });
         if (IS_APP_MODE) {
             // Masaüstü penceresinde yoğun yeniden çizim veya Windows ölçeklendirmesi
             // sırasında ilk tıklamanın boşa gitmemesi için alanı pointer-down anında
