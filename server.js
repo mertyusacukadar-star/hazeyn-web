@@ -6,7 +6,7 @@ const {
   supabaseAdmin, ensureBucket,
   checkAdmin, verifyAdminCredential,
   normalizeCompanyId, companyRowId, companyDefaultData,
-  sanitizeAdminState, sanitizePublicState
+  sanitizeAdminState, sanitizePublicState, separateTourCollections, adminStateForClient
 } = require('./api/_supabase');
 const {
   login: loginDesktopUser,
@@ -65,6 +65,14 @@ function safeJoin(base, reqPath){
 function ensureDb(){
   if(!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, {recursive:true});
   if(!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, JSON.stringify({settings:{},tours:[],reviews:[],gallery:[],passengerLists:[]}, null, 2));
+}
+
+function siteState(input){
+  const state = input && typeof input === 'object' ? input : {};
+  return {
+    ...state,
+    tours: Array.isArray(state.siteTours) ? state.siteTours : (Array.isArray(state.tours) ? state.tours : [])
+  };
 }
 
 function readJsonBody(req, maxBytes = 1024 * 1024){
@@ -227,7 +235,7 @@ const server = http.createServer(async (req, res) => {
       }), 'application/json; charset=utf-8');
     }
     const rawState = await readCentralState(companyId);
-    const payload = wantsAdmin ? sanitizeAdminState(rawState) : sanitizePublicState(rawState);
+    const payload = wantsAdmin ? adminStateForClient(rawState, authorization.kind) : sanitizePublicState(rawState);
     return send(res, 200, JSON.stringify(payload), 'application/json; charset=utf-8', {'X-Hazeyn-Data-Source':'supabase','X-Turizm-Company':companyId});
   }
   if(pathname === '/api/media-upload' && req.method === 'POST'){
@@ -305,10 +313,11 @@ const server = http.createServer(async (req, res) => {
       try {
         let data = sanitizeAdminState(JSON.parse(body || '{}'));
         const client = supabaseAdmin();
+        const { data: existing, error: readError } = await client.from(TABLE).select('data').eq('id', companyRowId(companyId)).maybeSingle();
+        if(readError) throw readError;
+        const previousState = existing && existing.data ? existing.data : companyDefaultData(companyId);
+        data = separateTourCollections(data, previousState, authorization.kind);
         if(authorization.kind === 'desktop'){
-          const { data: existing, error: readError } = await client.from(TABLE).select('data').eq('id', companyRowId(companyId)).maybeSingle();
-          if(readError) throw readError;
-          const previousState = existing && existing.data ? existing.data : companyDefaultData(companyId);
           data = filterStateByPermissions(data, previousState, authorization);
           assertStateChangeAllowed(data, previousState, authorization);
           data = applyDesktopAudit(data, previousState, authorization);
@@ -338,27 +347,27 @@ const server = http.createServer(async (req, res) => {
 
   const origin = siteOrigin(req);
   if(pathname === '/' || pathname === '/tr' || pathname === '/tr/'){
-    const state = await readCentralState();
+    const state = siteState(await readCentralState());
     return send(res, 200, renderHomePage(state), 'text/html; charset=utf-8', {'Cache-Control':'public, max-age=60, stale-while-revalidate=300'});
   }
   if(pathname === '/robots.txt'){
     return send(res, 200, renderRobots(origin), 'text/plain; charset=utf-8', {'Cache-Control':'public, max-age=3600, stale-while-revalidate=86400'});
   }
   if(pathname === '/sitemap.xml'){
-    const state = await readCentralState();
+    const state = siteState(await readCentralState());
     return send(res, 200, renderSitemap(state, origin), 'application/xml; charset=utf-8', {'Cache-Control':'public, max-age=900, stale-while-revalidate=86400'});
   }
   if(pathname === '/umre-fiyatlari' || pathname === '/umre-fiyatlari/'){
-    const state = await readCentralState();
+    const state = siteState(await readCentralState());
     return send(res, 200, renderPricesPage(state, origin), 'text/html; charset=utf-8', {'Cache-Control':'public, max-age=300, stale-while-revalidate=900'});
   }
   if(pathname === '/umraniye-umre-turu' || pathname === '/umraniye-umre-turu/'){
-    const state = await readCentralState();
+    const state = siteState(await readCentralState());
     return send(res, 200, renderLocalPage(state, origin), 'text/html; charset=utf-8', {'Cache-Control':'public, max-age=300, stale-while-revalidate=900'});
   }
 
   if(pathname.startsWith('/rehber/') && !path.extname(pathname)){
-    const state = await readCentralState();
+    const state = siteState(await readCentralState());
     const requestedSlug = slugify(decodeURIComponent(pathname.slice('/rehber/'.length)).replace(/\/$/, ''));
     const savedBlogs = (state.blogs || []).map(normalizeBlog);
     const knownBlogs = new Set(savedBlogs.map(item => item.slug));
@@ -370,7 +379,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if(pathname !== '/' && !path.extname(pathname) && !['/tr','/tr/','/admin','/deneyimli-kadro','/merak-edilenler'].includes(pathname)){
-    const state = await readCentralState();
+    const state = siteState(await readCentralState());
     const requestedSlug = slugify(decodeURIComponent(pathname).replace(/^\/+|\/+$/g, ''));
     const tours = (state.tours || []).map(normalizeTour);
     const tour = tours.find(item => item.slug === requestedSlug && item.status !== 'draft');

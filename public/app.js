@@ -83,8 +83,10 @@
     const appQuery = new URLSearchParams(location.search);
     const IS_MOBILE_APP = page === 'admin' && appQuery.get('mobile') === '1';
     const IS_APP_MODE = page === 'admin' && (appQuery.get('desktop') === '1' || IS_MOBILE_APP);
+    const IS_SITE_ADMIN = page === 'admin' && !IS_APP_MODE;
     if (IS_APP_MODE) document.body.classList.add('desktop-app');
     if (IS_MOBILE_APP) document.body.classList.add('mobile-app');
+    if (IS_SITE_ADMIN) document.body.classList.add('site-admin');
     const COMPANY_CONFIG = {
         hazeyn: {
             id: 'hazeyn', name: 'Hazeyn Turizm', shortName: 'Hazeyn', receiptPrefix: 'HZ',
@@ -101,7 +103,7 @@
     }
 
     const requestedCompany = new URLSearchParams(location.search).get('company');
-    let currentCompanyId = page === 'public'
+    let currentCompanyId = page === 'public' || IS_SITE_ADMIN
         ? 'hazeyn'
         : normalizeCompanyId(requestedCompany || localStorage.getItem('turizmLastCompany'));
     let state = null;
@@ -306,7 +308,7 @@
         if (page !== 'admin') return;
         const company = currentCompany();
         document.body.dataset.company = company.id;
-        document.title = `${company.name} • Turizm Muhasebe`;
+        document.title = IS_APP_MODE ? `${company.name} • Turizm Muhasebe` : `${company.name} • Site Yönetimi`;
         document.querySelectorAll('[data-company-name]').forEach(el => { el.textContent = company.name; });
         document.querySelectorAll('[data-company-short-name]').forEach(el => { el.textContent = company.shortName; });
         document.querySelectorAll('[data-company-logo]').forEach(el => {
@@ -333,6 +335,29 @@
         if (IS_APP_MODE && $('loginHeading')) $('loginHeading').textContent = `${company.name} Girişi`;
         if (IS_APP_MODE && $('loginKicker')) $('loginKicker').textContent = 'GİRİŞ YAPILACAK FİRMAYI SEÇ';
         if (IS_APP_MODE && $('signedUserName')) $('signedUserName').textContent = currentAppUser?.displayName || '—';
+        if (IS_APP_MODE && $('dashboardGuideText')) $('dashboardGuideText').textContent = 'Turları, yolcu listelerini, ödemeleri ve makbuzları buradan yönetebilirsin. Muhasebe kayıtları site yönetiminden ayrı tutulur.';
+        if (IS_APP_MODE && $('dashboardGuideDetail')) $('dashboardGuideDetail').textContent = 'Yolcu listeleri, oda planı, tahsilatlar, makbuzlar ve tur maliyetleri yalnızca Turizm Muhasebe uygulamasında görünür.';
+        if (IS_APP_MODE) {
+            ['reviews', 'gallery', 'staff', 'blog', 'settings'].forEach(tab => {
+                document.querySelectorAll(`[data-tab="${tab}"], #tab-${tab}`).forEach(element => { element.hidden = true; element.style.display = 'none'; });
+            });
+            const toursTab = document.querySelector('[data-tab="tours"]');
+            if (toursTab) toursTab.textContent = 'Muhasebe Turları';
+        }
+        if (IS_SITE_ADMIN) {
+            if ($('loginKicker')) $('loginKicker').textContent = 'HAZEYN SİTE YÖNETİMİ';
+            if ($('companyAccountNote')) $('companyAccountNote').textContent = 'Sitede yayınlanan tur ve içerikleri buradan yönetebilirsin.';
+            document.querySelectorAll('.company-login-picker, .company-switcher, .global-passenger-search').forEach(element => { element.hidden = true; element.style.display = 'none'; });
+            ['passengers', 'accounting', 'costs', 'users'].forEach(tab => {
+                document.querySelectorAll(`[data-tab="${tab}"], #tab-${tab}`).forEach(element => { element.hidden = true; element.style.display = 'none'; });
+            });
+            const statLists = $('statLists');
+            if (statLists?.closest('article')) statLists.closest('article').hidden = true;
+            const topbarTitle = document.querySelector('.admin-topbar h1');
+            if (topbarTitle) topbarTitle.textContent = 'Site Yönetimi';
+            const loginTitle = document.querySelector('#loginScreen h1');
+            if (loginTitle) loginTitle.textContent = 'Site Yönetimi';
+        }
         document.querySelectorAll('.desktop-owner-only').forEach(element => { element.hidden = !isAppOwner(); element.style.display = isAppOwner() ? '' : 'none'; });
         document.querySelectorAll('[data-company-public-link]').forEach(publicLink => {
             publicLink.hidden = !company.publicUrl;
@@ -1188,7 +1213,8 @@
         const defaults = defaultDataForCompany();
         let score = Number(data._meta && data._meta.updatedAt ? data._meta.updatedAt : 0);
         if (Array.isArray(data.passengerLists) && data.passengerLists.length) score += 500000000000;
-        if (Array.isArray(data.tours) && JSON.stringify(data.tours) !== JSON.stringify(defaults.tours)) score += 400000000000;
+        const scoredTours = Array.isArray(data.siteTours) ? data.siteTours : data.tours;
+        if (Array.isArray(scoredTours) && JSON.stringify(scoredTours) !== JSON.stringify(defaults.tours)) score += 400000000000;
         if (Array.isArray(data.reviews) && JSON.stringify(data.reviews) !== JSON.stringify(defaults.reviews)) score += 200000000000;
         if (Array.isArray(data.gallery) && JSON.stringify(data.gallery) !== JSON.stringify(defaults.gallery)) score += 100000000000;
         if (Array.isArray(data.staff) && data.staff.length) score += 50000000000;
@@ -1297,10 +1323,15 @@
         const settings = { ...d.settings, ...(data.settings || {}) };
         delete settings.adminPassword;
         delete settings.password;
+        const legacyTours = Array.isArray(data.tours) ? data.tours : d.tours;
+        const siteTours = normalizeTours(Array.isArray(data.siteTours) ? data.siteTours : legacyTours);
+        const accountingTours = normalizeTours(Array.isArray(data.accountingTours) ? data.accountingTours : legacyTours);
         return {
             _meta: { ...d._meta, ...(data._meta || {}) },
             settings,
-            tours: normalizeTours(Array.isArray(data.tours) ? data.tours : d.tours),
+            tours: clone(IS_APP_MODE ? accountingTours : siteTours),
+            siteTours,
+            accountingTours,
             reviews: Array.isArray(data.reviews) ? data.reviews : d.reviews,
             gallery: Array.isArray(data.gallery) ? data.gallery : d.gallery,
             staff: Array.isArray(data.staff) ? data.staff : d.staff,
@@ -1310,6 +1341,15 @@
             passengerLists: normalizePassengerLists(Array.isArray(data.passengerLists) ? data.passengerLists : []),
             tourCosts: normalizeTourCosts(data.tourCosts)
         };
+    }
+
+    function statePayloadForSave(source) {
+        const payload = clone(source || {});
+        if (IS_APP_MODE) payload.accountingTours = clone(source.tours || []);
+        else payload.siteTours = clone(source.tours || []);
+        // Eski muhasebe sürümleri üst düzey `tours` alanını kullanmaya devam eder.
+        payload.tours = clone(payload.accountingTours || source.accountingTours || source.tours || []);
+        return payload;
     }
 
     function passengerIdentityKey(passenger) {
@@ -1344,7 +1384,7 @@
                     alert('Başka bir bilgisayarda daha yeni bir değişiklik yapıldı. Veri kaybını önlemek için bu kayıt gönderilmedi. “Senkronize Et” düğmesine basıp güncel veriyi aldıktan sonra işlemi tekrar yap.');
                     return false;
                 }
-                if (!options.keepLocalAccounting && state?._meta?.pendingSync !== true) mergeRemoteAccountingIntoState(latest);
+                if (IS_APP_MODE && !options.keepLocalAccounting && state?._meta?.pendingSync !== true) mergeRemoteAccountingIntoState(latest);
             }
         }
         state._meta = { ...(state._meta || {}), updatedAt: Math.max(Date.now(), Number(state?._meta?.updatedAt || 0) + 1), pendingSync: true };
@@ -1352,14 +1392,14 @@
 
         if (location.protocol !== 'file:') {
             try {
-                const syncedState = clone(state);
+                const syncedState = statePayloadForSave(state);
                 syncedState._meta = { ...(syncedState._meta || {}), pendingSync: false };
                 const res = await fetch(`/api/data?company=${encodeURIComponent(currentCompanyId)}`, { method: 'POST', headers: authorizedHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(syncedState) });
                 if (!res.ok) {
                     const details = await res.json().catch(() => ({}));
                     throw new Error(details.error || 'Sunucu kaydı başarısız');
                 }
-                state = syncedState;
+                state = mergeDefaults(syncedState);
                 await cacheDataLocally(state);
                 return true;
             } catch (e) {
@@ -4184,7 +4224,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
-        if (page === 'admin') setupMobileAppInstall();
+        if (IS_APP_MODE) setupMobileAppInstall();
         // Admin girişini uzak veri yüklemesine bağlama. Supabase yavaşlasa veya
         // geçici olarak cevap vermese bile şifre alanı ve giriş düğmesi çalışsın.
         if (page === 'admin') {

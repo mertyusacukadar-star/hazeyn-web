@@ -33,6 +33,14 @@ async function readState(){
   }
 }
 
+function siteState(input){
+  const state = input && typeof input === 'object' ? input : {};
+  return {
+    ...state,
+    tours: Array.isArray(state.siteTours) ? state.siteTours : (Array.isArray(state.tours) ? state.tours : [])
+  };
+}
+
 function send(res, status, body, type, cache){
   res.setHeader('Content-Type', type);
   res.setHeader('Cache-Control', cache);
@@ -51,7 +59,7 @@ module.exports = async function handler(req, res){
 
   if(route === 'robots') return send(res, 200, renderRobots(origin), 'text/plain; charset=utf-8', 'public, max-age=3600, stale-while-revalidate=86400');
 
-  const state = await readState();
+  const state = siteState(await readState());
   if(route === 'home') return send(res, 200, renderHomePage(state), 'text/html; charset=utf-8', 'public, max-age=60, stale-while-revalidate=300');
   if(route === 'sitemap') return send(res, 200, renderSitemap(state, origin), 'application/xml; charset=utf-8', 'public, max-age=900, stale-while-revalidate=86400');
   if(route === 'prices') return send(res, 200, renderPricesPage(state, origin), 'text/html; charset=utf-8', 'public, max-age=300, stale-while-revalidate=900');

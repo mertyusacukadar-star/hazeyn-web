@@ -112,7 +112,7 @@ function cloneValue(value){
 }
 
 function filterStateByPermissions(nextState, previousState, auth){
-  if(!auth || auth.kind !== 'desktop' || !auth.user || auth.user.role === 'owner') return nextState;
+  if(!auth || auth.kind !== 'desktop' || !auth.user) return nextState;
   const user = auth.user;
   const next = nextState && typeof nextState === 'object' ? nextState : {};
   const previous = previousState && typeof previousState === 'object' ? previousState : {};
@@ -120,6 +120,10 @@ function filterStateByPermissions(nextState, previousState, auth){
     if(previous[key] === undefined) delete next[key];
     else next[key] = cloneValue(previous[key]);
   };
+  // Masaüstü muhasebe uygulaması hiçbir yetki düzeyinde web sitesinde
+  // yayınlanan tur koleksiyonunu değiştiremez.
+  restore('siteTours');
+  if(user.role === 'owner') return next;
   ['settings', 'reviews', 'gallery', 'staff', 'blogs', 'banners'].forEach(restore);
   if(!hasUserPermission(user, 'manageTours')) restore('tours');
   if(!hasUserPermission(user, 'manageCosts')) restore('tourCosts');

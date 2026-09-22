@@ -100,6 +100,44 @@ function sanitizeAdminState(input){
   return state;
 }
 
+function separateTourCollections(input, previousInput, sourceKind){
+  const next = sanitizeAdminState(input);
+  const previous = sanitizeAdminState(previousInput);
+  const previousLegacyTours = Array.isArray(previous.tours) ? previous.tours : [];
+  const previousSiteTours = Array.isArray(previous.siteTours) ? previous.siteTours : previousLegacyTours;
+  const previousAccountingTours = Array.isArray(previous.accountingTours) ? previous.accountingTours : previousLegacyTours;
+
+  if(sourceKind === 'desktop'){
+    next.siteTours = cloneJson(previousSiteTours, []);
+    next.accountingTours = cloneJson(
+      Array.isArray(next.accountingTours) ? next.accountingTours : (Array.isArray(next.tours) ? next.tours : previousAccountingTours),
+      []
+    );
+  } else {
+    next.siteTours = cloneJson(
+      Array.isArray(next.siteTours) ? next.siteTours : (Array.isArray(next.tours) ? next.tours : previousSiteTours),
+      []
+    );
+    next.accountingTours = cloneJson(previousAccountingTours, []);
+  }
+
+  // Eski muhasebe istemcileri halen `tours` alanini kullandigi icin bu alan
+  // muhasebe koleksiyonunun uyumluluk kopyasi olarak tutulur.
+  next.tours = cloneJson(next.accountingTours, []);
+  return next;
+}
+
+function adminStateForClient(input, sourceKind){
+  const state = sanitizeAdminState(input);
+  const legacyTours = Array.isArray(state.tours) ? state.tours : [];
+  const siteTours = Array.isArray(state.siteTours) ? state.siteTours : legacyTours;
+  const accountingTours = Array.isArray(state.accountingTours) ? state.accountingTours : legacyTours;
+  state.siteTours = cloneJson(siteTours, []);
+  state.accountingTours = cloneJson(accountingTours, []);
+  state.tours = cloneJson(sourceKind === 'desktop' ? accountingTours : siteTours, []);
+  return state;
+}
+
 function sanitizePublicState(input){
   const state = sanitizeAdminState(input);
   const settings = {};
@@ -107,19 +145,20 @@ function sanitizePublicState(input){
   PUBLIC_SETTING_KEYS.forEach(key => {
     if(Object.prototype.hasOwnProperty.call(sourceSettings, key)) settings[key] = cloneJson(sourceSettings[key], sourceSettings[key]);
   });
-  const publicItems = key => (Array.isArray(state[key]) ? state[key] : [])
+  const publicItems = source => (Array.isArray(source) ? source : [])
     .filter(item => !(item && (item.status === 'draft' || item.published === false)))
     .map(item => cloneJson(item, {}));
+  const siteTours = Array.isArray(state.siteTours) ? state.siteTours : state.tours;
   const payload = {
     _meta: { updatedAt: Number(state._meta && state._meta.updatedAt || 0) },
     settings,
-    tours: publicItems('tours'),
-    reviews: publicItems('reviews'),
-    gallery: publicItems('gallery'),
-    staff: publicItems('staff'),
-    blogs: publicItems('blogs')
+    tours: publicItems(siteTours),
+    reviews: publicItems(state.reviews),
+    gallery: publicItems(state.gallery),
+    staff: publicItems(state.staff),
+    blogs: publicItems(state.blogs)
   };
-  if(Array.isArray(state.banners)) payload.banners = publicItems('banners');
+  if(Array.isArray(state.banners)) payload.banners = publicItems(state.banners);
   return payload;
 }
 
@@ -171,6 +210,6 @@ module.exports = {
   supabaseAdmin, supabaseAnon,
   checkAdmin, verifyAdminCredential,
   normalizeCompanyId, requestCompanyId, companyRowId, companyDefaultData,
-  sanitizeAdminState, sanitizePublicState,
+  sanitizeAdminState, sanitizePublicState, separateTourCollections, adminStateForClient,
   readDefaultData, ensureBucket
 };

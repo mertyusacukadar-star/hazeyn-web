@@ -3,7 +3,7 @@ const {
   TABLE, BUCKET,
   supabaseAdmin,
   requestCompanyId, companyRowId, companyDefaultData,
-  sanitizeAdminState, sanitizePublicState,
+  sanitizeAdminState, sanitizePublicState, separateTourCollections, adminStateForClient,
   ensureBucket
 } = require('./_supabase');
 const { authorizeDataRequest, applyDesktopAudit, filterStateByPermissions, assertStateChangeAllowed } = require('./_appAuth');
@@ -39,7 +39,7 @@ module.exports = async function handler(req, res){
       if(error) throw error;
       const rawState = data && data.data ? data.data : companyDefaultData(companyId);
       res.setHeader('X-Turizm-Company', companyId);
-      return res.status(200).json(wantsAdmin ? sanitizeAdminState(rawState) : sanitizePublicState(rawState));
+      return res.status(200).json(wantsAdmin ? adminStateForClient(rawState, authorization.kind) : sanitizePublicState(rawState));
     } catch(err){
       console.error(err);
       res.setHeader('Retry-After', '30');
@@ -72,10 +72,11 @@ module.exports = async function handler(req, res){
       const client = supabaseAdmin();
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       let dataToSave = sanitizeAdminState(body.data || body);
+      const { data: existing, error: readError } = await client.from(TABLE).select('data').eq('id', companyRowId(companyId)).maybeSingle();
+      if(readError) throw readError;
+      const previousState = existing && existing.data ? existing.data : companyDefaultData(companyId);
+      dataToSave = separateTourCollections(dataToSave, previousState, authorization.kind);
       if(authorization.kind === 'desktop'){
-        const { data: existing, error: readError } = await client.from(TABLE).select('data').eq('id', companyRowId(companyId)).maybeSingle();
-        if(readError) throw readError;
-        const previousState = existing && existing.data ? existing.data : companyDefaultData(companyId);
         dataToSave = filterStateByPermissions(dataToSave, previousState, authorization);
         assertStateChangeAllowed(dataToSave, previousState, authorization);
         dataToSave = applyDesktopAudit(dataToSave, previousState, authorization);
