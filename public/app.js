@@ -1567,7 +1567,7 @@
             <h3>${escapeHtml(t.title)}</h3>
             <div class="tour-meta">${departure ? `<span>📅 ${escapeHtml(departure)}</span>` : ''}${duration ? `<span>◷ ${escapeHtml(duration)}</span>` : ''}<span>✈ ${escapeHtml(departureLabel)}</span></div>
             <div class="tour-hotels">${escapeHtml(hotelText)}</div>
-            <div class="tour-bottom"><span class="price tour-price-block">${t.type === 'umre' ? '<small>Başlangıç fiyatı</small>' : ''}<strong>${escapeHtml(cardText)}</strong></span><a class="small-btn" data-program-link data-track="program_click" data-program-id="${escapeHtml(t.id)}" data-program-title="${escapeHtml(t.title)}" data-program-slug="${escapeHtml(slug)}" href="/${escapeHtml(slug)}">Programı İncele <span aria-hidden="true">→</span></a></div>
+            <div class="tour-bottom"><span class="price tour-price-block">${t.type === 'umre' ? '<small>Başlangıç fiyatı</small>' : ''}<strong>${escapeHtml(cardText)}</strong></span><a class="small-btn" data-program-link data-track="program_click" data-program-id="${escapeHtml(t.id)}" data-program-title="${escapeHtml(t.title)}" data-program-slug="${escapeHtml(slug)}" href="/program.html?slug=${encodeURIComponent(slug)}">Programı İncele <span aria-hidden="true">→</span></a></div>
         </div>
     </article>`;
     }

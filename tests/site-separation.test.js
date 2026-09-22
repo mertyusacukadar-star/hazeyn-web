@@ -71,7 +71,7 @@ const appSource = fs.readFileSync(path.join(repoRoot, 'public', 'app.js'), 'utf8
 assert.match(appSource, /const IS_SITE_ADMIN = page === 'admin' && !IS_APP_MODE/);
 assert.match(appSource, /\['passengers', 'accounting', 'costs', 'users'\]/);
 assert.match(appSource, /\['reviews', 'gallery', 'staff', 'blog', 'settings'\]/);
-assert.match(appSource, /href="\/\$\{escapeHtml\(slug\)\}"/);
+assert.match(appSource, /href="\/program\.html\?slug=\$\{encodeURIComponent\(slug\)\}"/);
 assert.doesNotMatch(appSource, /const programLink = e\.target\.closest\('\[data-program-link\]'\)/);
 assert.ok(fs.existsSync(path.join(repoRoot, 'public', 'program.html')), 'standalone program page must exist');
 assert.ok(fs.existsSync(path.join(repoRoot, 'public', 'program-page.js')), 'standalone program page script must exist');
