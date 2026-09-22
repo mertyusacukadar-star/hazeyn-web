@@ -46,8 +46,9 @@ function sanitizePublicState(input){
   const state = sanitizeAdminState(input);
   const settings = {};
   PUBLIC_SETTING_KEYS.forEach(key => { if(Object.prototype.hasOwnProperty.call(state.settings || {}, key)) settings[key] = state.settings[key]; });
-  const items = key => (Array.isArray(state[key]) ? state[key] : []).filter(item => !(item && (item.status === 'draft' || item.published === false)));
-  return {_meta:{updatedAt:Number(state._meta && state._meta.updatedAt || 0)}, settings, tours:items('tours'), reviews:items('reviews'), gallery:items('gallery'), staff:items('staff'), blogs:items('blogs')};
+  const items = source => (Array.isArray(source) ? source : []).filter(item => !(item && (item.status === 'draft' || item.published === false)));
+  const siteTours = Array.isArray(state.siteTours) ? state.siteTours : state.tours;
+  return {_meta:{updatedAt:Number(state._meta && state._meta.updatedAt || 0)}, settings, tours:items(siteTours), reviews:items(state.reviews), gallery:items(state.gallery), staff:items(state.staff), blogs:items(state.blogs)};
 }
 
 const server = http.createServer((req, res) => {
@@ -106,6 +107,7 @@ const server = http.createServer((req, res) => {
   if(reqPath === '/admin') reqPath = '/admin.html';
   if(reqPath === '/deneyimli-kadro') reqPath = '/deneyimli-kadro.html';
   if(reqPath === '/merak-edilenler') reqPath = '/merak-edilenler.html';
+  if(!path.extname(reqPath) && /^\/[a-z0-9-]+\/?$/i.test(reqPath)) reqPath = '/index.html';
   const filePath = safeJoin(PUBLIC_DIR, reqPath);
   if(!filePath.startsWith(PUBLIC_DIR)) return send(res, 403, 'Erişim yok');
 

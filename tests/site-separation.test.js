@@ -64,10 +64,14 @@ const repoRoot = path.join(__dirname, '..');
 const vercelConfig = JSON.parse(fs.readFileSync(path.join(repoRoot, 'vercel.json'), 'utf8'));
 assert.ok(vercelConfig.rewrites.some(route => route.destination.includes('route=program')), 'program detail rewrite must be deployed');
 assert.ok(fs.existsSync(path.join(repoRoot, 'api', 'seo.js')), 'SEO program handler must exist');
+const publicVercelConfig = JSON.parse(fs.readFileSync(path.join(repoRoot, 'public', 'vercel.json'), 'utf8'));
+assert.ok(publicVercelConfig.rewrites.some(route => route.source.includes(':slug') && route.destination === '/index.html'), 'public-root deployment must fall back to the program modal');
 
 const appSource = fs.readFileSync(path.join(repoRoot, 'public', 'app.js'), 'utf8');
 assert.match(appSource, /const IS_SITE_ADMIN = page === 'admin' && !IS_APP_MODE/);
 assert.match(appSource, /\['passengers', 'accounting', 'costs', 'users'\]/);
 assert.match(appSource, /\['reviews', 'gallery', 'staff', 'blog', 'settings'\]/);
+assert.match(appSource, /const programLink = e\.target\.closest\('\[data-program-link\]'\)/);
+assert.match(appSource, /openTourFromCurrentPath\(\)/);
 
 console.log('site/accounting separation tests passed');

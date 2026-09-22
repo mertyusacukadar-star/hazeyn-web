@@ -195,9 +195,10 @@ function sanitizePublicState(input) {
   PUBLIC_SETTING_KEYS.forEach(key => {
     if (Object.prototype.hasOwnProperty.call(state.settings || {}, key)) settings[key] = state.settings[key];
   });
-  const items = key => (Array.isArray(state[key]) ? state[key] : []).filter(item => !(item && (item.status === "draft" || item.published === false)));
-  const output = {_meta:{updatedAt:Number(state._meta?.updatedAt || 0)}, settings, tours:items("tours"), reviews:items("reviews"), gallery:items("gallery"), staff:items("staff"), blogs:items("blogs")};
-  if (Array.isArray(state.banners)) output.banners = items("banners");
+  const items = source => (Array.isArray(source) ? source : []).filter(item => !(item && (item.status === "draft" || item.published === false)));
+  const siteTours = Array.isArray(state.siteTours) ? state.siteTours : state.tours;
+  const output = {_meta:{updatedAt:Number(state._meta?.updatedAt || 0)}, settings, tours:items(siteTours), reviews:items(state.reviews), gallery:items(state.gallery), staff:items(state.staff), blogs:items(state.blogs)};
+  if (Array.isArray(state.banners)) output.banners = items(state.banners);
   return output;
 }
 

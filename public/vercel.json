@@ -2,6 +2,7 @@
   "rewrites": [
     { "source": "/admin", "destination": "/admin.html" },
     { "source": "/deneyimli-kadro", "destination": "/deneyimli-kadro.html" },
-    { "source": "/merak-edilenler", "destination": "/merak-edilenler.html" }
+    { "source": "/merak-edilenler", "destination": "/merak-edilenler.html" },
+    { "source": "/:slug([a-z0-9-]+)", "destination": "/index.html" }
   ]
 }
