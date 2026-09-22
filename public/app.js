@@ -1830,23 +1830,6 @@
         setModalOpen(true);
     }
 
-    function openTourFromCurrentPath() {
-        const pathSlug = slugifyTR(decodeURIComponent(location.pathname || '').replace(/^\/+|\/+$/g, ''));
-        if (!pathSlug || pathSlug.includes('/')) return;
-        const reservedPaths = new Set(['tr', 'index-html', 'admin', 'admin-html', 'deneyimli-kadro', 'merak-edilenler', 'umre-fiyatlari', 'umraniye-umre-turu']);
-        if (reservedPaths.has(pathSlug)) return;
-        const tour = (state.tours || []).find(item => {
-            const normalized = normalizeTour(item);
-            return normalizedTourStatus(normalized) !== 'draft' && (
-                slugifyTR(normalized.slug || defaultTourSlug(normalized)) === pathSlug
-                || (Array.isArray(normalized.legacySlugs) && normalized.legacySlugs.some(slug => slugifyTR(slug) === pathSlug))
-            );
-        });
-        if (!tour) return;
-        document.title = `${tour.title} | Hazeyn Turizm`;
-        openTourModal(tour.id);
-    }
-
     function initScrollReveals() {
         const items = document.querySelectorAll('.reveal,.travel-tool,.trust-panel article,.why-features article,.contact-card');
         if (!('IntersectionObserver' in window)) {
@@ -1935,12 +1918,6 @@
         if (document.body.dataset.publicEventsBound !== '1') {
         document.body.dataset.publicEventsBound = '1';
         document.addEventListener('click', (e) => {
-            const programLink = e.target.closest('[data-program-link]');
-            if (programLink) {
-                e.preventDefault();
-                openTourModal(programLink.dataset.programId);
-                return;
-            }
             const tourBtn = e.target.closest('[data-tour]');
             if (tourBtn) openTourModal(tourBtn.dataset.tour);
             const galleryBtn = e.target.closest('[data-gallery-index]');
@@ -4270,7 +4247,6 @@
             window.addEventListener('storage', event => { if (event.key === 'hazeynData') refreshPublicData(); });
             document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshPublicData(); });
             window.setInterval(refreshPublicData, 30000);
-            openTourFromCurrentPath();
         }
         if (page === 'admin') renderAdmin();
     });

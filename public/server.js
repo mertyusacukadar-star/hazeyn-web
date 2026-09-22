@@ -107,7 +107,7 @@ const server = http.createServer((req, res) => {
   if(reqPath === '/admin') reqPath = '/admin.html';
   if(reqPath === '/deneyimli-kadro') reqPath = '/deneyimli-kadro.html';
   if(reqPath === '/merak-edilenler') reqPath = '/merak-edilenler.html';
-  if(!path.extname(reqPath) && /^\/[a-z0-9-]+\/?$/i.test(reqPath)) reqPath = '/index.html';
+  if(!path.extname(reqPath) && /^\/[a-z0-9-]+\/?$/i.test(reqPath)) reqPath = '/program.html';
   const filePath = safeJoin(PUBLIC_DIR, reqPath);
   if(!filePath.startsWith(PUBLIC_DIR)) return send(res, 403, 'Erişim yok');
 

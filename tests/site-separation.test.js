@@ -65,13 +65,15 @@ const vercelConfig = JSON.parse(fs.readFileSync(path.join(repoRoot, 'vercel.json
 assert.ok(vercelConfig.rewrites.some(route => route.destination.includes('route=program')), 'program detail rewrite must be deployed');
 assert.ok(fs.existsSync(path.join(repoRoot, 'api', 'seo.js')), 'SEO program handler must exist');
 const publicVercelConfig = JSON.parse(fs.readFileSync(path.join(repoRoot, 'public', 'vercel.json'), 'utf8'));
-assert.ok(publicVercelConfig.rewrites.some(route => route.source.includes(':slug') && route.destination === '/index.html'), 'public-root deployment must fall back to the program modal');
+assert.ok(publicVercelConfig.rewrites.some(route => route.source.includes(':slug') && route.destination.includes('/program.html')), 'public-root deployment must open the standalone program page');
 
 const appSource = fs.readFileSync(path.join(repoRoot, 'public', 'app.js'), 'utf8');
 assert.match(appSource, /const IS_SITE_ADMIN = page === 'admin' && !IS_APP_MODE/);
 assert.match(appSource, /\['passengers', 'accounting', 'costs', 'users'\]/);
 assert.match(appSource, /\['reviews', 'gallery', 'staff', 'blog', 'settings'\]/);
-assert.match(appSource, /const programLink = e\.target\.closest\('\[data-program-link\]'\)/);
-assert.match(appSource, /openTourFromCurrentPath\(\)/);
+assert.match(appSource, /href="\/\$\{escapeHtml\(slug\)\}"/);
+assert.doesNotMatch(appSource, /const programLink = e\.target\.closest\('\[data-program-link\]'\)/);
+assert.ok(fs.existsSync(path.join(repoRoot, 'public', 'program.html')), 'standalone program page must exist');
+assert.ok(fs.existsSync(path.join(repoRoot, 'public', 'program-page.js')), 'standalone program page script must exist');
 
 console.log('site/accounting separation tests passed');

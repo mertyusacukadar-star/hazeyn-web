@@ -291,7 +291,8 @@ export default {
     if (url.pathname.startsWith("/api/")) return json({ ok: false, error: "Bu işlem bu sürümde kullanılamıyor." }, 404);
 
     const routes = { "/": "/index.html", "/tr": "/index.html", "/tr/": "/index.html", "/admin": "/admin.html", "/deneyimli-kadro": "/deneyimli-kadro.html", "/merak-edilenler": "/merak-edilenler.html" };
-    const asset = ASSETS[routes[url.pathname] || url.pathname];
+    const routePath = routes[url.pathname] || (/^\/[a-z0-9-]+\/?$/i.test(url.pathname) ? "/program.html" : url.pathname);
+    const asset = ASSETS[routePath];
     if (!asset) return new Response("Sayfa bulunamadı", { status: 404 });
     return new Response(decodeBase64(asset.body), { headers: { "content-type": asset.type, "cache-control": asset.type.startsWith("text/html") ? "no-cache" : "public, max-age=86400" } });
   }
