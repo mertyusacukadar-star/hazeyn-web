@@ -77,6 +77,9 @@ assert.ok(fs.existsSync(path.join(repoRoot, 'public', 'program.html')), 'standal
 assert.ok(fs.existsSync(path.join(repoRoot, 'public', 'program-page.js')), 'standalone program page script must exist');
 assert.ok(fs.existsSync(path.join(repoRoot, 'public', 'umre-fiyatlari.html')), 'standalone prices page must exist');
 assert.ok(fs.existsSync(path.join(repoRoot, 'public', 'umre-fiyatlari.js')), 'standalone prices page script must exist');
+const pricesSource = fs.readFileSync(path.join(repoRoot, 'public', 'umre-fiyatlari.js'), 'utf8');
+assert.match(pricesSource, /status\(tour\)!=='active'/);
+assert.match(pricesSource, /departure>=today/);
 const publicHome = fs.readFileSync(path.join(repoRoot, 'public', 'index.html'), 'utf8');
 assert.match(publicHome, /href="\/umre-fiyatlari\.html"/);
 
