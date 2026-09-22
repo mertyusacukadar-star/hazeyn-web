@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/umre-fiyatlari", "destination": "/umre-fiyatlari.html" },
     { "source": "/deneyimli-kadro", "destination": "/deneyimli-kadro.html" },
     { "source": "/merak-edilenler", "destination": "/merak-edilenler.html" },
     { "source": "/:slug([a-z0-9-]+)", "destination": "/program.html?slug=:slug" }

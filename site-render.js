@@ -385,7 +385,7 @@ function header(settings) {
       <a class="logo-wrap" href="/tr" aria-label="Hazeyn Turizm ana sayfa"><img src="/assets/logo.png" alt="Hazeyn Turizm" class="logo" width="210" height="60"></a>
       <button class="menu-toggle" id="menuToggle" type="button" aria-controls="mobileNavOverlay" aria-expanded="false" aria-label="Menüyü aç"><svg class="menu-icon menu-icon-bars" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7.5h14M5 12h14M5 16.5h14"/></svg><svg class="menu-icon menu-icon-close" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></button>
       <div class="nav-links" id="navLinks">
-        <a href="/tr#umre">Umre Programları</a><a href="/umre-fiyatlari">Umre Fiyatları</a><a href="/tr#hac">Hac Programları</a><a href="/tr#yurtici">Yurt İçi Turlar</a><a href="/merak-edilenler">Yolculuk Rehberi</a><a href="/deneyimli-kadro">Deneyimli Kadro</a><a href="/umraniye-umre-turu">Ümraniye Ofisi</a>
+        <a href="/tr#umre">Umre Programları</a><a href="/umre-fiyatlari.html">Umre Fiyatları</a><a href="/tr#hac">Hac Programları</a><a href="/tr#yurtici">Yurt İçi Turlar</a><a href="/merak-edilenler">Yolculuk Rehberi</a><a href="/deneyimli-kadro">Deneyimli Kadro</a><a href="/umraniye-umre-turu">Ümraniye Ofisi</a>
       </div>
       <div class="nav-actions" id="navActions">
         <a class="btn btn-ghost phone-link" data-track="phone_call" href="${escapeHtml(phoneHref(settings.phone))}">${phoneIcon}<span>Hemen Ara</span></a>
@@ -410,7 +410,7 @@ function contactStrip(settings, message) {
 function footer(settings) {
   return `<footer class="footer"><div class="container footer-grid">
     <div><img src="/assets/logo.png" class="footer-logo" alt="Hazeyn Turizm" width="210" height="60"><p>Hac, Umre ve yurt içi turlarda güvenilir organizasyon.</p></div>
-    <div><h4>Programlar</h4><a href="/tr#umre">Güncel Umre Programları</a><a href="/umre-fiyatlari">Umre Fiyatları</a><a href="/tr#hac">Hac Programları</a></div>
+    <div><h4>Programlar</h4><a href="/tr#umre">Güncel Umre Programları</a><a href="/umre-fiyatlari.html">Umre Fiyatları</a><a href="/tr#hac">Hac Programları</a></div>
     <div><h4>Rehber</h4><a href="/merak-edilenler">Merak Edilenler</a><a href="/umraniye-umre-turu">Ümraniye Umre Turu</a><a href="/tr#yorumlar">Yolcu Yorumları</a></div>
     <div><h4>İletişim</h4><a href="${escapeHtml(phoneHref(settings.phone))}">${escapeHtml(settings.phone)}</a><a href="mailto:${escapeHtml(settings.email)}">${escapeHtml(settings.email)}</a><p>${escapeHtml(settings.address)}</p></div>
   </div><div class="container footer-bottom">© ${new Date().getFullYear()} Hazeyn Turizm. Tüm hakları saklıdır.</div></footer>`;

@@ -105,6 +105,7 @@ const server = http.createServer((req, res) => {
   let reqPath = req.url.split('?')[0];
   if(reqPath === '/') reqPath = '/index.html';
   if(reqPath === '/admin') reqPath = '/admin.html';
+  if(reqPath === '/umre-fiyatlari' || reqPath === '/umre-fiyatlari/') reqPath = '/umre-fiyatlari.html';
   if(reqPath === '/deneyimli-kadro') reqPath = '/deneyimli-kadro.html';
   if(reqPath === '/merak-edilenler') reqPath = '/merak-edilenler.html';
   if(!path.extname(reqPath) && /^\/[a-z0-9-]+\/?$/i.test(reqPath)) reqPath = '/program.html';

@@ -290,7 +290,7 @@ export default {
     }
     if (url.pathname.startsWith("/api/")) return json({ ok: false, error: "Bu işlem bu sürümde kullanılamıyor." }, 404);
 
-    const routes = { "/": "/index.html", "/tr": "/index.html", "/tr/": "/index.html", "/admin": "/admin.html", "/deneyimli-kadro": "/deneyimli-kadro.html", "/merak-edilenler": "/merak-edilenler.html" };
+    const routes = { "/": "/index.html", "/tr": "/index.html", "/tr/": "/index.html", "/admin": "/admin.html", "/umre-fiyatlari": "/umre-fiyatlari.html", "/umre-fiyatlari/": "/umre-fiyatlari.html", "/deneyimli-kadro": "/deneyimli-kadro.html", "/merak-edilenler": "/merak-edilenler.html" };
     const routePath = routes[url.pathname] || (/^\/[a-z0-9-]+\/?$/i.test(url.pathname) ? "/program.html" : url.pathname);
     const asset = ASSETS[routePath];
     if (!asset) return new Response("Sayfa bulunamadı", { status: 404 });

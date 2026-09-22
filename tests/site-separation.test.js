@@ -75,5 +75,9 @@ assert.match(appSource, /href="\/program\.html\?slug=\$\{encodeURIComponent\(slu
 assert.doesNotMatch(appSource, /const programLink = e\.target\.closest\('\[data-program-link\]'\)/);
 assert.ok(fs.existsSync(path.join(repoRoot, 'public', 'program.html')), 'standalone program page must exist');
 assert.ok(fs.existsSync(path.join(repoRoot, 'public', 'program-page.js')), 'standalone program page script must exist');
+assert.ok(fs.existsSync(path.join(repoRoot, 'public', 'umre-fiyatlari.html')), 'standalone prices page must exist');
+assert.ok(fs.existsSync(path.join(repoRoot, 'public', 'umre-fiyatlari.js')), 'standalone prices page script must exist');
+const publicHome = fs.readFileSync(path.join(repoRoot, 'public', 'index.html'), 'utf8');
+assert.match(publicHome, /href="\/umre-fiyatlari\.html"/);
 
 console.log('site/accounting separation tests passed');
