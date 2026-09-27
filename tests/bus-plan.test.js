@@ -10,8 +10,8 @@ assert.equal(people.length,6);assert.equal(people[0].group,people[2].group);
 assert.notEqual(P.key('a:b','c'),P.key('a','b:c'));
 let plan={version:1,buses:[{...P.makeBus('b1'),limit:3},{...P.makeBus('b2'),limit:4}]};
 const result=P.autoPlace(plan,people);const placed=P.placements(result.plan);
-assert.equal(result.warnings.length,0);assert.equal(placed.get(people[0].id).busId,'b1');assert.equal(placed.get(people[2].id).seat,2);
-assert.equal(placed.get(people[1].id).busId,'b2');assert.equal(placed.get(people[3].id).seat,2);
+assert.equal(result.warnings.length,0);assert.equal(placed.get(people[0].id).busId,'b1');assert.equal(placed.get(people[2].id).seat,6);
+assert.equal(placed.get(people[1].id).busId,'b2');assert.equal(placed.get(people[3].id).seat,6);
 assert.equal(Object.keys(result.plan.buses[0].assignments).length,2); // Next family won't be split to fill target 3.
 assert.equal(placed.get(people[5].id).busId,'b2');
 assert.equal(JSON.stringify(lists),before);assert.equal(Object.keys(plan.buses[0].assignments).length,0);
@@ -43,3 +43,41 @@ assert.equal(sanitizePublicState(saved).tourBusPlans,undefined);
 assert.deepEqual(P.normalizePlan(JSON.parse(JSON.stringify(result.plan))),result.plan);
 const routes=require('../public/workspace-ui');assert.deepEqual(routes.parseRoute(routes.routeFor('t1','buses')),{id:'t1',tab:'buses'});
 console.log('bus-plan family placement, manual moves, capacities, preservation, permissions and routes passed');
+
+// Automatic allocation reserves the four front seats; explicit manual moves
+// may use them and must survive normalization, saving and another auto pass.
+assert(result.plan.buses.every(b=>[1,2,3,4].every(n=>!b.assignments[n])));
+const staffManual=P.move(result.plan,[people[0].id],'b1',1);
+assert.equal(P.placements(P.autoPlace(staffManual,people).plan).get(people[0].id).seat,1);
+validateBusPlans({tourBusPlans:{t1:staffManual}});
+const numbered=P.renumber(staffManual.buses[0],{1:'101',2:'102'});
+assert.equal(numbered.assignments[1],people[0].id);
+assert.equal(P.seatLabel(numbered,1),'101');assert.equal(P.seatLabel(numbered,3),'3');
+assert.throws(()=>P.renumber(numbered,{1:'2'}),/birden fazla/);
+assert.throws(()=>P.renumber(numbered,{1:'0'}),/tam sayı/);
+assert.deepEqual(P.normalizePlan({buses:[numbered]}).buses[0],numbered);
+validateBusPlans({tourBusPlans:{t1:{buses:[numbered]}}});
+const badLabels=structuredClone(numbered);badLabels.seatLabels={1:'2'};
+assert.throws(()=>validateBusPlans({tourBusPlans:{t1:{buses:[badLabels]}}}),/geçersiz/);
+const standard=P.layoutSettings(P.makeBus());assert.equal(P.customCapacity(standard),49);
+for(const side of ['left','right'])for(const enabled of [true,false])for(const count of [1,2,3]){
+  const layout={...standard,leftRows:8,leftPerRow:count,rightFrontRows:4,rightBackRows:3,rightPerRow:count,doorEnabled:enabled,doorSide:side,doorAfter:4};
+  const bus={...P.makeBus(),capacity:P.customCapacity(layout),limit:0,layout};
+  assert(P.validLayout(layout));const grid=P.seats(bus);
+  assert.deepEqual(grid.rows.flatMap(r=>r.values.filter(Boolean)).concat(grid.rear),Array.from({length:bus.capacity},(_,i)=>i+1));
+  assert.equal(grid.rows.filter(r=>r.door).length,enabled?2:0);
+  assert.deepEqual(P.normalizePlan({buses:[bus]}).buses[0],bus);
+  validateBusPlans({tourBusPlans:{t1:{buses:[bus]}}});
+}
+const withBackRows={...P.makeBus(),doorBackRows:2};
+assert.equal(P.seats(withBackRows).rows.slice(8).filter(r=>r.right.some(Boolean)).length,2);
+assert.equal(P.seats(withBackRows).rows.flatMap(r=>r.values).filter(Boolean).length+5,49);
+const {buildPrintHtml}=require('../public/bus-print');
+const print=buildPrintHtml({model:{people:[...people,{id:'safe',name:'<script> & test'}],companyName:'QA',tourTitle:'Test turu'},buses:[{...numbered,assignments:{1:'safe'}},P.makeBus('second','Otobüs 2')]});
+assert(print.includes('&lt;script&gt; &amp; test'));assert(!print.includes('<script>'));
+assert(print.includes('<b>101</b>'));assert(print.includes('Görevli'));assert(print.includes('KAPTAN'));assert(print.includes('Otobüs 2'));
+assert.equal((print.match(/class="seat"/g)||[]).length,98);
+const {isoDate}=require('../public/passenger-fields');
+assert.equal(isoDate('29','2','2024'),'2024-02-29');assert.equal(isoDate('29','2','2025'),'');
+assert.equal(isoDate('31','4','2026'),'');assert.equal(isoDate('','',''),'');assert.equal(isoDate('15','5','1985'),'1985-05-15');
+console.log('bus staff override, custom geometry, numbering, print escaping and explicit date validation passed');

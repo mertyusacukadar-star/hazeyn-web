@@ -1,0 +1,21 @@
+.airport-picker-button{margin-top:6px;padding:10px 14px;border:1px solid #bed4c7;border-radius:9px;color:#24634c;background:#eef6f0;cursor:pointer;font:inherit;font-size:13px}
+.passenger-picker{box-sizing:border-box;width:min(520px,calc(100% - 24px));max-height:85dvh;overflow:auto;padding:22px;border:1px solid #cbdcd1;border-radius:20px;background:#fff;color:#243f34;box-shadow:0 24px 80px #142d2940;font-family:inherit}
+.passenger-picker::backdrop{background:#122a25a0}.picker-heading{display:flex;gap:12px;justify-content:space-between;align-items:center}.picker-heading h2{font-size:21px;margin:0}.passenger-picker p{font-size:13px;line-height:1.6}.passenger-picker button{font:inherit;min-height:44px;padding:10px 14px;border-radius:9px;border:1px solid #cbdcd1;color:#244e3c;background:#f6f9f5;cursor:pointer}.picker-heading button{font-size:24px;line-height:1;padding:8px 14px}.passenger-picker label{display:block;min-width:0;font-size:13px;font-weight:600}.passenger-picker input,.passenger-picker select{box-sizing:border-box;display:block;width:100%;min-width:0;min-height:46px;font:inherit;font-size:16px;color:#243f34;background:#fff;border:1px solid #bacfc1;border-radius:8px;padding:10px;margin-top:7px}.date-picker-fields{display:grid;grid-template-columns:.8fr 1.3fr 1fr;gap:10px;margin:20px 0}.picker-actions{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}.passenger-picker .picker-primary{background:#1c6c58;color:#fff}.picker-error{color:#a13228;min-height:20px}.airport-search-label{margin:20px 0 12px}.airport-results{display:grid;gap:7px;max-height:50dvh;overflow:auto;overscroll-behavior:contain}.airport-results button{display:flex;gap:16px;align-items:center;text-align:left;background:white}.airport-results b{min-width:38px}.airport-results span{font-size:14px}.passenger-picker :focus-visible{outline:3px solid #98bdab;outline-offset:2px}
+@media(max-width:760px){
+  body #passengerEditorCard{min-width:0;padding:16px}
+  body #passengerEditorCard .form-row{display:grid;grid-template-columns:minmax(0,1fr);gap:15px}
+  body #passengerEditorCard label,body #passengerEditorCard .table-wrap{min-width:0;max-width:100%}
+  body #passengerEditorCard .table-wrap{overflow:visible;border:0}
+  body #passengerEditorCard input,body #passengerEditorCard select{box-sizing:border-box;min-width:0!important;max-width:100%;width:100%;min-height:46px;font-size:16px;padding:11px}
+  body #passengerEditorCard input[data-mobile-date]{cursor:pointer;background:#f4f8f4;color:#254e3e}
+  body #passengerTable,body #passengerTable tbody{display:block!important;min-width:0!important;width:100%!important;table-layout:auto}
+  body #passengerTable thead{display:none}
+  body #passengerTable tbody{counter-reset:passenger}
+  body #passengerTable tbody tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px 10px;min-width:0;margin:16px 0;padding:16px 12px;border:1px solid #d2dfd5;border-radius:14px;background:#fafcf9;counter-increment:passenger}
+  body #passengerTable tbody tr::before{content:counter(passenger) ". YOLCU";grid-column:1/-1;color:#45775b;font-size:12px;font-weight:700;letter-spacing:.08em}
+  body #passengerTable tbody td{display:block;width:auto!important;min-width:0!important;max-width:100%;padding:0;border:0;position:static;white-space:normal;background:none}
+  body #passengerTable tbody td::before{content:attr(data-label);display:block;font-size:12px;color:#5d7267;line-height:1.4;margin-bottom:6px}
+  body #passengerTable tbody td:first-child,body #passengerTable tbody td:nth-child(14),body #passengerTable tbody td:last-child{grid-column:1/-1}
+  body #passengerEditorCard .form-actions{display:flex;flex-wrap:wrap;gap:8px}
+  body #passengerEditorCard .form-actions button{flex:1 1 40%;min-height:44px;padding:10px}
+}

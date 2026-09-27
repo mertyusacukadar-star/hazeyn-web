@@ -127,9 +127,9 @@
                 return {ok, storedLocally};
             }
         });
-        busWorkspace.open({key:currentCompanyId + ':' + tourId, tourId,
+        busWorkspace.open({key:currentCompanyId + ':' + tourId, tourId, companyName:currentCompany().name, tourTitle:state.tours.find(t=>String(t.id)===tourId)?.title || '',
             plan:state.tourBusPlans?.[tourId], people:window.TurizmBusPlan.roster(state.passengerLists,tourId),
-            canEdit:hasPermission('managePassengers')});
+            canEdit:hasPermission('managePassengers'),canPrint:hasPermission('exportPassengerLists')});
     }
     let selectedWorkspaceTourId = '';
 
@@ -2825,6 +2825,8 @@
         <td><input class="p-medine-room-no" value="${escapeHtml(p.medineRoomNo || p.roomNo || '')}" placeholder="Örn: D-214"></td>
         <td><input class="p-note" value="${escapeHtml(p.note || '')}" placeholder="Not"></td>
         <td><button type="button" class="icon-btn danger remove-row">Sil</button></td>`;
+        const labels = ['Ad Soyad','Cinsiyet','TC No','Telefon Numarası','Pasaport Numarası','Doğum Tarihi','Pasaport Başlangıç','Pasaport Bitiş','Oda Kaç Kişilik','Kişiye Özel Fiyat','Para Birimi','Mekke Oda No','Medine Oda No','Not',''];
+        [...tr.cells].forEach((cell,i)=>{cell.dataset.label=labels[i];const field=cell.querySelector('input,select');if(field)field.setAttribute('aria-label',labels[i]);});
         $('passengerTable').querySelector('tbody').appendChild(tr);
         const priceInput = tr.querySelector('.p-custom-price');
         if (priceInput) priceInput.addEventListener('input', () => { tr.dataset.priceSource = 'custom'; });
@@ -4062,6 +4064,7 @@
             // odakla. Varsayılan tıklamayı engellemediğimiz için select/date panelleri
             // ve details/summary davranışı doğal biçimde çalışmaya devam eder.
             document.addEventListener('pointerdown', event => {
+                if (event.pointerType === 'touch' || window.matchMedia('(pointer: coarse)').matches) return;
                 const field = event.target.closest && event.target.closest('input, textarea, select');
                 if (!field || field.disabled || field.readOnly || field.closest('[hidden]')) return;
                 if (document.activeElement !== field) {

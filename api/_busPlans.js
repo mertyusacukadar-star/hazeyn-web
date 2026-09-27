@@ -13,6 +13,9 @@ function validateBusPlans(state){
       const raw=plan.buses[i],b=normalized.buses[i];
       if(!raw||raw.id!==b.id||raw.name!==b.name||raw.capacity!==b.capacity||raw.limit!==b.limit||raw.rear!==b.rear||raw.doorAfter!==b.doorAfter)fail();
       if(JSON.stringify(raw.assignments)!==JSON.stringify(b.assignments))fail();
+      if(raw.doorBackRows!==b.doorBackRows)fail();
+      if(JSON.stringify(raw.seatLabels||{})!==JSON.stringify(b.seatLabels||{}))fail();
+      if(JSON.stringify(raw.layout)!==JSON.stringify(b.layout))fail();
       // Passenger edits can remove people without editing their bus plan. The UI
       // reconciles these references on next open, without altering passenger records.
     }

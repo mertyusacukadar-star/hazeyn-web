@@ -21,3 +21,27 @@
 .bus-seat-row.door-start .bus-door{align-self:stretch;margin-bottom:-9px;border-bottom:0;border-radius:8px 8px 0 0;display:grid;align-items:end;padding-bottom:0}
 .bus-seat-row.door-end .bus-door{align-self:stretch;border-top:0;border-radius:0 0 8px 8px;display:grid;align-items:start;padding-top:2px}
 @media(max-width:800px){.bus-heading{top:60px}.bus-heading .workspace-kicker{display:none}}
+/* Keep the complete seat, including its base, inside a solid white cabin. */
+.bus-cabin{background:#fff;overflow:hidden}
+.bus-seat-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) .45fr minmax(0,1fr) minmax(0,1fr)}
+.bus-aisle{background:#edf2ec;margin:-9px 0}
+.bus-rear{background:#fff;padding:8px 0 3px;margin-top:14px}
+.bus-settings-fields{grid-template-columns:repeat(3,minmax(0,1fr))}
+.bus-actions{flex-wrap:wrap;justify-content:flex-end}.bus-heading>div:first-child{min-width:0;flex:1}.bus-actions{max-width:65%}
+.bus-number-tools{margin:0 0 12px;display:flex;gap:8px;flex-wrap:wrap}.bus-number-tools p{font-size:12px;line-height:1.5;color:#667b70;margin:4px 0}
+#tab-buses .bus-number-cell{display:block;border:1px solid #c3d6c7;background:#fafdf9;margin:0}
+.bus-number-cell small{font-size:9px;color:#627969}.bus-number-cell input{width:100%;min-width:0;padding:5px 2px!important;text-align:center;border:1px solid #a7bdab;border-radius:5px;background:white;font-weight:bold;font-size:14px!important}
+@media(max-width:800px){.bus-actions{max-width:100%}.bus-actions button{flex:1 1 40%;font-size:11px!important;padding:7px!important}.bus-heading{position:static}.bus-settings-fields{grid-template-columns:1fr 1fr}}
+
+.bus-seat-row{grid-template-columns:minmax(0,1fr) minmax(18px,.24fr) minmax(0,1fr)}
+.bus-print-preview{width:min(1100px,calc(100% - 24px));height:90dvh;max-height:90dvh;padding:0;border:1px solid #bccdc1;border-radius:16px;overflow:hidden;background:#e9eeeb}.bus-print-preview::backdrop{background:#122a25a0}.bus-print-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 16px;background:#173f34;color:white;font:14px Arial,sans-serif}.bus-print-toolbar strong{margin-right:auto}.bus-print-toolbar button{background:white;border:0;border-radius:8px;padding:12px;color:#214b39;cursor:pointer}.bus-print-preview iframe{display:block;width:100%;height:calc(100% - 72px);border:0}
+.bus-side{display:grid;grid-template-columns:repeat(var(--seat-columns),minmax(0,1fr));gap:6px;min-width:0}
+.bus-side-door{grid-column:1/-1;min-height:64px;display:grid;place-items:center;text-align:center;border:1px dashed #daccae;border-radius:6px;background:#faf6eb;font-size:10px;color:#907a50}
+.bus-captain{display:flex;align-items:center;gap:8px;padding:12px 20px;border:1px solid #bacdbf;border-radius:18px 18px 6px 6px;background:#fff;color:#416b53}.bus-captain span{font-size:22px}
+.bus-front{align-items:center}.bus-seat.staff{background:#f8f2e6!important;border-color:#d7c8a5!important}.bus-seat.staff.occupied{background:#e4f0e8!important}
+.bus-custom-settings{padding:12px;background:#f6f8f4;border:1px solid #dce5df;border-radius:10px;margin:12px 0}.bus-settings select{display:block;width:100%;min-width:0;padding:10px;border:1px solid #dce5df;border-radius:8px;margin-top:5px;background:#fff}
+@media(max-width:800px){.bus-side{gap:4px}.bus-seat-row{grid-template-columns:minmax(0,1fr) 18px minmax(0,1fr)}.bus-settings input,.bus-settings select{font-size:16px!important}.bus-captain{padding:10px}.bus-settings-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.bus-print-preview[open]{display:flex;flex-direction:column}.bus-print-preview iframe{flex:1;min-height:0}
+
+.bus-side-door:not(.door-last){margin-bottom:-9px;border-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0}.bus-side-door:not(.door-first){border-top:0;border-top-left-radius:0;border-top-right-radius:0}
