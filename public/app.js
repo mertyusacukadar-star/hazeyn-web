@@ -108,6 +108,56 @@
         : normalizeCompanyId(requestedCompany || localStorage.getItem('turizmLastCompany'));
     let state = null;
     let adminLoggedIn = false;
+    let workspaceUI = null;
+    let selectedWorkspaceTourId = '';
+
+    function workspaceTourId() { return workspaceUI?.isModern() ? selectedWorkspaceTourId : ''; }
+    function workspacePassengerContexts() {
+        const id = workspaceTourId();
+        return allPassengerContexts().filter(context => !id || (id === '__unassigned__'
+            ? !state.tours.some(tour => String(tour.id) === String(context.list.tourId))
+            : String(context.list.tourId) === id));
+    }
+
+    function initWorkspaceUI() {
+        if (!IS_APP_MODE || !window.TurizmWorkspaceUI) return;
+        workspaceUI = window.TurizmWorkspaceUI.create({
+            snapshot: () => ({
+                loggedIn: adminLoggedIn, companyId: currentCompanyId, companyName: currentCompany().name,
+                cards: window.TurizmWorkspaceUI.buildTourCards(state?.tours || [], hasPermission('viewPassengers') ? state?.passengerLists || [] : []),
+                permissions: Object.fromEntries(['manageTours', 'viewPassengers', 'viewAccounting', 'viewCosts'].map(key => [key, hasPermission(key)]))
+            }),
+            setTour: id => {
+                selectedWorkspaceTourId = id;
+                if ($('listTourSelect')) $('listTourSelect').disabled = Boolean(id && id !== '__unassigned__');
+                if ($('costTourSelect')) $('costTourSelect').disabled = Boolean(id);
+            },
+            prepareTour: (id, tab) => {
+                if (tab === 'passengers') {
+                    if (id && id !== '__unassigned__' && $('listTourId').value !== id) {
+                        renderPassengerTourSelect(id);
+                        $('listTourSelect').value = id;
+                        $('listTourSelect').dispatchEvent(new Event('change'));
+                    } else if (id === '__unassigned__') clearPassengerForm();
+                    renderPassengerAdmin();
+                }
+                if (tab === 'accounting') accountingSearchQuery = '';
+                if (tab === 'costs') selectedCostTourId = id;
+            },
+            appearanceChanged: modern => {
+                const scoped = modern ? selectedWorkspaceTourId : '';
+                $('listTourSelect').disabled = Boolean(scoped && scoped !== '__unassigned__');
+                $('costTourSelect').disabled = Boolean(scoped);
+                renderPassengerAdmin();
+                if (!workspaceUI.hasChanges('tab-accounting')) renderAccounting(accountingSearchQuery);
+            },
+            discardPanel: tab => {
+                if (tab === 'tab-costs') loadSelectedTourCosts();
+                if (tab === 'tab-accounting') renderAccounting(accountingSearchQuery);
+            },
+            showPanel: switchTab, newTour: resetTourForm, editTour, toast
+        });
+    }
     let tempTourImage = '';
     let tempTourDetailBannerImage = '';
     let tempHotelMekkeImages = [];
@@ -392,7 +442,7 @@
         if (adminLoggedIn) {
             const active = document.querySelector('.admin-tab.active[data-tab]');
             const activePermission = active && APP_TAB_PERMISSIONS[active.dataset.tab];
-            const activeDenied = !active || (active.dataset.tab === 'users' && !isAppOwner()) || (activePermission && !hasPermission(activePermission));
+            const activeDenied = active ? (active.dataset.tab === 'users' && !isAppOwner()) || (activePermission && !hasPermission(activePermission)) : !workspaceUI?.isModern();
             if (activeDenied) {
                 const firstAllowed = ['dashboard', 'tours', 'passengers', 'accounting', 'costs'].find(tab => hasPermission(APP_TAB_PERMISSIONS[tab]));
                 if (firstAllowed) switchTab(firstAllowed);
@@ -1988,6 +2038,7 @@
 
     async function switchCompanyAccount(companyId) {
         const nextCompanyId = normalizeCompanyId(companyId);
+        if (workspaceUI && !workspaceUI.canLeave()) { if ($('companySwitcher')) $('companySwitcher').value = currentCompanyId; return false; }
         if (IS_APP_MODE && adminLoggedIn && !canAccessCompany(nextCompanyId)) {
             if ($('companySwitcher')) $('companySwitcher').value = currentCompanyId;
             toast('Bu firma hesabı için yetkin yok.');
@@ -1997,6 +2048,7 @@
             updateCompanyBranding();
             return true;
         }
+        selectedWorkspaceTourId = '';
         currentCompanyId = nextCompanyId;
         whatsappIntegrationStatus = null;
         localStorage.setItem('turizmLastCompany', currentCompanyId);
@@ -2024,7 +2076,7 @@
         try { resetTourForm(); } catch (e) { }
         try { clearPassengerForm(); } catch (e) { }
         renderAdmin();
-        switchTab('dashboard');
+        if (workspaceUI?.isModern()) workspaceUI.navigate('', 'home', true); else switchTab('dashboard');
         toast(`${currentCompany().name} hesabına geçildi.`);
         return true;
     }
@@ -2037,7 +2089,7 @@
 
         if (login) { login.hidden = isLogged; login.style.display = isLogged ? 'none' : 'grid'; }
         if (shell) { shell.hidden = !isLogged; shell.style.display = isLogged ? 'grid' : 'none'; shell.setAttribute('aria-hidden', String(!isLogged)); }
-        if (!isLogged) return;
+        if (!isLogged) { workspaceUI?.refresh(); return; }
 
         fillSettingsForm();
         if (hasPermission('viewDashboard')) renderDashboard();
@@ -2052,6 +2104,7 @@
         if (IS_APP_MODE && isAppOwner()) renderDesktopUsers();
         ensurePassengerRows();
         if (IS_APP_MODE) loadWhatsAppIntegrationStatus();
+        workspaceUI?.refresh();
     }
 
     function renderDashboard() {
@@ -2061,12 +2114,15 @@
         $('statLists').textContent = state.passengerLists.length;
         if ($('statStaff')) $('statStaff').textContent = (state.staff || []).length;
         if ($('statBlogs')) $('statBlogs').textContent = (state.blogs || []).length;
+        if (adminLoggedIn) queueMicrotask(() => workspaceUI?.refresh());
     }
 
-    function switchTab(tab) {
+    function switchTab(tab, workspaceInternal = false) {
+        if (!workspaceInternal && workspaceUI && !workspaceUI.canLeave()) return false;
         if (IS_APP_MODE && tab === 'users' && !isAppOwner()) { toast('Kullanıcı yönetimi yalnızca baş yöneticiye açıktır.'); return; }
         const requiredPermission = APP_TAB_PERMISSIONS[tab];
         if (IS_APP_MODE && requiredPermission && !requirePermission(requiredPermission)) return;
+        if (!workspaceInternal) workspaceUI?.panelChanged(tab);
         document.querySelectorAll('.admin-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
         document.querySelectorAll('.admin-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
         if (tab === 'accounting') {
@@ -2074,6 +2130,8 @@
         }
         if (tab === 'costs' && IS_APP_MODE) renderCostAccounting();
         if (tab === 'users' && isAppOwner()) loadDesktopUsers();
+        if (tab === 'passengers') renderPassengerAdmin();
+        return true;
     }
 
     function resetDesktopUserForm() {
@@ -2289,6 +2347,7 @@
         renderMultiPreview('tourHotelMekkePreview', []);
         renderMultiPreview('tourHotelMedinePreview', []);
         renderMultiPreview('tourGroupPreview', []);
+        workspaceUI?.checkpoint('tab-tours');
     }
 
     function renderTourAdmin() {
@@ -2302,6 +2361,7 @@
     }
 
     function editTour(id) {
+        if (workspaceUI && !workspaceUI.canLeave()) return;
         if (!requirePermission('manageTours')) return;
         const found = state.tours.find(x => x.id === id);
         if (!found) return;
@@ -2351,6 +2411,7 @@
         renderMultiPreview('tourHotelMekkePreview', hotelImages.mekke);
         renderMultiPreview('tourHotelMedinePreview', hotelImages.medine);
         renderMultiPreview('tourGroupPreview', groupImages);
+        workspaceUI?.checkpoint('tab-tours');
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -2755,6 +2816,12 @@
         if ($('listDestinationAirport')) $('listDestinationAirport').value = '';
         $('passengerTable').querySelector('tbody').innerHTML = '';
         passengerRow(); passengerRow(); renderPassengerTourSelect();
+        const workspaceTour = state?.tours?.find(t => String(t.id) === workspaceTourId());
+        if (workspaceTour) {
+            $('listTourSelect').value = workspaceTour.id; $('listTourId').value = workspaceTour.id;
+            $('listTitle').value = workspaceTour.title || ''; $('listDate').value = workspaceTour.departureDate || '';
+        }
+        workspaceUI?.checkpoint('tab-passengers');
     }
 
     function readPassengers() {
@@ -2829,6 +2896,7 @@
     }
 
     function editPassengerList(id) {
+        if (workspaceUI && !workspaceUI.canLeave()) return;
         if (!requirePermission('managePassengers')) return;
         const l = state.passengerLists.find(x => x.id === id);
         if (!l) return; switchTab('passengers');
@@ -2838,6 +2906,7 @@
         if ($('listDestinationAirport')) $('listDestinationAirport').value = l.destinationAirport || '';
         $('passengerTable').querySelector('tbody').innerHTML = '';
         (l.passengers || []).forEach(passengerRow); ensurePassengerRows(); window.scrollTo({ top: 0, behavior: 'smooth' });
+        workspaceUI?.checkpoint('tab-passengers');
     }
 
     function passengerRowHtml(p, i, listId, roomBandClass = '') {
@@ -3084,7 +3153,7 @@
         const paid = { USD: 0, EUR: 0, TRY: 0 };
         const balance = { USD: 0, EUR: 0, TRY: 0 };
         let openCount = 0;
-        allPassengerContexts().forEach(context => {
+        workspacePassengerContexts().forEach(context => {
             const snapshot = passengerAccountSnapshot(context);
             contract[snapshot.currency] += snapshot.agreedPrice;
             paid[snapshot.currency] += snapshot.paid;
@@ -3107,7 +3176,7 @@
         const target = $('accountingProgramBalances');
         if (!target) return;
         const groups = new Map();
-        allPassengerContexts().forEach(context => {
+        workspacePassengerContexts().forEach(context => {
             const key = context.tour?.id || context.list?.tourId || context.list?.id;
             if (!groups.has(key)) groups.set(key, {
                 title: context.tour?.title || context.list?.title || 'Programsız Liste',
@@ -3279,6 +3348,7 @@
                 : 'Henüz maliyet kaydı yok.';
         }
         renderCostCalculation();
+        workspaceUI?.checkpoint('tab-costs');
     }
 
     function renderCostAccounting() {
@@ -3394,18 +3464,24 @@
         if ($('accountingSearch') && $('accountingSearch').value !== accountingSearchQuery) $('accountingSearch').value = accountingSearchQuery;
         if ($('globalPassengerSearch') && $('globalPassengerSearch').value !== accountingSearchQuery) $('globalPassengerSearch').value = accountingSearchQuery;
         renderAccountingStats();
+        const scopeDescription = document.querySelector('#tab-accounting .accounting-hero p');
+        if (scopeDescription) scopeDescription.textContent = workspaceTourId()
+            ? 'Seçili turun yolcularını ve kalan bakiyelerini görüntüleyin; tahsilat ekleyin ve makbuz hazırlayın.'
+            : 'Ad veya soyadla bütün Hac, Umre ve kültür turu programlarında ara; kalan bakiyeyi gör, ödeme ekle ve logolu makbuz yazdır.';
         const normalizedQuery = normalizeSearchText(accountingSearchQuery);
-        if (normalizedQuery.length < 2) {
+        if (normalizedQuery.length < 2 && !workspaceTourId()) {
             results.innerHTML = '<div class="empty accounting-empty">Aramak için yolcunun adından veya soyadından en az 2 harf yazın.</div>';
+            workspaceUI?.checkpoint('tab-accounting');
             return;
         }
-        const matches = allPassengerContexts().filter(context => {
+        const matches = workspacePassengerContexts().filter(context => {
             const searchable = [context.passenger.name, context.passenger.tc, context.passenger.passportNo, context.passenger.phone, context.tour?.title, context.list.title].map(normalizeSearchText).join(' ');
             return searchable.includes(normalizedQuery);
         });
         results.innerHTML = matches.length
             ? `<div class="accounting-result-count"><b>${matches.length}</b> kayıt bulundu</div>${matches.map(accountingResultCard).join('')}`
-            : `<div class="empty accounting-empty"><b>“${escapeHtml(accountingSearchQuery)}”</b> için hiçbir programda yolcu bulunamadı.</div>`;
+            : `<div class="empty accounting-empty">${workspaceTourId() ? 'Bu turda aramanıza uygun yolcu kaydı yok.' : `<b>“${escapeHtml(accountingSearchQuery)}”</b> için yolcu bulunamadı.`}</div>`;
+        workspaceUI?.checkpoint('tab-accounting');
     }
 
     async function latestAccountingContext(listId, passengerId) {
@@ -3546,6 +3622,7 @@
     }
 
     async function refreshAdminFromServer() {
+        if (workspaceUI && !workspaceUI.canLeave()) return;
         const loaded = await loadAuthenticatedAdminData();
         if (!loaded) { toast('Merkezi veriye ulaşılamadı. İnternet bağlantısını kontrol et.'); return; }
         renderAdmin();
@@ -3819,12 +3896,15 @@
         if (noTour.length) groups.push({ id: 'legacy', title: 'Tur seçilmemiş / eski kayıtlar', type: 'Liste', items: noTour });
 
         if (IS_APP_MODE) {
-            const savedTourGroups = groups.filter(group => group.items.length);
+            const scope = workspaceTourId();
+            const scopeGroup = scope === '__unassigned__' ? 'legacy' : `tour:${scope}`;
+            const savedTourGroups = groups.filter(group => group.items.length).filter(group => !scope || group.id === scopeGroup);
+            if (scope) selectedPassengerTourGroupId = scopeGroup;
             if (!savedTourGroups.some(group => group.id === selectedPassengerTourGroupId)) selectedPassengerTourGroupId = '';
             list.innerHTML = savedTourGroups.map(group => `<details class="passenger-tour-group" data-passenger-tour-group="${escapeHtml(group.id)}" ${selectedPassengerTourGroupId === group.id ? 'open' : ''}>
                 <summary class="passenger-tour-summary"><span class="passenger-tour-name"><strong>${escapeHtml(group.title)}</strong><small>${escapeHtml(group.type)} turu</small></span><span class="passenger-tour-count">${group.items.length} liste</span></summary>
                 <div class="passenger-tour-content">${group.items.map(passengerListCard).join('')}</div>
-            </details>`).join('');
+            </details>`).join('') || '<div class="empty">Bu turda henüz kayıtlı yolcu listesi yok.</div>';
         } else {
             list.innerHTML = groups.map(g => `<section class="passenger-group"><div class="passenger-group-head"><h3>${escapeHtml(g.title)}</h3><span>${escapeHtml(g.type)} • ${g.items.length} liste</span></div>${g.items.length ? g.items.map(passengerListCard).join('') : '<div class="empty small">Bu turun altında kayıtlı yolcu listesi yok.</div>'}</section>`).join('');
         }
@@ -3951,6 +4031,7 @@
         $('adminPassword').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
         if ($('adminUsername')) $('adminUsername').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
         $('logoutBtn').onclick = () => {
+            if (workspaceUI && !workspaceUI.canLeave()) return;
             adminLoggedIn = false;
             if (IS_APP_MODE) clearDesktopSession();
             sessionStorage.removeItem(adminPasswordKey());
@@ -3962,7 +4043,7 @@
             button.onclick = () => switchCompanyAccount(button.dataset.companyChoice);
         });
         if ($('companySwitcher')) $('companySwitcher').addEventListener('change', event => switchCompanyAccount(event.target.value));
-        document.querySelectorAll('.admin-tab').forEach(btn => btn.onclick = () => switchTab(btn.dataset.tab));
+        document.querySelectorAll('.admin-tab').forEach(btn => btn.onclick = () => workspaceUI?.isModern() ? workspaceUI.navigate('', btn.dataset.tab) : switchTab(btn.dataset.tab));
         $('exportBtn').onclick = exportBackup;
         if ($('refreshAdminData')) $('refreshAdminData').onclick = refreshAdminFromServer;
         if ($('desktopUserForm')) $('desktopUserForm').addEventListener('submit', saveDesktopUser);
@@ -3979,13 +4060,22 @@
         if ($('desktopUserForm')) resetDesktopUserForm();
         const handleAccountingSearch = event => {
             if (!requirePermission('viewAccounting')) return;
-            accountingSearchQuery = event.target.value;
-            if (event.target.id === 'globalPassengerSearch' && accountingSearchQuery.trim().length >= 2) switchTab('accounting');
+            if (workspaceUI && !workspaceUI.canLeave()) return;
+            const typedQuery = event.target.value;
+            accountingSearchQuery = typedQuery;
+            if (event.target.id === 'globalPassengerSearch' && accountingSearchQuery.trim().length >= 2) {
+                if (workspaceUI?.isModern()) workspaceUI.navigate('', 'accounting');
+                else switchTab('accounting');
+                accountingSearchQuery = typedQuery;
+            }
             renderAccounting(accountingSearchQuery);
         };
         if ($('accountingSearch')) $('accountingSearch').addEventListener('input', handleAccountingSearch);
         if ($('globalPassengerSearch')) $('globalPassengerSearch').addEventListener('input', handleAccountingSearch);
-        if ($('costTourSelect')) $('costTourSelect').addEventListener('change', event => { selectedCostTourId = event.target.value; loadSelectedTourCosts(); });
+        if ($('costTourSelect')) $('costTourSelect').addEventListener('change', event => {
+            if (workspaceUI && !workspaceUI.canLeave()) { event.target.value = selectedCostTourId; return; }
+            selectedCostTourId = event.target.value; loadSelectedTourCosts();
+        });
         if ($('costCurrency')) $('costCurrency').addEventListener('change', renderCostCalculation);
         if ($('tourCostForm')) {
             $('tourCostForm').addEventListener('submit', saveTourCosts);
@@ -4020,6 +4110,7 @@
         if ($('resetHeroBanner')) $('resetHeroBanner').onclick = resetHeroBannerForm;
 
         $('listTourSelect').addEventListener('change', e => {
+            if (workspaceUI && !workspaceUI.canLeave()) { e.target.value = $('listTourId').value; return; }
             const tourId = e.target.value;
             const t = state.tours.find(x => x.id === tourId);
             const savedList = state.passengerLists.find(x => x.tourId === tourId);
@@ -4036,6 +4127,7 @@
                 $('passengerTable').querySelector('tbody').innerHTML = '';
                 (savedList.passengers || []).forEach(passengerRow);
                 ensurePassengerRows();
+                workspaceUI?.checkpoint('tab-passengers');
                 toast('Bu programa ait kayıtlı yolcular açıldı.');
                 return;
             }
@@ -4052,6 +4144,7 @@
                 $('listTitle').value = t.title;
                 $('listDate').value = t.departureDate || '';
             }
+            workspaceUI?.checkpoint('tab-passengers');
         });
         ['listOriginAirport', 'listDestinationAirport'].forEach(id => {
             if ($(id)) $(id).addEventListener('input', event => { event.target.value = airportCode(event.target.value); });
@@ -4120,6 +4213,7 @@
             const openDebtor = e.target.closest && e.target.closest('[data-open-debtor]');
             if (openDebtor) {
                 if (!requirePermission('viewAccounting')) return;
+                if (workspaceUI && !workspaceUI.canLeave()) return;
                 const debtorName = String(openDebtor.dataset.debtorName || '').trim();
                 accountingSearchQuery = debtorName;
                 renderAccounting(debtorName);
@@ -4231,6 +4325,7 @@
             localStorage.setItem('turizmLastCompany', currentCompanyId);
             updateCompanyBranding();
             bindAdminEvents();
+            initWorkspaceUI();
             if (IS_APP_MODE && await restoreDesktopSession()) {
                 adminLoggedIn = await loadAuthenticatedAdminData();
                 if (!adminLoggedIn) clearDesktopSession();

@@ -1,11 +1,13 @@
-const CACHE_NAME = 'turizm-muhasebe-mobile-v13-program-page';
+const CACHE_NAME = 'turizm-muhasebe-mobile-v14-workspace';
 const APP_SHELL = [
   '/admin.html?mobile=1',
   '/manifest.webmanifest',
   '/style.css?v=20260917-livecamera2',
   '/mrz-camera.js?v=20260917-livecamera2',
   '/document-reader.js?v=20260917-livecamera2',
-  '/app.js?v=20260922-program-page4',
+  '/workspace-ui.css?v=20260927-workspace1',
+  '/workspace-ui.js?v=20260927-workspace1',
+  '/app.js?v=20260927-workspace1',
   '/vendor/exceljs.min.js?v=4.4.0',
   '/assets/mobile-app-icon-192.png',
   '/assets/mobile-app-icon-512.png',

@@ -1,0 +1,456 @@
+/* Optional presentation layer. Removing workspace-modern restores the original UI. */
+body.workspace-modern {
+  --bg: #f4f6f4;
+  --paper: #fff;
+  --ink: #203337;
+  --muted: #657578;
+  --line: #e1e8e5;
+  --gold: #176e67;
+  --gold2: #24877b;
+  --soft: #f3f8f6;
+  --workspace-sidebar: #172c30;
+  --workspace-accent-soft: #e5f3ed;
+  --workspace-shadow: 0 3px 14px rgba(28, 52, 46, .035);
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Ubuntu", sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+body.workspace-modern [hidden] { display: none !important; }
+body.workspace-modern :is(button, input, select, textarea) { font: inherit; }
+body.workspace-modern :is(button, a, summary) { -webkit-tap-highlight-color: transparent; }
+body.workspace-modern :is(button, a, input, select, textarea, summary):focus-visible {
+  outline: 3px solid #70b9a7;
+  outline-offset: 3px;
+}
+body.workspace-modern button:disabled { cursor: not-allowed; opacity: .5; transform: none; }
+body.workspace-modern .workspace-icon { display: inline-block; flex: 0 0 18px; width: 18px; height: 18px; vertical-align: middle; }
+body.workspace-modern .admin-shell { grid-template-columns: 238px minmax(0, 1fr); min-height: 100dvh; }
+body.workspace-modern .admin-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  overflow-y: auto;
+  padding: 26px 16px 20px;
+  gap: 5px;
+  background: var(--workspace-sidebar);
+  scrollbar-width: thin;
+  scrollbar-color: #41585b transparent;
+}
+body.workspace-modern .admin-sidebar > img {
+  width: 160px;
+  height: 64px;
+  padding: 0;
+  margin: 0 auto 17px;
+  object-fit: contain;
+  background: transparent !important;
+  border-radius: 0;
+}
+body.workspace-modern .sidebar-company-label { padding: 0 13px 22px; margin: 0 0 12px; border-color: #ffffff15; }
+body.workspace-modern .sidebar-company-label span { color: #9cafb0; font-size: 9px; letter-spacing: .16em; font-weight: 600; }
+body.workspace-modern .sidebar-company-label b { margin-top: 6px; font-size: 15px; font-weight: 600; }
+body.workspace-modern :is(.admin-tab, .admin-view, .admin-logout, .workspace-nav-button) {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 43px;
+  padding: 10px 13px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #bdcacc;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .18s ease, color .18s ease, border-color .18s ease;
+}
+body.workspace-modern :is(.admin-tab, .admin-view)::before {
+  content: "";
+  flex: 0 0 7px;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+  opacity: .55;
+}
+body.workspace-modern :is(.admin-tab, .admin-view, .workspace-nav-button):hover { color: #fff; background: #ffffff09; }
+body.workspace-modern :is(.admin-tab, .workspace-nav-button).active {
+  color: #fff;
+  background: #ffffff12;
+  border-color: #ffffff0b;
+  box-shadow: inset 3px 0 #83c7b4;
+}
+body.workspace-modern .admin-tab.active::before { border-color: #a5dccb; background: #a5dccb; opacity: 1; }
+body.workspace-modern .workspace-nav-button.active .workspace-icon { color: #a5dccb; }
+body.workspace-modern .admin-view { margin-top: auto; }
+body.workspace-modern .admin-logout { color: #d5b7b2; }
+body.workspace-modern .admin-logout:hover { color: #ffdfd9; background: #ffffff09; }
+body.workspace-modern .workspace-secondary-heading {
+  padding: 20px 13px 8px;
+  color: #839c9e;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+}
+body.workspace-modern .admin-main { min-width: 0; padding: 26px clamp(20px, 3vw, 48px) 48px; }
+body.workspace-modern .admin-topbar {
+  min-height: 77px;
+  padding-bottom: 22px;
+  margin-bottom: 30px;
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+  gap: 22px;
+}
+body.workspace-modern .admin-topbar h1 { margin: 2px 0 0; font-size: 22px; letter-spacing: -.7px; font-weight: 650; white-space: nowrap; }
+body.workspace-modern .section-kicker { color: var(--gold); font-size: 10px; font-weight: 650; letter-spacing: .13em; }
+body.workspace-modern .admin-topbar-actions { gap: 9px 12px; align-items: flex-end; }
+body.workspace-modern .admin-topbar-actions :is(.btn, select, input) { min-height: 39px; height: 39px; font-size: 12px; }
+body.workspace-modern :is(.company-switcher, .global-passenger-search) { gap: 5px; color: var(--muted); font-size: 10px; font-weight: 500; letter-spacing: .02em; text-transform: none; }
+body.workspace-modern .company-switcher select { min-width: 150px; font-weight: 600; }
+body.workspace-modern .global-passenger-search input { width: min(245px, 20vw); padding: 0 13px; box-shadow: none; }
+body.workspace-modern .signed-user { padding: 0 9px 3px 0; color: var(--muted); }
+body.workspace-modern .signed-user small { font-size: 10px; font-weight: 500; }
+body.workspace-modern .signed-user b { color: var(--ink); font-size: 12px; font-weight: 600; }
+body.workspace-modern .workspace-toolbar-toggle { min-height: 39px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--muted); font-size: 12px; cursor: pointer; }
+body.workspace-modern .workspace-toolbar-toggle:hover { border-color: #97b6ac; color: var(--gold); }
+
+/* Program discovery and each program's own workspace. */
+body.workspace-modern .workspace-home { animation: workspace-enter .3s ease both; }
+body.workspace-modern .workspace-heading { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 18px; margin-bottom: 27px; }
+body.workspace-modern .workspace-kicker { display: block; margin-bottom: 8px; color: var(--gold); font-size: 11px; font-weight: 650; letter-spacing: .13em; text-transform: uppercase; }
+body.workspace-modern .workspace-heading h2 { margin: 0; font-size: clamp(27px, 3.2vw, 38px); font-weight: 650; letter-spacing: -1.25px; line-height: 1.2; }
+body.workspace-modern .workspace-heading p { margin: 10px 0 0; color: var(--muted); font-size: 14px; max-width: 660px; }
+body.workspace-modern .workspace-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0 0 30px; }
+body.workspace-modern .workspace-summary article {
+  position: relative;
+  min-height: 112px;
+  padding: 21px 24px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  box-shadow: var(--workspace-shadow);
+}
+body.workspace-modern .workspace-summary article:first-child { background: #eaf3ee; border-color: #d6e5da; }
+body.workspace-modern .workspace-summary :is(span, small) { display: block; color: var(--muted); font-size: 12px; font-weight: 500; }
+body.workspace-modern .workspace-summary strong { display: block; margin: 6px 0 0; font-size: 30px; line-height: 1.2; font-weight: 650; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+body.workspace-modern .workspace-summary article:first-child strong { color: #226253; }
+body.workspace-modern .workspace-toolbar { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 14px; margin: 0 0 20px; }
+body.workspace-modern .workspace-toolbar > label { flex: 1 1 250px; max-width: 460px; color: var(--muted); font-size: 12px; }
+body.workspace-modern .workspace-toolbar > label > span { display: block; margin-bottom: 6px; }
+body.workspace-modern .workspace-toolbar input[type="search"] { width: 100%; min-height: 47px; padding: 12px 17px; border: 1px solid #dbe5df; border-radius: 12px; background: #fff; color: var(--ink); font-size: 14px; }
+body.workspace-modern .workspace-search { position: relative; display: block; min-width: 0; }
+body.workspace-modern .workspace-search > .workspace-icon { position: absolute; top: 50%; left: 16px; transform: translateY(-50%); color: #83968b; pointer-events: none; }
+body.workspace-modern .workspace-search input[type="search"] { padding-left: 44px; }
+body.workspace-modern .workspace-results-count { margin: 0 0 13px; color: var(--muted); font-size: 12px; }
+body.workspace-modern .workspace-filters { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: #e9eeeb; }
+body.workspace-modern .workspace-filters button { min-height: 36px; padding: 7px 15px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #61716d; font-size: 12px; font-weight: 600; cursor: pointer; transition: background .18s ease, box-shadow .18s ease; }
+body.workspace-modern .workspace-filters button:hover { color: var(--gold); }
+body.workspace-modern .workspace-filters button:is(.active, [aria-pressed="true"], [aria-selected="true"]) { background: #fff; color: #244c41; border-color: #dde5df; box-shadow: 0 2px 5px #203b2910; }
+body.workspace-modern .workspace-tour-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+body.workspace-modern .workspace-tour-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-top: 3px solid #91b9a8;
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: var(--workspace-shadow);
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+body.workspace-modern .workspace-tour-card:hover { transform: translateY(-3px); border-color: #b4cfc1; box-shadow: 0 10px 25px #1e37270d; }
+body.workspace-modern .workspace-tour-card:focus-within { border-color: #6eaa95; }
+body.workspace-modern .workspace-tour-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 7px; margin-bottom: 23px; }
+body.workspace-modern .workspace-tour-top > span { color: #687b72; font-size: 10px; font-weight: 650; letter-spacing: .075em; text-transform: uppercase; }
+body.workspace-modern :is(.workspace-tour-status, .workspace-tour-top > span:last-child) { display: inline-flex; align-items: center; gap: 6px; width: fit-content; padding: 4px 9px; border-radius: 6px; background: #eef4ee; color: #3b7150; font-size: 10px; font-weight: 650; letter-spacing: 0; text-transform: none; }
+body.workspace-modern :is(.workspace-tour-status, .workspace-tour-top > span:last-child)::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+body.workspace-modern :is(.workspace-tour-status, .workspace-tour-top > span):is(.completed, [data-status="completed"]) { color: #708079; background: #edf0ee; }
+body.workspace-modern :is(.workspace-tour-status, .workspace-tour-top > span):is(.draft, [data-status="draft"]) { color: #927448; background: #f7f0e3; }
+body.workspace-modern .workspace-tour-card h3 { margin: 0; font-size: 20px; font-weight: 650; line-height: 1.35; letter-spacing: -.5px; overflow-wrap: anywhere; }
+body.workspace-modern .workspace-tour-date { display: flex; align-items: center; gap: 7px; margin: 10px 0 21px; color: var(--muted); font-size: 12px; }
+body.workspace-modern .workspace-tour-date .workspace-icon { flex-basis: 16px; width: 16px; height: 16px; }
+body.workspace-modern .workspace-tour-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 15px 0; margin-top: auto; border-top: 1px solid #edf1ee; border-bottom: 1px solid #edf1ee; }
+body.workspace-modern .workspace-tour-metrics > :first-child { border-right: 1px solid #edf1ee; }
+body.workspace-modern .workspace-tour-metrics :is(small, span) { display: block; color: #7a8881; font-size: 11px; }
+body.workspace-modern .workspace-tour-metrics :is(strong, b) { display: block; margin-top: 2px; font-size: 19px; font-weight: 600; line-height: 1.4; font-variant-numeric: tabular-nums; }
+body.workspace-modern .workspace-tour-open { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 42px; width: 100%; margin-top: 17px; padding: 10px 13px; border: 0; border-radius: 9px; background: #eef5f0; color: #2e6953; font-size: 12px; font-weight: 650; cursor: pointer; transition: background .18s ease, color .18s ease; }
+body.workspace-modern .workspace-tour-open > .workspace-icon { margin-left: auto; transition: transform .18s ease; }
+body.workspace-modern .workspace-tour-open:hover { color: #fff; background: #266b59; }
+body.workspace-modern .workspace-tour-open:hover > .workspace-icon { transform: translateX(3px); }
+body.workspace-modern .workspace-tour-header { margin: 0 0 24px; padding: 24px 27px 0; border: 1px solid #dce7df; border-radius: 19px; background: linear-gradient(115deg, #f1f7f0, #fff 80%); box-shadow: var(--workspace-shadow); animation: workspace-enter .25s ease both; }
+body.workspace-modern [data-workspace-back] { display: inline-flex; align-items: center; gap: 7px; padding: 0; margin: 0 0 17px; min-height: 32px; border: 0; background: transparent; color: #677c70; font-size: 12px; cursor: pointer; }
+body.workspace-modern [data-workspace-back]:hover { color: var(--gold); }
+body.workspace-modern .workspace-tour-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 20px; }
+body.workspace-modern .workspace-tour-heading h2 { margin: 0; font-size: clamp(23px, 3vw, 31px); line-height: 1.25; font-weight: 650; letter-spacing: -.8px; }
+body.workspace-modern .workspace-tour-heading p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+body.workspace-modern .workspace-tour-tabs { display: flex; align-items: center; gap: 24px; overflow-x: auto; scrollbar-width: thin; }
+body.workspace-modern .workspace-tour-tabs button { position: relative; flex: 0 0 auto; min-height: 49px; padding: 12px 1px 16px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: #728079; font-size: 13px; font-weight: 600; cursor: pointer; transition: color .18s ease, border-color .18s ease; }
+body.workspace-modern .workspace-tour-tabs button:is(.active, [aria-selected="true"], [aria-pressed="true"]) { color: #205d49; border-bottom-color: #31876a; }
+body.workspace-modern .workspace-tour-tabs button:hover { color: #205d49; }
+body.workspace-modern .workspace-detail-summary { display: block; width: 100%; min-width: 0; margin: 0 0 20px; animation: workspace-enter .25s ease both; }
+body.workspace-modern .workspace-detail-summary > .workspace-heading { width: 100%; margin: 0 0 20px; }
+body.workspace-modern .workspace-detail-summary > .workspace-heading h3 { margin: 0; color: var(--ink); font-size: 22px; line-height: 1.3; letter-spacing: -.45px; font-weight: 650; }
+body.workspace-modern .workspace-detail-summary > .workspace-tour-grid { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+body.workspace-modern .workspace-detail-summary .workspace-tour-card { min-height: 225px; }
+body.workspace-modern .workspace-detail-summary .workspace-tour-card > p { margin: 12px 0 24px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+body.workspace-modern .workspace-detail-summary .workspace-tour-open { margin-top: auto; }
+body.workspace-modern .workspace-rollback-note { margin: 28px 0 0; padding: 14px 17px; border: 1px solid #e0e8e1; border-radius: 11px; background: #edf2ed; color: #6b7c70; font-size: 12px; line-height: 1.6; }
+body.workspace-modern .workspace-rollback-note b { color: #385f4b; font-weight: 600; }
+body.workspace-modern .workspace-empty { grid-column: 1 / -1; padding: 45px 24px; border: 1px dashed #c7d8ce; border-radius: 16px; background: #fbfdfb; color: var(--muted); text-align: center; }
+
+/* Existing records and accounting forms retain their functionality and hierarchy. */
+body.workspace-modern .admin-panel.active { animation: workspace-enter .25s ease both; }
+body.workspace-modern .admin-card { padding: 25px; margin-bottom: 20px; border: 1px solid var(--line); border-radius: 17px; box-shadow: var(--workspace-shadow); }
+body.workspace-modern .admin-card h2 { margin: 0 0 19px; color: var(--ink); font-size: 21px; font-weight: 650; letter-spacing: -.4px; }
+body.workspace-modern .admin-card p { color: var(--muted); line-height: 1.7; }
+body.workspace-modern .admin-grid.two { grid-template-columns: minmax(320px, 460px) minmax(0, 1fr); gap: 22px; }
+body.workspace-modern :is(.form, .cost-input-grid) label { color: #4c615a; font-size: 12px; font-weight: 600; }
+body.workspace-modern .form label { gap: 7px; margin-bottom: 16px; }
+body.workspace-modern label small { font-weight: 400; color: #7e8a84; }
+body.workspace-modern :is(.form input, .form select, .form textarea, .company-switcher select, .global-passenger-search input, .accounting-search input, .cost-tour-controls select, .inline-money-form input, .inline-money-form select, .payment-fields input, .payment-fields select, .cost-input-grid input) {
+  border: 1px solid #dbe4de;
+  border-radius: 9px;
+  background: #fff;
+  color: #233f32;
+  box-shadow: none;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+body.workspace-modern .form :is(input, select, textarea) { padding: 11px 12px; }
+body.workspace-modern :is(input, select, textarea):focus { border-color: #72a894; box-shadow: 0 0 0 3px #65a58917; }
+body.workspace-modern input::placeholder, body.workspace-modern textarea::placeholder { color: #98a39d; font-weight: 400; }
+body.workspace-modern input:is([type="checkbox"], [type="radio"]) { accent-color: #26785c; }
+body.workspace-modern :is(.btn, .icon-btn, .small-btn) { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 41px; padding: 10px 15px; border-radius: 9px; font-size: 12px; font-weight: 600; line-height: 1.4; cursor: pointer; transition: background .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+body.workspace-modern .btn-gold { border: 1px solid #176e67; background: #176e67; color: #fff; box-shadow: 0 2px 3px #176e670c; }
+body.workspace-modern .btn-gold:hover { border-color: #125b55; background: #125b55; box-shadow: 0 4px 12px #176e6720; }
+body.workspace-modern :is(.btn-outline.dark, .icon-btn) { background: #fff; border: 1px solid #dbe4de; color: #4d685a; }
+body.workspace-modern :is(.btn-outline.dark, .icon-btn):hover { background: #f0f6f1; border-color: #a5c2ae; }
+body.workspace-modern .icon-btn.danger { color: #a64d47; border-color: #ecd4d1; background: #fff8f7; }
+body.workspace-modern .icon-btn.danger:hover { background: #faeae7; border-color: #dca8a1; }
+body.workspace-modern .form-actions { gap: 9px; margin-top: 19px; }
+body.workspace-modern .admin-item { border-color: var(--line); border-radius: 12px; padding: 16px; }
+body.workspace-modern .admin-item h3 { font-size: 17px; font-weight: 650; }
+body.workspace-modern .admin-item p { font-size: 12px; }
+body.workspace-modern :is(.stats-grid, .accounting-stats, .cost-summary-grid) { gap: 14px; margin-bottom: 22px; }
+body.workspace-modern :is(.stats-grid, .accounting-stats, .cost-summary-grid) article { min-height: 112px; padding: 21px 22px; border-color: var(--line); border-radius: 14px; box-shadow: var(--workspace-shadow); }
+body.workspace-modern .stats-grid strong { color: #286a51; font-size: 32px; font-weight: 650; }
+body.workspace-modern .stats-grid span { font-size: 12px; font-weight: 500; }
+body.workspace-modern :is(.accounting-stats, .cost-summary-grid) :is(span, small) { font-weight: 500; text-transform: none; font-size: 12px; }
+body.workspace-modern :is(.accounting-stats, .cost-summary-grid) strong { font-size: 25px; font-weight: 650; letter-spacing: -.6px; font-variant-numeric: tabular-nums; }
+body.workspace-modern .accounting-stats strong span { font-size: 22px; }
+body.workspace-modern :is(.accounting-stats article:nth-child(2), .cost-profit-card) { background: #edf6ef; border-color: #d6e9da; }
+body.workspace-modern :is(.accounting-stats article:nth-child(3), .cost-summary-grid .cost-expense-card) { background: #fcf7eb; border-color: #eee4c9; }
+body.workspace-modern :is(.accounting-hero, .cost-hero) { gap: 24px; background: #fff; }
+body.workspace-modern :is(.accounting-hero, .cost-hero) h2 { font-size: 26px; margin: 5px 0 10px; }
+body.workspace-modern :is(.accounting-hero, .cost-hero) p { font-size: 13px; }
+body.workspace-modern :is(.accounting-search, .cost-tour-controls label) { color: #5d7365; font-size: 12px; font-weight: 600; }
+body.workspace-modern .accounting-search input { height: 49px; font-size: 14px; }
+body.workspace-modern .accounting-guide { padding: 16px 20px; background: #f2f7f1; border-color: #dce9da; color: #6a7d65; }
+body.workspace-modern .accounting-guide span { font-size: 12px; font-weight: 500; }
+body.workspace-modern .accounting-empty { background: #fcfdfb; border-color: #cdddcf; font-size: 13px; }
+body.workspace-modern .accounting-card { border-color: var(--line); border-radius: 16px; box-shadow: var(--workspace-shadow); }
+body.workspace-modern .accounting-card-head { padding: 22px; background: #fcfdfb; }
+body.workspace-modern .accounting-card-head h3 { font-size: 22px; font-weight: 650; }
+body.workspace-modern .accounting-card-head p { font-size: 12px; font-weight: 500; }
+body.workspace-modern .accounting-tour-type { padding: 4px 8px; border-color: #dce9e1; border-radius: 6px; background: #edf5ef; color: #498263; font-size: 9px; font-weight: 600; }
+body.workspace-modern .accounting-balance { border-radius: 11px; }
+body.workspace-modern .accounting-balance strong { font-weight: 650; font-variant-numeric: tabular-nums; }
+body.workspace-modern :is(.accounting-totals, .accounting-editor-grid, .payment-history) { background: #f7f9f6; }
+body.workspace-modern :is(.passenger-facts small, .accounting-totals small) { font-size: 10px; font-weight: 600; text-transform: none; }
+body.workspace-modern .passenger-facts b { font-weight: 600; }
+body.workspace-modern .accounting-editor > summary { color: #3c7155; font-size: 13px; font-weight: 600; }
+body.workspace-modern :is(.accounting-form-block, .accounting-totals > span, .cost-item, .program-balance-card) { border-radius: 12px; border-color: var(--line); }
+body.workspace-modern .cost-item { padding: 17px; background: #f9fbf8; }
+body.workspace-modern .cost-item h4 { font-size: 14px; font-weight: 650; color: #425d48; }
+body.workspace-modern .cost-form-heading h3 { font-size: 22px; font-weight: 650; }
+body.workspace-modern .cost-form-heading > span { background: #254c39; border-radius: 8px; min-width: 56px; font-size: 12px; font-weight: 600; }
+body.workspace-modern .cost-item-fields label { font-size: 10px; text-transform: none; }
+body.workspace-modern .cost-input-grid input { font-size: 16px; font-weight: 600; }
+body.workspace-modern .cost-result-strip { border-radius: 13px; }
+body.workspace-modern .cost-result-strip strong { font-size: 27px; font-weight: 650; }
+body.workspace-modern .program-balance-heading h3 { font-size: 21px; font-weight: 650; }
+body.workspace-modern .program-balance-card h4 { font-size: 15px; font-weight: 650; }
+body.workspace-modern .program-balance-card header span { border-radius: 6px; font-weight: 600; }
+body.workspace-modern .program-balance-values small { font-size: 9px; font-weight: 600; }
+body.workspace-modern .table-wrap { border: 1px solid var(--line); border-radius: 12px; scrollbar-width: thin; scrollbar-color: #b5c9ba #f2f6ef; }
+body.workspace-modern :is(.passenger-table, .accounting-payment-table table) { font-variant-numeric: tabular-nums; }
+body.workspace-modern :is(.passenger-table, .accounting-payment-table table) th { padding: 12px 13px; background: #f0f5ef; border-color: #e0e9dc; color: #5e755a; font-size: 10px; font-weight: 650; text-transform: none; }
+body.workspace-modern :is(.passenger-table, .accounting-payment-table table) td { border-color: #e8eee4; }
+body.workspace-modern .passenger-table tbody tr:hover { background: #f7faf4; }
+body.workspace-modern .passenger-list-top { padding: 20px; background: #f9fcf6; }
+body.workspace-modern .passenger-list-top h3 { color: #2d4930; font-size: 21px; font-weight: 650; }
+body.workspace-modern .passenger-list-top .hint-text { background: #eef5e8; color: #6e805e; font-size: 11px; font-weight: 400; }
+body.workspace-modern .passenger-tour-group { border-color: #dce7d5; border-radius: 13px; box-shadow: none; }
+body.workspace-modern .passenger-tour-summary { background: #fcfdf9; padding: 17px; }
+body.workspace-modern .passenger-tour-summary:hover, body.workspace-modern .passenger-tour-group[open] > .passenger-tour-summary { background: #f1f7eb; }
+body.workspace-modern .passenger-tour-summary::after { color: #60824e; }
+body.workspace-modern .passenger-tour-name strong { color: #375137; font-weight: 650; }
+body.workspace-modern .passenger-tour-name small { font-weight: 400; }
+body.workspace-modern .passenger-tour-count { padding: 5px 10px; background: #eaf3dd; color: #648043; font-size: 12px; font-weight: 600; }
+body.workspace-modern .passenger-tour-content { border-color: #e1ebd7; }
+body.workspace-modern .passenger-group { border-radius: 13px; }
+body.workspace-modern .passenger-details { border-color: #dce7d5; border-radius: 11px; }
+body.workspace-modern .passenger-details summary { color: #5f7950; font-size: 12px; font-weight: 600; }
+body.workspace-modern .document-reader { padding: 19px; border: 1px solid #c8ddd1; border-radius: 12px; background: #f3f9f3; }
+body.workspace-modern .document-reader h3 { color: #3e684d; font-size: 16px; font-weight: 650; }
+body.workspace-modern .document-preview { padding: 26px; border-color: #bed5c3; border-radius: 18px; box-shadow: 0 24px 80px #142d2040; }
+body.workspace-modern .document-preview::backdrop { background: #172c3077; backdrop-filter: blur(4px); }
+body.workspace-modern .document-preview button { border: 1px solid #d3e0d5; border-radius: 9px; color: #355e3d; background: #edf5e9; font-weight: 600; }
+body.workspace-modern .toast { border-radius: 11px; background: #234b39; color: #fff; box-shadow: 0 8px 30px #152c2530; }
+
+/* The sign-in screen shares the same calm appearance. */
+body.workspace-modern .login-screen { background: radial-gradient(ellipse at 20% 0, #dfeee3, transparent 65%), #f4f6f2; }
+body.workspace-modern .login-card { border: 1px solid #dce7dd; border-radius: 23px; padding: 34px; box-shadow: 0 20px 80px #1e38210d; }
+body.workspace-modern .login-kicker { color: #657e66; font-size: 10px; font-weight: 600; }
+body.workspace-modern .login-card h1 { font-size: 26px; font-weight: 650; letter-spacing: -.7px; }
+body.workspace-modern .company-login-picker > button { border-radius: 13px; background: #f4f7ef; border-color: #e5ecdc; padding: 10px; }
+body.workspace-modern .company-login-picker > button.active { border-color: #598966; box-shadow: 0 0 0 3px #59896614; }
+body.workspace-modern .company-login-picker b { font-size: 14px; font-weight: 600; }
+body.workspace-modern .company-login-picker small { font-size: 10px; }
+body.workspace-modern .login-card input { border-color: #d8e3d1; border-radius: 10px; font-size: 15px; }
+body.workspace-modern .back-link { color: #527c53; font-size: 12px; font-weight: 500; }
+
+@keyframes workspace-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@media (min-width: 1600px) {
+  body.workspace-modern .admin-main { max-width: 1800px; width: 100%; margin-inline: auto; }
+}
+@media (max-width: 1280px) {
+  body.workspace-modern .admin-shell { grid-template-columns: 212px minmax(0, 1fr); }
+  body.workspace-modern .admin-sidebar { padding-inline: 12px; }
+  body.workspace-modern .admin-main { padding: 23px 24px 40px; }
+  body.workspace-modern .admin-topbar { align-items: flex-start; }
+  body.workspace-modern .admin-topbar-actions { justify-content: flex-end; }
+  body.workspace-modern .workspace-tour-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body.workspace-modern .admin-grid.two { grid-template-columns: minmax(300px, 1fr) minmax(0, 1fr); }
+  body.workspace-modern :is(.accounting-hero, .cost-hero, .accounting-editor-grid) { grid-template-columns: 1fr; }
+  body.workspace-modern .accounting-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 1020px) {
+  body.workspace-modern .admin-topbar { flex-direction: column; gap: 16px; }
+  body.workspace-modern .admin-topbar-actions { width: 100%; justify-content: flex-start; }
+  body.workspace-modern .global-passenger-search input { width: 220px; }
+  body.workspace-modern .admin-grid.two { grid-template-columns: minmax(0, 1fr); }
+  body.workspace-modern .workspace-tour-card { padding: 20px; }
+  body.workspace-modern .workspace-summary article { padding: 19px; }
+  body.workspace-modern .workspace-detail-summary > .workspace-tour-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  body.workspace-modern .admin-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; min-height: 100dvh; }
+  body.workspace-modern .admin-sidebar {
+    position: sticky;
+    z-index: 50;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    height: auto;
+    min-height: 60px;
+    padding: max(9px, env(safe-area-inset-top)) 12px 9px;
+    gap: 5px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    box-shadow: 0 3px 12px #10202016;
+  }
+  body.workspace-modern .admin-sidebar::-webkit-scrollbar { display: none; }
+  body.workspace-modern .admin-sidebar > img { width: 75px; height: 36px; margin: 0 12px 0 0; flex: 0 0 75px; }
+  body.workspace-modern .sidebar-company-label { display: none; }
+  body.workspace-modern :is(.admin-tab, .admin-view, .admin-logout, .workspace-nav-button) { flex: 0 0 auto; min-height: 38px; padding: 10px 12px; margin: 0; white-space: nowrap; font-size: 12px; }
+  body.workspace-modern :is(.admin-tab, .workspace-nav-button).active { box-shadow: inset 0 -2px #83c7b4; }
+  body.workspace-modern .workspace-secondary-heading { flex: 0 0 auto; margin: 0 4px 0 14px; padding: 10px 12px; border-left: 1px solid #ffffff22; font-size: 9px; white-space: nowrap; }
+  body.workspace-modern .admin-main { padding: 23px 20px 35px; }
+  body.workspace-modern .admin-topbar { margin-bottom: 25px; padding-bottom: 19px; }
+  body.workspace-modern .admin-topbar > div:first-child { display: block; }
+  body.workspace-modern .admin-topbar h1 { font-size: 21px; }
+  body.workspace-modern .admin-topbar-actions { display: flex; align-items: flex-end; }
+  body.workspace-modern .admin-topbar-actions > .btn { width: auto; padding-inline: 12px; }
+  body.workspace-modern :is(.company-switcher, .global-passenger-search) { width: auto; }
+  body.workspace-modern .global-passenger-search { flex: 1 1 190px; }
+  body.workspace-modern .global-passenger-search input { width: 100%; }
+  body.workspace-modern .workspace-heading h2 { font-size: 31px; }
+  body.workspace-modern .workspace-summary { gap: 10px; margin-bottom: 25px; }
+  body.workspace-modern .workspace-summary article { padding: 17px; min-height: 104px; }
+  body.workspace-modern .workspace-summary strong { font-size: 28px; }
+  body.workspace-modern .workspace-detail-summary > .workspace-tour-grid { gap: 14px; }
+  body.workspace-modern .cost-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  body.workspace-modern { font-size: 13px; }
+  body.workspace-modern .admin-main { padding: 21px 15px max(28px, env(safe-area-inset-bottom)); }
+  body.workspace-modern .admin-sidebar > img { display: none; }
+  body.workspace-modern .admin-topbar { gap: 12px; margin-bottom: 23px; }
+  body.workspace-modern .admin-topbar-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  body.workspace-modern .admin-topbar-actions > .signed-user { order: 0; grid-column: 1 / -1; display: flex; align-items: center; gap: 7px; padding: 0; border: 0; background: transparent; }
+  body.workspace-modern .admin-topbar-actions > .workspace-toolbar-toggle { order: 1; }
+  body.workspace-modern .admin-topbar-actions > .company-switcher { order: 2; }
+  body.workspace-modern .admin-topbar-actions > .global-passenger-search { order: 3; grid-column: 1 / -1; }
+  body.workspace-modern .admin-topbar-actions > #refreshAdminData { order: 4; }
+  body.workspace-modern .admin-topbar-actions > #exportBtn { order: 5; }
+  body.workspace-modern .company-switcher { flex: 1 1 150px; }
+  body.workspace-modern .company-switcher select { width: 100%; min-width: 0; }
+  body.workspace-modern .global-passenger-search { order: 5; flex: 1 1 100%; }
+  body.workspace-modern .global-passenger-search input { font-size: 16px; }
+  body.workspace-modern .workspace-toolbar-toggle { font-size: 11px; }
+  body.workspace-modern .workspace-heading { margin-bottom: 22px; }
+  body.workspace-modern .workspace-heading h2 { font-size: 29px; letter-spacing: -.8px; }
+  body.workspace-modern .workspace-heading p { font-size: 13px; }
+  body.workspace-modern .workspace-detail-summary > .workspace-heading { align-items: flex-start; gap: 15px; }
+  body.workspace-modern .workspace-detail-summary > .workspace-heading h3 { font-size: 21px; }
+  body.workspace-modern .workspace-detail-summary > .workspace-tour-grid { grid-template-columns: minmax(0, 1fr); }
+  body.workspace-modern .workspace-detail-summary .workspace-tour-card { min-height: 0; }
+  body.workspace-modern .workspace-summary { gap: 8px; }
+  body.workspace-modern .workspace-summary article { min-height: 94px; padding: 13px 12px; border-radius: 11px; }
+  body.workspace-modern .workspace-summary :is(span, small) { font-size: 10px; }
+  body.workspace-modern .workspace-summary strong { font-size: 25px; margin-top: 7px; }
+  body.workspace-modern .workspace-toolbar { align-items: stretch; gap: 12px; }
+  body.workspace-modern .workspace-toolbar > label { flex-basis: 100%; max-width: none; }
+  body.workspace-modern .workspace-toolbar input[type="search"] { min-height: 47px; font-size: 16px; }
+  body.workspace-modern .workspace-filters { justify-content: space-between; gap: 2px; }
+  body.workspace-modern .workspace-filters button { flex: 1; padding: 8px 10px; font-size: 11px; }
+  body.workspace-modern .workspace-tour-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  body.workspace-modern .workspace-tour-card { padding: 20px; }
+  body.workspace-modern .workspace-tour-top { margin-bottom: 15px; }
+  body.workspace-modern .workspace-tour-card h3 { font-size: 21px; }
+  body.workspace-modern .workspace-tour-date { margin-bottom: 18px; }
+  body.workspace-modern .workspace-tour-header { padding: 19px 18px 0; margin-bottom: 18px; border-radius: 15px; }
+  body.workspace-modern .workspace-tour-heading h2 { font-size: 25px; }
+  body.workspace-modern .workspace-tour-tabs { gap: 23px; margin-inline: -3px; padding-inline: 3px; }
+  body.workspace-modern .workspace-tour-tabs button { min-height: 47px; font-size: 12px; }
+  body.workspace-modern .admin-card { padding: 19px 16px; border-radius: 14px; }
+  body.workspace-modern .admin-card h2 { font-size: 20px; }
+  body.workspace-modern .form :is(input, select, textarea), body.workspace-modern .cost-input-grid input, body.workspace-modern .payment-fields :is(input, select) { font-size: 16px; }
+  body.workspace-modern :is(.form-row.three, .form-row.two-col) { grid-template-columns: minmax(0, 1fr); }
+  body.workspace-modern .accounting-stats article, body.workspace-modern .cost-summary-grid article { padding: 16px; min-height: 110px; }
+  body.workspace-modern :is(.accounting-stats, .cost-summary-grid) strong { font-size: 23px; }
+  body.workspace-modern .accounting-stats strong span { font-size: 20px; }
+  body.workspace-modern :is(.accounting-hero, .cost-hero) h2 { font-size: 23px; }
+  body.workspace-modern :is(.cost-tour-controls, .cost-input-grid) { grid-template-columns: minmax(0, 1fr); }
+  body.workspace-modern .cost-item-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body.workspace-modern .accounting-card-head { padding: 17px; }
+  body.workspace-modern .accounting-card-head h3 { font-size: 21px; }
+  body.workspace-modern .accounting-totals { padding: 14px; }
+  body.workspace-modern .accounting-editor-grid { padding: 14px; }
+  body.workspace-modern .payment-history { padding: 0 14px 17px; }
+  body.workspace-modern .passenger-list-top { padding: 16px; }
+  body.workspace-modern .passenger-list-top h3 { font-size: 19px; }
+  body.workspace-modern .passenger-list-top .admin-item-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body.workspace-modern .passenger-list-top .admin-item-actions .icon-btn { padding: 10px 7px; font-size: 11px; }
+  body.workspace-modern .document-reader { padding: 16px; }
+  body.workspace-modern .document-reader .form-actions > button { width: 100%; }
+  body.workspace-modern .login-card { padding: 25px 20px; }
+  body.workspace-modern .workspace-rollback-note { margin-top: 23px; padding: 13px; font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.workspace-modern *, body.workspace-modern *::before, body.workspace-modern *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+@media print {
+  body.workspace-modern { background: #fff; }
+  body.workspace-modern :is(.workspace-toolbar-toggle, .workspace-rollback-note, .workspace-tour-tabs, [data-workspace-back]) { display: none !important; }
+  body.workspace-modern .admin-main { padding: 0; }
+  body.workspace-modern :is(.admin-card, .workspace-tour-header) { box-shadow: none; break-inside: avoid; }
+}
