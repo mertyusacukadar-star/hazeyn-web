@@ -16,6 +16,7 @@ function validateBusPlans(state){
       if(raw.doorBackRows!==b.doorBackRows)fail();
       if(JSON.stringify(raw.seatLabels||{})!==JSON.stringify(b.seatLabels||{}))fail();
       if(JSON.stringify(raw.layout)!==JSON.stringify(b.layout))fail();
+      if(JSON.stringify(raw.companyRule)!==JSON.stringify(b.companyRule))fail();
       // Passenger edits can remove people without editing their bus plan. The UI
       // reconciles these references on next open, without altering passenger records.
     }

@@ -110,14 +110,55 @@
     let adminLoggedIn = false;
     let workspaceUI = null;
     let busWorkspace = null;
-    function renderBusWorkspace() {
-        if (!IS_APP_MODE || !hasPermission('viewPassengers')) return;
-        const tourId = selectedWorkspaceTourId;
+    let sharedBusContext = null, busLoadSequence = 0;
+    async function sharedBusRequest(company, tourId, body) {
+        const response = await fetch('/api/bus-shared?company='+encodeURIComponent(company)+'&tourId='+encodeURIComponent(tourId), {
+            method:body?'POST':'GET', headers:authorizedHeaders({'Content-Type':'application/json'}), cache:'no-store',
+            ...(body?{body:JSON.stringify(body)}:{})
+        });
+        const data=await response.json();
+        if(!response.ok || !data.ok)throw Error(data.error || 'Ortak otobüs bağlantısı kurulamadı.');
+        return data;
+    }
+    async function renderBusWorkspace() {
+        if (!IS_APP_MODE || !hasPermission('viewPassengers') || busWorkspace?.isDirty()) return;
+        const tourId = selectedWorkspaceTourId, company=currentCompanyId, sequence=++busLoadSequence;
         if (!state.tours.some(t => String(t.id) === tourId)) return;
+        busWorkspace?.reset();
+        $('tab-buses').innerHTML='<p class="bus-empty">Otobüs planı yükleniyor…</p>';
+        let context;
+        try { context=await sharedBusRequest(company,tourId); }
+        catch(error){
+            if(sequence!==busLoadSequence||company!==currentCompanyId||tourId!==selectedWorkspaceTourId)return;
+            $('tab-buses').innerHTML='<p class="bus-empty">'+escapeHtml(error.message)+'</p><button type="button" id="retryBusPlan">Tekrar dene</button>';
+            $('retryBusPlan').onclick=renderBusWorkspace;return;
+        }
+        if(sequence!==busLoadSequence||company!==currentCompanyId||tourId!==selectedWorkspaceTourId||!adminLoggedIn)return;
+        if(context.restricted){$('tab-buses').innerHTML='<p class="bus-empty">Bu program ortak otobüs planına bağlı. Görmek için iki firmaya erişim yetkisi gerekir.</p>';return;}
+        sharedBusContext=context;
         if (!busWorkspace) busWorkspace = window.createBusWorkspace($('tab-buses'), {
+            combine:async()=>{
+                const sources=await window.chooseSharedBusSource({company:currentCompanyId,tourId:selectedWorkspaceTourId,catalog:sharedBusContext.catalog});
+                if(!sources)return;
+                await sharedBusRequest(currentCompanyId,selectedWorkspaceTourId,{action:'create',sources});
+                busWorkspace.reset();await renderBusWorkspace();
+            },
+            unlink:async()=>{
+                const record=sharedBusContext.record;
+                if(!record||!await window.askWorkspaceConfirmation('Ortak plan bağlantısı kaldırılsın mı? Ortak plan arşivde saklanır; iki programın birleştirme öncesi ayrı otobüs planları yeniden açılır. Yolcu ve ödeme kayıtları değişmez.'))return;
+                await sharedBusRequest(currentCompanyId,selectedWorkspaceTourId,{action:'archive',id:record.id,revision:record.revision});
+                busWorkspace.reset();await renderBusWorkspace();
+            },
+            refresh:async()=>{busWorkspace.reset();await renderBusWorkspace();},
             save: async (id, plan) => {
                 if (!requirePermission('managePassengers')) return {ok:false};
-                // The existing save path preserves accounting and rejects stale snapshots.
+                if(sharedBusContext?.record){
+                    const record=sharedBusContext.record;
+                    sharedBusContext=await sharedBusRequest(currentCompanyId,id,{action:'save',id:record.id,revision:record.revision,plan});
+                    return {ok:true};
+                }
+                const latestContext=await sharedBusRequest(currentCompanyId,id);
+                if(latestContext.record||latestContext.restricted)throw Error('Bu program başka bir cihazdan ortak otobüse bağlandı. Düzeniniz korunuyor; sayfayı yenileyip ortak planı açın.');
                 const previous = clone(state.tourBusPlans || {});
                 const previousStamp = state._meta?.updatedAt;
                 state.tourBusPlans = {...previous, [id]: plan};
@@ -127,8 +168,12 @@
                 return {ok, storedLocally};
             }
         });
-        busWorkspace.open({key:currentCompanyId + ':' + tourId, tourId, companyName:currentCompany().name, tourTitle:state.tours.find(t=>String(t.id)===tourId)?.title || '',
-            plan:state.tourBusPlans?.[tourId], people:window.TurizmBusPlan.roster(state.passengerLists,tourId),
+        const record=context.record;
+        busWorkspace.open({key:company+':'+tourId, tourId, company,
+            companyName:record?'Hazeyn & Hakikat Turizm':currentCompany().name,
+            tourTitle:record?record.sources.map(s=>window.TurizmBusCompanies.names[s.company]+' / '+s.title+(s.date?' ('+s.date+')':'')).join(' + '):state.tours.find(t=>String(t.id)===tourId)?.title || '',
+            shared:record,canCombine:context.canCombine!==false,
+            plan:record?.plan||state.tourBusPlans?.[tourId], people:record?context.people:window.TurizmBusPlan.roster(state.passengerLists,tourId),
             canEdit:hasPermission('managePassengers'),canPrint:hasPermission('exportPassengerLists')});
     }
     let selectedWorkspaceTourId = '';

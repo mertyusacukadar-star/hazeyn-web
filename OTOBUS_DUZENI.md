@@ -27,6 +27,22 @@ Yeni doğrulamalar: görevli yerine elle yerleştirme ve kayıt sonrası koruma,
 
 Bu güncellemeden önceki kod etiketi: `backup/before-bus-custom-20260927`.
 
+## Hazeyn + Hakikat ortak otobüsleri
+
+1. Firma ve programı seçip **Otobüs düzeni → Diğer firmayla birleştir** düğmesini açın. Diğer firmanın programını adı/tarihiyle arayın. Tüm listeleri (sonradan eklenecek listeler dahil) veya seçili listeleri dahil edin. Mevcut taslağınız varsa önce kaydedin ya da vazgeçin.
+2. İki firmadan açılan ekran aynı ortak plana bağlıdır. Kaynak yolcu, pasaport, ödeme ve tur kayıtları kopyalanmaz/değiştirilmez. Ortak planda sadece oturma düzeni, kaynak program/listelerin kimlikleri tutulur; yolcu adları yetkili istekte kaynaktan okunur.
+3. **Otobüsün kullanımı:** Sağ/sol paylaşımı, tamamı Hazeyn, tamamı Hakikat veya serbest. Paylaşımda sol tarafın firmasını seçince sağ taraf diğer firmaya ayrılır. Arka sıranın uçları aynı paylaşımı izler; ortadaki tek koltuğun firması ayrıca seçilir. Otomatik yerleştirme görevli yerlerini atlar ve aynı firmanın aynı soyadlı grubunu bölmez. Tarafa/gruba yer yetmiyorsa açıklama gösterir.
+4. **Sayıya göre otobüsleri hazırla:** Standart 49 koltukta dört görevli yeri çıkarılarak 45 yolcu başına ayrı firma otobüsü, kalanlar için taraf paylaşımlı otobüs önerir. Bir tarafa sığmayan aile için ayrı firma otobüsü önerilebilir; 45 kişiden büyük bir soyadı grubu bölünmez ve elle düzenleme uyarısı verilir. Öneri onayla taslağa alınır; **Planı kaydet** ile kalıcı olur.
+5. Yolcu seçip otobüsü değiştirdikten sonra **Seçilenleri bu otobüse al** veya doğrudan koltuk seçimi kullanılabilir. Elle karşı firma tarafına da yolcu koyabilirsiniz. İstisnalar ekranda belirtilir ve **Boşta kalanları otomatik yerleştir** bunları bozmaz. **Yerleşimi firma taraflarına göre yeniden dağıt** ise onay aldıktan sonra elle yapılan yerleri sıfırlar.
+6. Birleştirme öncesi iki firmanın ayrı koltuk planları değiştirilmez; ortak plana ayrı araçlar olarak taşınır. **Ortak plan bağlantısını kaldır** ortak planı arşivler ve önceki ayrı planları yeniden açar; güncel ortak yerleşim ayrı planlara geri kopyalanmaz. Arşiv sunucuda korunur.
+7. Çıktıda Hazeyn/Hakikat etiketi, seçilen taraflar ve iki programın adı görünür. Ortak plan için iki firmaya erişim ve `viewPassengers`, düzenleme için ayrıca `managePassengers`, çıktı için `exportPassengerLists` gerekir. Tek firma yetkisi olan kullanıcıya ortak yolcu bilgileri gösterilmez.
+
+Ortak planların sunucu kaydı `turizm-shared-bus-plans-v1` satırındadır; şirket kayıtlarından bağımsızdır. Yeni şema/tablo gerekmez. `/api/bus-shared` kimlik doğrulaması yapar, yalnızca gerekli yolcu adlarını döndürür; pasaport, TC, telefon, ödeme bilgilerini döndürmez. Kayıt revizyonu ve atomik `updated_at` karşılaştırması eşzamanlı güncellemelerin üzerine yazılmasını önler. Çakışmada taslak ekranda kalır; **Güncel ortak planı aç** kullanıcı onayıyla güncel kaydı yükler. Ortak plan kontrolü ve kaydı internet gerektirir; bağlantı hatasında mevcut bağımsız plan sessizce açılmaz.
+
+Doğrulama: şirket kimliklerinin çakışmaması, aynı soyadının şirketler arasında gruplanmaması, sağ/sol ve arka sıra paylaşımı, tek firmaya tam otobüs, elle istisnalar, kaynak veri koruma, eski revizyon/atomik kayıt çakışması ve yetki sınırları otomatik testlerde yer alır. Yerel tarayıcıda Hakikat’ten liste seçerek birleştirme, Hazeyn’den aynı planı açma, firmalar arası taraf/otobüs taşıması, sayıya göre öneri ve iki oturumda kayıt çakışması doğrulandı. İki firmanın sentetik kaynak verilerinin özeti birebir aynı kaldı; şirket kayıtlarına sıfır yazma yapıldı.
+
+Ortak plan öncesi kod etiketi: `backup/before-shared-buses-20260927`. Geri dönüşte ortak sunucu satırı silinmemeli; önceki arayüz bu satırı göstermez.
+
 ## Veri ve yetki sınırları
 
 Planlar şirket verisinde ayrı `tourBusPlans[tourId]` alanında tutulur. Koltuklar yolcu listesi ve yolcu kimliği çiftine bağlıdır; isim değişimi koltuğu kaybettirmez. Silinen yolcuların eski koltukları plan açıldığında temizlenir. `viewPassengers` görüntüleme, `managePassengers` düzenleme yetkisidir. Sunucu kapasite, hedef, koltuk ve tekrarlı yerleşim biçimini doğrular. Site kayıtları ve alanı tanımayan eski istemciler mevcut planları korur. Planlar herkese açık site verisine dahil edilmez.

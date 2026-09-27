@@ -35,6 +35,7 @@ const {
 } = require('./site-render');
 const { renderHomePage } = require('./home-render');
 const whatsappHandler = require('./api/whatsapp');
+const sharedBusHandler = require('./api/bus-shared');
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
@@ -142,7 +143,7 @@ const server = http.createServer(async (req, res) => {
   ensureDb();
   const requestUrl = new URL(req.url, 'http://localhost');
   const pathname = requestUrl.pathname;
-  if(pathname === '/api/whatsapp'){
+  if(pathname === '/api/whatsapp' || pathname === '/api/bus-shared'){
     try {
       req.query = Object.fromEntries(requestUrl.searchParams.entries());
       if(req.method === 'POST') req.body = await readJsonBody(req, 256 * 1024);
@@ -152,7 +153,7 @@ const server = http.createServer(async (req, res) => {
         status(code){ statusCode = Number(code) || 200; return adapter; },
         json(payload){ return send(res, statusCode, JSON.stringify(payload), 'application/json; charset=utf-8'); }
       };
-      return await whatsappHandler(req, adapter);
+      return await (pathname === '/api/bus-shared' ? sharedBusHandler : whatsappHandler)(req, adapter);
     } catch(error){
       return send(res, Number(error && error.statusCode) || 500, JSON.stringify({ok:false, error:error.message || 'WhatsApp işlemi tamamlanamadı.'}), 'application/json; charset=utf-8');
     }
