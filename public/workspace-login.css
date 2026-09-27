@@ -1,0 +1,144 @@
+/* App-only login presentation. Classic mode restores the original card location. */
+body.workspace-modern.desktop-app .login-screen {
+  min-height: 100dvh;
+  padding: 44px 30px;
+  background: radial-gradient(ellipse at 85% 10%, #e1ebe5 0, transparent 45%), #f0f3f0;
+}
+body.workspace-modern.desktop-app .workspace-login-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  width: min(1050px, 100%);
+  min-height: 640px;
+  overflow: hidden;
+  border: 1px solid #dae3dd;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 24px 75px #233f3210, 0 3px 8px #233f3204;
+  animation: workspace-login-enter .32s ease both;
+}
+body.workspace-modern.desktop-app .workspace-login-brand {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 44px;
+  min-width: 0;
+  padding: 48px 46px 34px;
+  overflow: hidden;
+  background: #172e32;
+  color: #f2f5f0;
+}
+body.workspace-modern.desktop-app .workspace-login-brand::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  right: -185px;
+  bottom: -125px;
+  width: 430px;
+  height: 430px;
+  border: 1px solid #b4cba514;
+  border-radius: 50%;
+  box-shadow: 0 0 0 52px #b4cba507, 0 0 0 108px #b4cba504;
+  pointer-events: none;
+}
+body.workspace-modern.desktop-app .workspace-login-brand > * { position: relative; z-index: 1; }
+body.workspace-modern.desktop-app .workspace-login-logo {
+  display: block;
+  width: min(280px, 100%);
+  height: 94px;
+  object-fit: contain;
+  object-position: left center;
+}
+body.workspace-modern.desktop-app .workspace-login-shell[data-company="hazeyn"] .workspace-login-logo,
+body.workspace-modern.desktop-app .company-choice-logo.dark img {
+  filter: brightness(0) saturate(100%) invert(77%) sepia(31%) saturate(573%) hue-rotate(1deg) brightness(92%) contrast(86%);
+}
+body.workspace-modern.desktop-app .workspace-login-shell[data-company="hakikat"] .workspace-login-logo { width: 290px; object-position: left center; }
+body.workspace-modern.desktop-app .workspace-login-product { display: block; margin-top: 17px; color: #a8bbb8; font-size: 10px; font-weight: 600; letter-spacing: .22em; }
+body.workspace-modern.desktop-app .workspace-login-eyebrow { display: block; margin-bottom: 19px; color: #bda875; font-size: 10px; font-weight: 600; letter-spacing: .16em; }
+body.workspace-modern.desktop-app .workspace-login-title { margin: 0; color: #f2f5f0; font-size: clamp(34px, 4vw, 48px); font-weight: 500; line-height: 1.14; letter-spacing: -1.7px; }
+body.workspace-modern.desktop-app .workspace-login-description { max-width: 345px; margin: 22px 0 0; color: #afc0bb; font-size: 14px; line-height: 1.8; }
+body.workspace-modern.desktop-app .workspace-login-topics { display: flex; flex-wrap: wrap; gap: 11px; margin-top: 28px; }
+body.workspace-modern.desktop-app .workspace-login-topics span { color: #d1ddd6; font-size: 11px; line-height: 1.4; }
+body.workspace-modern.desktop-app .workspace-login-topics span + span::before { content: "/"; margin-right: 11px; color: #647e77; }
+body.workspace-modern.desktop-app .workspace-login-brand-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 25px; border-top: 1px solid #adc2b51c; color: #d2ded7; font-size: 11px; }
+body.workspace-modern.desktop-app .workspace-login-brand-dot { width: 6px; height: 6px; border-radius: 50%; background: #ad9560; }
+body.workspace-modern.desktop-app .workspace-login-footer-label { margin-left: auto; color: #93aaa0; font-size: 10px; }
+body.workspace-modern.desktop-app .workspace-login-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+  padding: 47px 45px;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+  text-align: left;
+}
+body.workspace-modern.desktop-app .workspace-login-card > .selected-company-logo { display: none; }
+body.workspace-modern.desktop-app .workspace-login-card h1 { order: 0; margin: 0; color: #203637; font-size: 25px; font-weight: 650; line-height: 1.3; letter-spacing: -.7px; }
+body.workspace-modern.desktop-app .workspace-login-card .company-account-note { order: 1; margin: 12px 0 29px; padding: 0; color: #77867f; font-size: 12px; font-weight: 400; line-height: 1.7; }
+body.workspace-modern.desktop-app .workspace-login-card .login-kicker { order: 2; margin: 0 0 10px; color: #718179; font-size: 9px; font-weight: 650; letter-spacing: .09em; }
+body.workspace-modern.desktop-app .workspace-login-card .company-login-picker { order: 3; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; margin: 0 0 25px; }
+body.workspace-modern.desktop-app .workspace-login-card .company-login-picker > button { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 0; min-width: 0; padding: 9px 9px 11px; border: 1px solid #dfe7df; border-radius: 11px; background: #fbfcfa; color: #304839; text-align: center; cursor: pointer; transition: background .18s ease, border-color .18s ease, box-shadow .18s ease; }
+body.workspace-modern.desktop-app .workspace-login-card .company-login-picker > button:hover { border-color: #9db6a5; background: #f7faf5; }
+body.workspace-modern.desktop-app .workspace-login-card .company-login-picker > button:is(.active, [aria-pressed="true"]) { border-color: #6e9a83; background: #f0f6ef; box-shadow: 0 0 0 2px #7f9f7b16; }
+body.workspace-modern.desktop-app .workspace-login-card .company-login-picker > button:is(.active, [aria-pressed="true"])::after { content: "✓"; position: absolute; top: 5px; right: 5px; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: #28745d; color: #fff; font-size: 9px; font-weight: 600; }
+body.workspace-modern.desktop-app .workspace-login-card .company-choice-logo { display: flex; align-items: center; justify-content: center; width: 100%; height: 48px; min-height: 48px; margin: 0 0 7px; padding: 7px 6px; overflow: hidden; border: 0; border-radius: 6px; background: #fff; }
+body.workspace-modern.desktop-app .workspace-login-card .company-choice-logo.dark { background: #1c3235; }
+body.workspace-modern.desktop-app .workspace-login-card .company-choice-logo img { display: block; width: 100%; height: 100%; margin: 0; padding: 0; border-radius: 0; background: transparent; object-fit: contain; }
+body.workspace-modern.desktop-app .workspace-login-card .company-choice-logo.dark img { content: url('assets/logo.png'); }
+body.workspace-modern.desktop-app .workspace-login-card .company-choice-logo.hakikat img { content: url('assets/hakikat-logo.png'); }
+body.workspace-modern.desktop-app .workspace-login-card .company-login-picker b { font-size: 11px; line-height: 1.5; font-weight: 600; }
+body.workspace-modern.desktop-app .workspace-login-card .company-login-picker small { display: none; }
+body.workspace-modern.desktop-app .workspace-login-card .desktop-login-field { order: 4; display: flex; flex-direction: column; gap: 8px; margin: 0 0 17px; color: #425c4b; font-size: 12px; font-weight: 600; }
+body.workspace-modern.desktop-app .workspace-login-password-label { order: 5; margin: 0 0 8px; color: #425c4b; font-size: 12px; font-weight: 600; }
+body.workspace-modern.desktop-app .workspace-login-card input { width: 100%; min-height: 47px; height: 47px; margin: 0; padding: 11px 13px; border: 1px solid #d8e1d9; border-radius: 8px; background: #fff; color: #203637; font-size: 15px; line-height: 1.5; box-shadow: none; transition: border-color .18s ease, box-shadow .18s ease; }
+body.workspace-modern.desktop-app .workspace-login-card input:focus { outline: none; border-color: #6d9d88; box-shadow: 0 0 0 3px #789e7e19; }
+body.workspace-modern.desktop-app .workspace-login-card #adminPassword { order: 6; margin: 0 0 23px; }
+body.workspace-modern.desktop-app #workspaceLoginMessage { order: 7; margin: -8px 0 17px; padding: 11px 13px; border: 1px solid #edd5cc; border-radius: 8px; background: #fff7f2; color: #994f3d; font-size: 12px; line-height: 1.6; }
+body.workspace-modern.desktop-app .workspace-login-card #loginBtn { order: 8; width: 100%; min-height: 47px; margin: 0; padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; letter-spacing: .01em; }
+body.workspace-modern.desktop-app .workspace-login-card .back-link { order: 9; }
+
+/* Keep the current user's name readable in the application toolbar. */
+body.workspace-modern.desktop-app .admin-topbar-actions .signed-user { display: flex; flex: 0 1 auto; flex-direction: column; justify-content: center; gap: 3px; min-width: 130px; max-width: 250px; min-height: 49px; height: auto; margin: 0; padding: 8px 13px; border: 1px solid #dfe7e2; border-radius: 9px; background: #fff; line-height: 1.4; box-sizing: border-box; }
+body.workspace-modern.desktop-app .admin-topbar-actions .signed-user small { display: block; margin: 0; color: #7b8882; font-size: 9px; font-weight: 500; line-height: 1.35; text-transform: none; letter-spacing: .02em; }
+body.workspace-modern.desktop-app .admin-topbar-actions .signed-user b { display: block; margin: 0; color: #294739; font-size: 12px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+
+@keyframes workspace-login-enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 1050px) {
+  body.workspace-modern.desktop-app .workspace-login-brand { padding: 37px 32px 29px; }
+  body.workspace-modern.desktop-app .workspace-login-card { padding: 39px 32px; }
+  body.workspace-modern.desktop-app .workspace-login-title { font-size: 38px; }
+}
+@media (max-width: 740px) {
+  body.workspace-modern.desktop-app .login-screen { align-items: start; min-height: 100dvh; padding: max(20px, env(safe-area-inset-top)) 17px max(20px, env(safe-area-inset-bottom)); }
+  body.workspace-modern.desktop-app .workspace-login-shell { grid-template-columns: minmax(0, 1fr); width: min(470px, 100%); min-height: 0; border-radius: 18px; }
+  body.workspace-modern.desktop-app .workspace-login-brand { display: block; padding: 20px 26px; }
+  body.workspace-modern.desktop-app .workspace-login-brand-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  body.workspace-modern.desktop-app .workspace-login-logo { width: 190px; height: 62px; }
+  body.workspace-modern.desktop-app .workspace-login-shell[data-company="hakikat"] .workspace-login-logo { width: 185px; height: 62px; }
+  body.workspace-modern.desktop-app .workspace-login-product { max-width: 80px; margin: 0; text-align: right; font-size: 8px; line-height: 1.8; letter-spacing: .13em; }
+  body.workspace-modern.desktop-app .workspace-login-story,
+  body.workspace-modern.desktop-app .workspace-login-brand-footer { display: none; }
+  body.workspace-modern.desktop-app .workspace-login-card { padding: 29px 26px 30px; }
+  body.workspace-modern.desktop-app .workspace-login-card h1 { font-size: 24px; }
+  body.workspace-modern.desktop-app .workspace-login-card .company-account-note { margin-bottom: 23px; }
+  body.workspace-modern.desktop-app .workspace-login-card input { font-size: 16px; }
+  body.workspace-modern.desktop-app .admin-topbar-actions .signed-user { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; column-gap: 10px; min-width: 0; max-width: none; min-height: 37px; padding: 8px 11px; }
+  body.workspace-modern.desktop-app .admin-topbar-actions .signed-user b { font-size: 11px; }
+}
+@media (max-width: 390px) {
+  body.workspace-modern.desktop-app .login-screen { padding-inline: 12px; }
+  body.workspace-modern.desktop-app .workspace-login-brand { padding: 17px 20px; }
+  body.workspace-modern.desktop-app .workspace-login-logo { width: 175px; height: 59px; }
+  body.workspace-modern.desktop-app .workspace-login-card { padding: 25px 20px 27px; }
+  body.workspace-modern.desktop-app .workspace-login-card h1 { font-size: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.workspace-modern.desktop-app .workspace-login-shell,
+  body.workspace-modern.desktop-app .workspace-login-card * { animation: none !important; transition: none !important; }
+}

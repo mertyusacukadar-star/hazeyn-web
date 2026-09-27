@@ -15,7 +15,7 @@
             count.listCount++;
             counts.set(id, count);
         }
-        const cards = tours.map(t => ({ id: String(t.id), title: t.title || 'İsimsiz tur', type: t.type || 'umre', status: t.status || 'active', departureDate: t.departureDate || '', passengerCount: 0, listCount: 0, ...counts.get(String(t.id)), legacy: false }));
+        const cards = tours.map(t => ({ id: String(t.id), title: t.title || 'İsimsiz tur', type: t.type || 'umre', status: t.status || 'active', departureDate: t.departureDate || '', durationDays:t.durationDays, passengerCount: 0, listCount: 0, ...counts.get(String(t.id)), legacy: false }));
         if (counts.has(LEGACY)) cards.push({ id: LEGACY, title: 'Tur atanmamış kayıtlar', type: 'legacy', status: 'active', departureDate: '', ...counts.get(LEGACY), legacy: true });
         return cards;
     }
@@ -40,7 +40,7 @@
     api.create = function (hooks) {
         let modern = true;
         try { modern = localStorage.getItem('turizmWorkspaceAppearanceV1') !== 'classic'; } catch (_) {}
-        let selectedId = '', view = 'home', company = '', currentModel, query = '', filter = 'all', mounted = false;
+        let selectedId = '', view = 'home', company = '', currentModel, query = '', filter = 'current', homePage = 1, mounted = false;
         const baseline = new Map();
         const $ = id => document.getElementById(id);
         const body = document.body;
@@ -50,13 +50,13 @@
         ['tab-costs', 'tab-accounting'].forEach(id => {
             const button = document.createElement('button'); button.type = 'button'; button.hidden = true;
             button.className = 'btn btn-outline dark workspace-draft-discard'; button.textContent = 'Kaydedilmeyen değişikliklerden vazgeç';
-            button.onclick = () => { if (confirm('Bu bölümdeki kaydedilmemiş değişikliklerden vazgeçilsin mi? Kayıtlı bilgiler değişmez.')) { hooks.discardPanel(id); checkpoint(id); } };
+            button.onclick = async () => { if (await window.askWorkspaceConfirmation('Bu bölümdeki kaydedilmemiş değişikliklerden vazgeçilsin mi? Kayıtlı bilgiler değişmez.')) { hooks.discardPanel(id); checkpoint(id); } };
             $(id).prepend(button); discardButtons.set(id, button);
         });
         document.addEventListener('input', updateDraftButtons);
         document.addEventListener('change', updateDraftButtons);
         const home = document.createElement('section'); home.id = 'workspaceHome'; home.className = 'workspace-home'; home.hidden = true;
-        home.innerHTML = `<div class="workspace-heading"><div><span class="workspace-kicker">TURİZM MUHASEBE</span><h2>Turlarınız, bir arada.</h2><p>Bir tur seçin; yolcular, tahsilatlar ve giderler aynı yerde.</p></div><button type="button" class="btn btn-gold" data-workspace-new>${icon('plus')} Yeni tur</button></div><div class="workspace-summary"></div><div class="workspace-toolbar"><label class="workspace-search">${icon('search')}<input type="search" placeholder="Tur adı veya tarih ara…" aria-label="Tur ara" autocomplete="off"></label><div class="workspace-filters" role="group" aria-label="Tur durumu">${Object.entries({ all: 'Tümü', ...labels }).map(([key,label])=>`<button type="button" data-filter="${key}" aria-pressed="${key==='all'}">${label}</button>`).join('')}</div></div><p class="workspace-results-count" aria-live="polite"></p><div class="workspace-tour-grid"></div><p class="workspace-rollback-note">Görünümü istediğiniz zaman değiştirebilirsiniz. Kayıtlarınız aynı kalır.</p>`;
+        home.innerHTML = `<div class="workspace-heading"><div><span class="workspace-kicker">TURİZM MUHASEBE</span><h2>Turlarınız, bir arada.</h2><p>Bir tur seçin; yolcular, tahsilatlar ve giderler aynı yerde.</p></div><button type="button" class="btn btn-gold" data-workspace-new>${icon('plus')} Yeni tur</button></div><div class="workspace-summary"></div><div class="workspace-toolbar"><label class="workspace-search">${icon('search')}<input type="search" placeholder="Tur adı veya tarih ara…" aria-label="Tur ara" autocomplete="off"></label><div class="workspace-filters" role="group" aria-label="Tur durumu">${Object.entries({current:'Güncel',past:'Geçmiş',draft:'Taslak',all:'Tümü'}).map(([key,label])=>`<button type="button" data-filter="${key}" aria-pressed="${key==='all'}">${label}</button>`).join('')}</div></div><p class="workspace-results-count" aria-live="polite"></p><div class="workspace-tour-grid"></div><p class="workspace-rollback-note">Görünümü istediğiniz zaman değiştirebilirsiniz. Kayıtlarınız aynı kalır.</p>`;
         const header = document.createElement('section'); header.className = 'workspace-tour-header'; header.hidden = true;
         const detail = document.createElement('section'); detail.className = 'workspace-detail-summary'; detail.hidden = true;
         const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'workspace-toolbar-toggle btn btn-outline dark'; toggle.id = 'workspaceAppearanceToggle';
@@ -66,10 +66,10 @@
         document.querySelector('.admin-topbar-actions').prepend(toggle);
         document.querySelector('.admin-sidebar .admin-tab').before(nav);
         nav.onclick = () => navigate('', 'home');
-        home.querySelector('input').addEventListener('input', event => { query = event.target.value; drawCards(); });
+        home.querySelector('input').addEventListener('input', event => { query = event.target.value; homePage=1; drawCards(); });
         home.addEventListener('click', event => {
             const status = event.target.closest('[data-filter]');
-            if (status) { filter = status.dataset.filter; drawCards(); }
+            if (status) { filter = status.dataset.filter; homePage=1; drawCards(); }
             const open = event.target.closest('[data-workspace-open]');
             if (open) navigate(open.dataset.workspaceOpen, 'overview');
             if (event.target.closest('[data-workspace-new]') && canLeave()) { selectedId = ''; hooks.setTour(''); showLegacy('tours'); hooks.newTour(); checkpoint('tab-tours'); }
@@ -117,10 +117,16 @@
         function selectedCard() { return currentModel?.cards.find(card => card.id === selectedId); }
         function drawCards() {
             if (!currentModel) return;
-            const cards = filterTourCards(currentModel.cards, query, filter);
+            const filtered = window.TurizmWorkspaceCollections.filterTours(currentModel.cards,{query,status:filter});
+            const page = window.TurizmWorkspaceCollections.paginate(filtered,homePage,6); homePage=page.page; const cards=page.items;
             home.querySelectorAll('[data-filter]').forEach(button => { button.setAttribute('aria-pressed', String(button.dataset.filter===filter)); button.classList.toggle('active', button.dataset.filter===filter); });
-            home.querySelector('.workspace-results-count').textContent = `${cards.length} tur gösteriliyor`;
+            home.querySelector('.workspace-results-count').textContent = `${page.start}–${page.end} / ${page.total} tur · Geçmiş turlar silinmez, Geçmiş sekmesinden açılır.`;
             home.querySelector('.workspace-tour-grid').innerHTML = cards.length ? cards.map(card => `<article class="workspace-tour-card" data-status="${escape(card.status)}"><div class="workspace-tour-top"><span class="workspace-tour-type">${escape(({umre:'Umre',hac:'Hac',yurtici:'Yurt içi',legacy:'Eski kayıtlar'})[card.type] || 'Tur')}</span><span class="workspace-tour-status" data-status="${escape(card.status)}">${escape(labels[card.status] || card.status)}</span></div><h3>${escape(card.title)}</h3><p class="workspace-tour-date">${icon('calendar')}${escape(dateLabel(card.departureDate))}</p><div class="workspace-tour-metrics"><div><strong>${card.passengerCount}</strong><span>Yolcu</span></div><div><strong>${card.listCount}</strong><span>Kayıtlı liste</span></div></div><button type="button" class="workspace-tour-open" data-workspace-open="${escape(card.id)}" aria-label="${escape(card.title)} turunu aç">Turu aç ${icon('arrow')}</button></article>`).join('') : '<div class="workspace-empty"><h3>Tur bulunamadı</h3><p>Başka bir adla arayın veya tur durumu filtresini değiştirin.</p></div>';
+            let pager=home.querySelector('.collection-pagination');
+            if(!pager){pager=document.createElement('nav');pager.className='collection-pagination';pager.setAttribute('aria-label','Tur sayfaları');home.querySelector('.workspace-tour-grid').after(pager);}
+            pager.innerHTML='<button type="button" data-home-prev>← Önceki</button><span>'+page.page+' / '+page.pageCount+'</span><button type="button" data-home-next>Sonraki →</button>';
+            pager.querySelector('[data-home-prev]').disabled=page.page===1;pager.querySelector('[data-home-next]').disabled=page.page===page.pageCount;
+            pager.querySelector('[data-home-prev]').onclick=()=>{homePage--;drawCards();};pager.querySelector('[data-home-next]').onclick=()=>{homePage++;drawCards();};
         }
         function paint() {
             if (!currentModel) return;
@@ -165,7 +171,7 @@
         }
         function refresh() {
             currentModel=hooks.snapshot();
-            if (company!==currentModel.companyId) { company=currentModel.companyId; selectedId=''; view='home'; hooks.setTour(''); baseline.clear(); mounted=false; }
+            if (company!==currentModel.companyId) { company=currentModel.companyId; homePage=1;query='';filter='current';home.querySelector('input').value=''; selectedId=''; view='home'; hooks.setTour(''); baseline.clear(); mounted=false; }
             if (!currentModel.loggedIn) { mounted=false; baseline.clear(); selectedId=''; hooks.setTour(''); paint(); return; }
             checkpoint();
             if (modern&&!mounted) { mounted=true; const route=parseRoute(location.hash); if (!route || !currentModel.cards.some(card=>card.id===route.id) || !navigate(route.id,route.tab,true)) navigate('','home',true); }

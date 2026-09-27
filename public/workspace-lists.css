@@ -1,0 +1,35 @@
+body.workspace-modern .collection-controls { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 16px; }
+body.workspace-modern .collection-controls input { flex:1 1 190px; min-width:0; }
+body.workspace-modern .collection-controls :is(input,select) { padding:11px 13px; background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:10px; font:inherit; }
+body.workspace-modern .collection-pagination { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:16px 0; }
+body.workspace-modern .collection-pagination span { margin-right:auto; color:var(--muted); font-size:12px; }
+body.workspace-modern .collection-pagination button { border:1px solid var(--line); border-radius:8px; background:white; color:var(--ink); padding:8px 12px; cursor:pointer; }
+body.workspace-modern .collection-empty { padding:18px; color:var(--muted); border:1px dashed var(--line); border-radius:12px; }
+body.workspace-modern #accountingProgramBalances { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; align-items:start; }
+body.workspace-modern .program-balance-card { display:block; min-height:0; padding:18px; background:#fff; }
+body.workspace-modern .program-balance-card header { display:flex; align-items:start; justify-content:space-between; gap:12px; }
+body.workspace-modern .program-balance-card header > div { min-width:0; }
+body.workspace-modern .program-balance-card h4 { overflow-wrap:anywhere; }
+body.workspace-modern .program-balance-values { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:16px 0; }
+body.workspace-modern .program-balance-values > span { min-height:0; padding:10px; background:#f3f7f5; }
+body.workspace-modern .program-balance-values b { overflow-wrap:anywhere; font-size:13px; }
+body.workspace-modern .program-debtor-rows { display:block; }
+body.workspace-modern .program-debtor-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--line); border-radius:0; background:transparent; }
+body.workspace-modern .program-debtor-row > div { min-width:0; }
+body.workspace-modern .program-debtor-row b { font-size:13px; overflow-wrap:anywhere; }
+body.workspace-modern .program-debtor-row small { font-size:11px; }
+body.workspace-modern .program-debtor-list .collection-controls { margin-top:12px; }
+body.workspace-modern .program-debtor-list .collection-pagination { margin-bottom:0; }
+body.workspace-modern .collection-note { color:var(--muted); font-size:12px; }
+body:not(.workspace-modern) [data-collection-for] { display:none!important; }
+@media(max-width:1000px) { body.workspace-modern #accountingProgramBalances { grid-template-columns:1fr; } }
+@media(max-width:500px) { body.workspace-modern .program-debtor-row { grid-template-columns:minmax(0,1fr) auto; } body.workspace-modern .program-debtor-row button { grid-column:1/-1; } }
+
+.app-error-notice { position:fixed; bottom:24px; right:24px; z-index:10000; max-width:min(520px,90vw); background:#fff3ed; border:1px solid #d79d86; color:#672e1c; padding:18px; border-radius:14px; box-shadow:0 15px 40px #0002; display:flex; gap:16px; align-items:center; }
+.app-error-notice button,.workspace-confirm button { padding:10px 18px; border:1px solid #cfdbd5; border-radius:9px; background:#fff; cursor:pointer; }
+.workspace-confirm { width:min(460px,90vw); padding:28px; border:1px solid #dce5e0; border-radius:18px; color:#203337; box-shadow:0 25px 80px #0003; font-family:Segoe UI,sans-serif; }
+.workspace-confirm::backdrop { background:#102c3266; }
+.workspace-confirm h2 { font-size:20px; margin-top:0; }
+.workspace-confirm p { line-height:1.6; }
+.workspace-confirm > div { display:flex; justify-content:flex-end; gap:10px; margin-top:24px; }
+.workspace-confirm button:last-child { background:#176e67; color:#fff; }

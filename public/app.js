@@ -90,7 +90,7 @@
     const COMPANY_CONFIG = {
         hazeyn: {
             id: 'hazeyn', name: 'Hazeyn Turizm', shortName: 'Hazeyn', receiptPrefix: 'HZ',
-            logo: 'assets/logo.png', loginLogo: 'assets/hazeyn-logo-receipt.png', receiptLogo: 'assets/hazeyn-logo-receipt.png', publicUrl: 'index.html', accent: '#c4912f'
+            logo: 'assets/logo.png', loginLogo: 'assets/logo.png', receiptLogo: 'assets/hazeyn-logo-receipt.png', publicUrl: 'index.html', accent: '#c4912f'
         },
         hakikat: {
             id: 'hakikat', name: 'Hakikat Turizm', shortName: 'Hakikat', receiptPrefix: 'HK',
@@ -121,6 +121,7 @@
 
     function initWorkspaceUI() {
         if (!IS_APP_MODE || !window.TurizmWorkspaceUI) return;
+        window.TurizmWorkspaceLogin?.install();
         workspaceUI = window.TurizmWorkspaceUI.create({
             snapshot: () => ({
                 loggedIn: adminLoggedIn, companyId: currentCompanyId, companyName: currentCompany().name,
@@ -145,6 +146,8 @@
                 if (tab === 'costs') selectedCostTourId = id;
             },
             appearanceChanged: modern => {
+                window.TurizmWorkspaceLists?.refresh();
+                renderTourAdmin();
                 const scoped = modern ? selectedWorkspaceTourId : '';
                 $('listTourSelect').disabled = Boolean(scoped && scoped !== '__unassigned__');
                 $('costTourSelect').disabled = Boolean(scoped);
@@ -917,9 +920,18 @@
         return 'https://wa.me/' + normalizePhone(state.settings.whatsapp) + '?text=' + encodeURIComponent(tourWhatsappMessage(t));
     }
 
+    function askAppConfirmation(message) { return IS_APP_MODE && window.askWorkspaceConfirmation ? window.askWorkspaceConfirmation(message) : Promise.resolve(window.confirm(message)); }
+
+    function showAppError(message) {
+        if (!adminLoggedIn && window.TurizmWorkspaceLogin?.showError(message)) return;
+        let notice = document.getElementById('appErrorNotice');
+        if (!notice) { notice = document.createElement('div'); notice.id='appErrorNotice'; notice.className='app-error-notice'; notice.setAttribute('role','alert'); document.body.append(notice); }
+        notice.replaceChildren(); const text=document.createElement('span'); text.textContent=message; const close=document.createElement('button'); close.type='button'; close.textContent='Kapat'; close.onclick=()=>notice.remove(); notice.append(text,close);
+    }
+
     function toast(msg) {
         const el = $('toast');
-        if (!el) { alert(msg); return; }
+        if (!el) { showAppError(msg); return; }
         el.textContent = msg;
         el.classList.add('show');
         clearTimeout(el._t);
@@ -1431,7 +1443,7 @@
                 const remoteStamp = Number(latest?._meta?.updatedAt || 0);
                 const localStamp = Number(state?._meta?.updatedAt || 0);
                 if (remoteStamp > localStamp) {
-                    alert('Başka bir bilgisayarda daha yeni bir değişiklik yapıldı. Veri kaybını önlemek için bu kayıt gönderilmedi. “Senkronize Et” düğmesine basıp güncel veriyi aldıktan sonra işlemi tekrar yap.');
+                    showAppError('Başka bir bilgisayarda daha yeni bir değişiklik yapıldı. Veri kaybını önlemek için bu kayıt gönderilmedi. “Senkronize Et” düğmesine basıp güncel veriyi aldıktan sonra işlemi tekrar yap.');
                     return false;
                 }
                 if (IS_APP_MODE && !options.keepLocalAccounting && state?._meta?.pendingSync !== true) mergeRemoteAccountingIntoState(latest);
@@ -1454,7 +1466,7 @@
                 return true;
             } catch (e) {
                 console.warn('Sunucu kaydı yapılamadı; IndexedDB kaydı kullanıldı.', e);
-                alert('Kayıt bu cihazda korundu ancak merkezi sisteme aktarılamadı. Lütfen internet bağlantını kontrol edip tekrar kaydet.');
+                showAppError('Kayıt bu cihazda korundu ancak merkezi sisteme aktarılamadı. Lütfen internet bağlantını kontrol edip tekrar kaydet.');
                 return false;
             }
         }
@@ -2048,6 +2060,7 @@
             updateCompanyBranding();
             return true;
         }
+        window.TurizmWorkspaceLists?.reset();
         selectedWorkspaceTourId = '';
         currentCompanyId = nextCompanyId;
         whatsappIntegrationStatus = null;
@@ -2070,7 +2083,7 @@
         if (!loaded) {
             adminLoggedIn = false;
             renderAdmin();
-            alert(`${currentCompany().name} hesabı açılamadı. Lütfen şifreni tekrar gir.`);
+            showAppError(`${currentCompany().name} hesabı açılamadı. Lütfen şifreni tekrar gir.`);
             return false;
         }
         try { resetTourForm(); } catch (e) { }
@@ -2358,6 +2371,7 @@
         <div><h3>${escapeHtml(t.title)} <small>(${escapeHtml(t.type === 'umre' ? 'Umre' : t.type === 'hac' ? 'Hac' : 'Yurt İçi')} · ${escapeHtml(statusLabels[t.status] || t.status)})</small></h3><p>${t.departureDate ? 'Kalkış: ' + escapeHtml(formatDateTR(t.departureDate)) + '\n' : ''}${escapeHtml(durationLabel(t))}\n${escapeHtml(departureCityLabel(t))}\n/${escapeHtml(t.slug)}\n${escapeHtml(capacityLabel(t))}\n${escapeHtml(String(t.cardText || '').trim() || pricePreview(t))}</p></div>
         ${hasPermission('manageTours') ? `<div class="admin-item-actions"><button class="icon-btn" data-edit-tour="${escapeHtml(t.id)}">Düzenle</button>${t.status === 'completed' ? '' : `<button class="icon-btn danger" data-delete-tour="${escapeHtml(t.id)}">${t.status === 'draft' ? 'Taslağı Sil' : 'Sona Erdir'}</button>`}</div>` : ''}
     </div>`).join('');
+        window.TurizmWorkspaceLists?.enhance(list, state.tours.map((t,i) => ({...t,node:list.children[i]})), {tours:true,label:'Kayıtlı turları ara',key:'tourDirectory'});
     }
 
     function editTour(id) {
@@ -3179,6 +3193,7 @@
         workspacePassengerContexts().forEach(context => {
             const key = context.tour?.id || context.list?.tourId || context.list?.id;
             if (!groups.has(key)) groups.set(key, {
+                id: String(key), status: context.tour?.status, durationDays: context.tour?.durationDays, departureDate: context.tour?.departureDate || context.list?.date || '',
                 title: context.tour?.title || context.list?.title || 'Programsız Liste',
                 date: context.tour?.departureDate || context.list?.date || '',
                 contract: { USD: 0, EUR: 0, TRY: 0 },
@@ -3216,6 +3231,16 @@
                     .sort((a, b) => b.balance - a.balance)
                     .map(debtor => `<div class="program-debtor-row"><div><b>${escapeHtml(debtor.name)}</b><small>${escapeHtml(debtor.roomPeople ? `${debtor.roomPeople} kişilik oda` : 'Oda belirtilmemiş')}${debtor.phone ? ` • ${escapeHtml(debtor.phone)}` : ''}</small></div><strong>${escapeHtml(formatMoney(debtor.balance, debtor.currency))}</strong>${hasPermission('viewAccounting') ? `<button class="icon-btn" type="button" data-open-debtor="${escapeHtml(debtor.passengerId)}" data-debtor-list="${escapeHtml(debtor.listId)}" data-debtor-name="${escapeHtml(debtor.name)}">Ödeme Aç</button>` : ''}</div>`).join('')}</div></details>` : ''}
             </article>`).join('') : '<div class="empty small">Program bazında bakiye göstermek için yolcu kaydı ekleyin.</div>';
+        if (workspaceUI?.isModern()) {
+            const groupNodes = [...target.children];
+            window.TurizmWorkspaceLists?.enhance(target, items.map((group,i)=>({...group,node:groupNodes[i]})), {size:4,label:'Bakiye programlarında ara',key:'balancePrograms'});
+            items.forEach((group,i) => {
+                const card = groupNodes[i];
+                if (!card) return; card._debtorsBound = true;
+                const rows = card.querySelector('.program-debtor-rows');
+                if (rows) window.TurizmWorkspaceLists?.enhance(rows,[...rows.children].map(node=>({node,title:node.textContent})),{size:5,label:'Borçlu yolcu ara',key:'debtors-'+group.id});
+            });
+        }
     }
 
     function costRecordForTour(tourId) {
@@ -3458,6 +3483,7 @@
     function renderAccounting(query = accountingSearchQuery) {
         const results = $('accountingSearchResults');
         if (!results) return;
+        window.TurizmWorkspaceLists?.clear(results);
         // Kullanıcı ad ile soyad arasına boşluk yazarken değeri kırpma; aksi halde
         // her tuşta yeniden çizim son boşluğu siler ve ikinci kelime yazılamaz.
         accountingSearchQuery = String(query || '');
@@ -3481,6 +3507,7 @@
         results.innerHTML = matches.length
             ? `<div class="accounting-result-count"><b>${matches.length}</b> kayıt bulundu</div>${matches.map(accountingResultCard).join('')}`
             : `<div class="empty accounting-empty">${workspaceTourId() ? 'Bu turda aramanıza uygun yolcu kaydı yok.' : `<b>“${escapeHtml(accountingSearchQuery)}”</b> için yolcu bulunamadı.`}</div>`;
+        window.TurizmWorkspaceLists?.enhance(results,[...results.querySelectorAll('[data-account-card]')].map(node=>({node,title:node.querySelector('h3')?.textContent})),{size:5,search:false,reset:true,label:'Yolcu sonuç sayfaları',key:'accountResults'});
         workspaceUI?.checkpoint('tab-accounting');
     }
 
@@ -3569,7 +3596,7 @@
         const currentContext = getPassengerContext(listId, passengerId);
         const currentPayment = currentContext?.passenger.accounting?.payments?.find(item => item.id === paymentId);
         if (!currentPayment || currentPayment.voided) return;
-        if (!confirm(`${currentPayment.receiptNo} numaralı ${formatMoney(currentPayment.amount, currentContext.passenger.accounting.currency)} ödeme kaydı iptal edilsin mi? Kayıt denetim için geçmişte görünmeye devam eder.`)) return;
+        if (!await askAppConfirmation(`${currentPayment.receiptNo} numaralı ${formatMoney(currentPayment.amount, currentContext.passenger.accounting.currency)} ödeme kaydı iptal edilsin mi? Kayıt denetim için geçmişte görünmeye devam eder.`)) return;
         const context = await latestAccountingContext(listId, passengerId);
         const payment = context?.passenger.accounting?.payments?.find(item => item.id === paymentId);
         if (!payment || payment.voided) { renderAccounting(); toast('Bu ödeme kaydı başka bir kullanıcı tarafından zaten değiştirilmiş.'); return; }
@@ -3881,6 +3908,7 @@
     function renderPassengerAdmin() {
         const list = $('passengerListAdmin');
         if (!list) return;
+        window.TurizmWorkspaceLists?.clear(list);
         const openDetailIds = new Set(Array.from(list.querySelectorAll('.passenger-details[open][data-details-list-id]')).map(details => details.dataset.detailsListId));
         const currentlyOpenTour = list.querySelector('.passenger-tour-group[open][data-passenger-tour-group]');
         if (currentlyOpenTour) selectedPassengerTourGroupId = currentlyOpenTour.dataset.passengerTourGroup || '';
@@ -3889,7 +3917,7 @@
         const groups = [];
         state.tours.forEach(t => {
             const items = state.passengerLists.filter(l => l.tourId === t.id);
-            groups.push({ id: `tour:${t.id}`, title: t.title, type: t.type === 'umre' ? 'Umre' : t.type === 'hac' ? 'Hac' : 'Yurt İçi', items });
+            groups.push({ departureDate:t.departureDate, durationDays:t.durationDays, status:t.status, id: `tour:${t.id}`, title: t.title, type: t.type === 'umre' ? 'Umre' : t.type === 'hac' ? 'Hac' : 'Yurt İçi', items });
         });
 
         const noTour = state.passengerLists.filter(l => !state.tours.some(t => t.id === l.tourId));
@@ -3907,6 +3935,10 @@
             </details>`).join('') || '<div class="empty">Bu turda henüz kayıtlı yolcu listesi yok.</div>';
         } else {
             list.innerHTML = groups.map(g => `<section class="passenger-group"><div class="passenger-group-head"><h3>${escapeHtml(g.title)}</h3><span>${escapeHtml(g.type)} • ${g.items.length} liste</span></div>${g.items.length ? g.items.map(passengerListCard).join('') : '<div class="empty small">Bu turun altında kayıtlı yolcu listesi yok.</div>'}</section>`).join('');
+        }
+        if (workspaceUI?.isModern() && !workspaceTourId()) {
+            const nodes = [...list.querySelectorAll('[data-passenger-tour-group]')];
+            window.TurizmWorkspaceLists?.enhance(list, nodes.map(node=>({...groups.find(g=>g.id===node.dataset.passengerTourGroup),node})),{tours:true,size:6,label:'Yolcu listelerinde tur ara',key:'passengerDirectory'});
         }
         openDetailIds.forEach(id => {
             const details = list.querySelector(`.passenger-details[data-details-list-id="${CSS.escape(id)}"]`);
@@ -4011,6 +4043,10 @@
             }, true);
         }
         $('loginBtn').onclick = async () => {
+            if ($('loginBtn').disabled) return;
+            window.TurizmWorkspaceLogin?.clearError();
+            $('loginBtn').disabled = true;
+            try {
             const password = $('adminPassword').value;
             const username = $('adminUsername')?.value || 'admin';
             const loginResult = IS_APP_MODE ? await validateDesktopLogin(username, password) : { ok: await validateAdminPassword(password) };
@@ -4020,13 +4056,14 @@
                 const loaded = await loadAuthenticatedAdminData();
                 if (!loaded) {
                     if (IS_APP_MODE) clearDesktopSession(); else sessionStorage.removeItem(adminPasswordKey());
-                    alert('Yonetici verileri guvenli sekilde yuklenemedi. Lutfen baglantini kontrol edip tekrar dene.');
+                    showAppError('Yonetici verileri guvenli sekilde yuklenemedi. Lutfen baglantini kontrol edip tekrar dene.');
                     return;
                 }
                 adminLoggedIn = true;
                 renderAdmin();
                 if (isAppOwner()) loadDesktopUsers();
-            } else { alert(loginResult.error || 'Şifre hatalı.'); }
+            } else { $('adminPassword').value=''; showAppError(loginResult.error || 'Şifre hatalı.'); }
+            } catch (_) { showAppError('Giriş yapılamadı. Bağlantınızı kontrol edip tekrar deneyin.'); } finally { $('loginBtn').disabled=false; }
         };
         $('adminPassword').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
         if ($('adminUsername')) $('adminUsername').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
@@ -4219,7 +4256,7 @@
                 renderAccounting(debtorName);
                 setTimeout(() => {
                     const card = document.querySelector(`[data-account-card][data-list-id="${CSS.escape(openDebtor.dataset.debtorList || '')}"][data-passenger-id="${CSS.escape(openDebtor.dataset.openDebtor || '')}"]`);
-                    if (card) { card.querySelector('details')?.setAttribute('open', ''); card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+                    if (card) { window.TurizmWorkspaceLists?.reveal($('accountingSearchResults'),card); card.querySelector('details')?.setAttribute('open', ''); card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
                 }, 0);
                 return;
             }
@@ -4252,7 +4289,7 @@
             const editDesktopUserButton = e.target.closest && e.target.closest('[data-edit-desktop-user]');
             if (editDesktopUserButton) { editDesktopUser(editDesktopUserButton.dataset.editDesktopUser); return; }
             const deleteDesktopUserButton = e.target.closest && e.target.closest('[data-delete-desktop-user]');
-            if (deleteDesktopUserButton && confirm('Bu çalışan kullanıcısı silinsin mi?')) {
+            if (deleteDesktopUserButton && await askAppConfirmation('Bu çalışan kullanıcısı silinsin mi?')) {
                 try { await desktopApi('delete-user', { method: 'POST', body: { id: deleteDesktopUserButton.dataset.deleteDesktopUser } }); await loadDesktopUsers(); toast('Çalışan kullanıcısı silindi.'); }
                 catch (error) { toast(error.message || 'Kullanıcı silinemedi.'); }
                 return;
@@ -4263,10 +4300,10 @@
                 if (!requirePermission('manageTours')) return;
                 const tourId = delTour.dataset.deleteTour;
                 const foundTour = state.tours.find(x => x.id === tourId);
-                if (foundTour && normalizedTourStatus(foundTour) === 'draft' && confirm('Taslak program silinsin mi?')) {
+                if (foundTour && normalizedTourStatus(foundTour) === 'draft' && await askAppConfirmation('Taslak program silinsin mi?')) {
                     state.tours = state.tours.filter(x => x.id !== tourId);
                     if (!await saveData()) return; renderTourAdmin(); renderPassengerTourSelect(); renderDashboard(); toast('Taslak silindi.');
-                } else if (foundTour && normalizedTourStatus(foundTour) !== 'draft' && confirm('Program sona ermiş olarak arşivlensin mi? Sayfası ve Google bağlantısı korunacaktır.')) {
+                } else if (foundTour && normalizedTourStatus(foundTour) !== 'draft' && await askAppConfirmation('Program sona ermiş olarak arşivlensin mi? Sayfası ve Google bağlantısı korunacaktır.')) {
                     foundTour.status = 'completed';
                     if (!await saveData()) return; renderTourAdmin(); renderPassengerTourSelect(); renderDashboard(); toast('Program arşivlendi; sayfası korunuyor.');
                 }
@@ -4274,23 +4311,23 @@
             const editTourBtn = e.target.closest('[data-edit-tour]'); if (editTourBtn) editTour(editTourBtn.dataset.editTour);
 
             const delReview = e.target.closest('[data-delete-review]');
-            if (delReview && confirm('Yorum silinsin mi?')) { state.reviews = state.reviews.filter(x => x.id !== delReview.dataset.deleteReview); if (!await saveData()) return; renderReviewAdmin(); renderDashboard(); toast('Yorum silindi.'); }
+            if (delReview && await askAppConfirmation('Yorum silinsin mi?')) { state.reviews = state.reviews.filter(x => x.id !== delReview.dataset.deleteReview); if (!await saveData()) return; renderReviewAdmin(); renderDashboard(); toast('Yorum silindi.'); }
             const editReviewBtn = e.target.closest('[data-edit-review]'); if (editReviewBtn) editReview(editReviewBtn.dataset.editReview);
 
             const delGallery = e.target.closest('[data-delete-gallery]');
-            if (delGallery && confirm('Görsel silinsin mi?')) { state.gallery = state.gallery.filter(x => x.id !== delGallery.dataset.deleteGallery); if (!await saveData()) return; renderGalleryAdmin(); renderDashboard(); toast('Görsel silindi.'); }
+            if (delGallery && await askAppConfirmation('Görsel silinsin mi?')) { state.gallery = state.gallery.filter(x => x.id !== delGallery.dataset.deleteGallery); if (!await saveData()) return; renderGalleryAdmin(); renderDashboard(); toast('Görsel silindi.'); }
 
             const editStaffBtn = e.target.closest('[data-edit-staff]'); if (editStaffBtn) editStaff(editStaffBtn.dataset.editStaff);
             const delStaff = e.target.closest('[data-delete-staff]');
-            if (delStaff && confirm('Ekip üyesi silinsin mi?')) { state.staff = (state.staff || []).filter(x => x.id !== delStaff.dataset.deleteStaff); if (!await saveData()) return; renderStaffAdmin(); renderDashboard(); toast('Kadro silindi.'); }
+            if (delStaff && await askAppConfirmation('Ekip üyesi silinsin mi?')) { state.staff = (state.staff || []).filter(x => x.id !== delStaff.dataset.deleteStaff); if (!await saveData()) return; renderStaffAdmin(); renderDashboard(); toast('Kadro silindi.'); }
 
             const editBlogBtn = e.target.closest('[data-edit-blog]'); if (editBlogBtn) editBlog(editBlogBtn.dataset.editBlog);
             const delBlog = e.target.closest('[data-delete-blog]');
-            if (delBlog && confirm('Yazı silinsin mi?')) { state.blogs = (state.blogs || []).filter(x => x.id !== delBlog.dataset.deleteBlog); if (!await saveData()) return; renderBlogAdmin(); renderDashboard(); toast('Yazı silindi.'); }
+            if (delBlog && await askAppConfirmation('Yazı silinsin mi?')) { state.blogs = (state.blogs || []).filter(x => x.id !== delBlog.dataset.deleteBlog); if (!await saveData()) return; renderBlogAdmin(); renderDashboard(); toast('Yazı silindi.'); }
 
             const editHeroBannerBtn = e.target.closest('[data-edit-hero-banner]'); if (editHeroBannerBtn) editHeroBanner(editHeroBannerBtn.dataset.editHeroBanner);
             const delHeroBanner = e.target.closest('[data-delete-hero-banner]');
-            if (delHeroBanner && confirm('Banner silinsin mi?')) { state.settings.heroBanners = (state.settings.heroBanners || []).filter(x => x.id !== delHeroBanner.dataset.deleteHeroBanner); if (!await saveData()) return; renderHeroBannerAdmin(); applySettings(); toast('Banner silindi.'); }
+            if (delHeroBanner && await askAppConfirmation('Banner silinsin mi?')) { state.settings.heroBanners = (state.settings.heroBanners || []).filter(x => x.id !== delHeroBanner.dataset.deleteHeroBanner); if (!await saveData()) return; renderHeroBannerAdmin(); applySettings(); toast('Banner silindi.'); }
 
             const editList = e.target.closest('[data-edit-list]'); if (editList) editPassengerList(editList.dataset.editList);
             const surnameToggle = e.target.closest('[data-surname-toggle]');
@@ -4312,7 +4349,7 @@
             const delList = e.target.closest('[data-delete-list]');
             if (delList) {
                 if (!requirePermission('deletePassengerLists')) return;
-                if (confirm('Yolcu listesi silinsin mi?')) { surnameSortedLists.delete(delList.dataset.deleteList); state.passengerLists = state.passengerLists.filter(x => x.id !== delList.dataset.deleteList); if (!await saveData()) return; renderPassengerAdmin(); renderDashboard(); toast('Liste silindi.'); }
+                if (await askAppConfirmation('Yolcu listesi silinsin mi?')) { surnameSortedLists.delete(delList.dataset.deleteList); state.passengerLists = state.passengerLists.filter(x => x.id !== delList.dataset.deleteList); if (!await saveData()) return; renderPassengerAdmin(); renderDashboard(); toast('Liste silindi.'); }
             }
         });
     }

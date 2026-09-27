@@ -19,3 +19,13 @@ Güncelleme öncesi kod sürümü `backup/ui-before-20260927` etiketiyle sakland
 ## Doğrulama
 
 `pnpm test` tur kimliğiyle ayırma, Türkçe arama, rotalar, eski kayıtlar ve iç içe ödeme/belge bilgilerinin değişmemesini kapsar. Yerel tarayıcı kontrolleri sentetik hesapla yapılır; gerçek müşteri kayıtları test verisi olarak kullanılmaz.
+
+## Kalabalık listeler ve giriş düzenlemesi
+
+Turlar Güncel / Geçmiş / Taslak / Tümü filtreleriyle altışar gösterilir. Bitiş tarihi kalkış ve süreyle hesaplanır; kayıtlara durum yazılmaz. Tarihi olmayan turlar güncel listede kalır. Muhasebe programları dörder, borçlu yolcular beşer gösterilir; geçmiş borçlar gizlenmez. Arama sayfadaki değil bütün eşleşen kayıtları kapsar.
+
+Giriş ekranı özgün Hazeyn logosunu kullanır. Hatalar odak kilitleyen yerel uyarı penceresi yerine sayfada gösterilir; uygulama onayları erişilebilir HTML iletişim kutusudur.
+
+Bu düzenleme öncesi kod: `backup/ui-before-20260927-refinements` (`1b534ee72b1baf3849e2166c339894ce26697155`). Klasik görünüm düğmesi kullanılabilir.
+
+Doğrulama: 11 test grubu; sentetik 35 tur/35 borçlu ile sayfalama, Türkçe arama, geçmiş turlar, ödeme kartına gitme, klasik görünüm, yanlış şifre ardından tekrar giriş ve 390 px giriş yerleşimi. Yerel testte sıfır veri yazımı ve değişmeyen veri özeti doğrulandı. Gerçek Electron penceresinde odak testi ayrıca kullanıcı cihazında gözlemlenmelidir.
