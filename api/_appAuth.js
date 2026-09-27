@@ -127,6 +127,7 @@ function filterStateByPermissions(nextState, previousState, auth){
   ['settings', 'reviews', 'gallery', 'staff', 'blogs', 'banners'].forEach(restore);
   if(!hasUserPermission(user, 'manageTours')) restore('tours');
   if(!hasUserPermission(user, 'manageCosts')) restore('tourCosts');
+  if(!hasUserPermission(user, 'managePassengers')) restore('tourBusPlans');
 
   if(!hasUserPermission(user, 'managePassengers')){
     const nextLists = new Map((Array.isArray(next.passengerLists) ? next.passengerLists : []).map(list => [String(list.id), list]));
@@ -155,6 +156,7 @@ function assertStateChangeAllowed(nextState, previousState, auth){
   const requirePermission = permission => { if(!hasUserPermission(user, permission)) throw permissionError(permission); };
 
   if(comparable(next.tours || []) !== comparable(previous.tours || [])) requirePermission('manageTours');
+  if(comparable(next.tourBusPlans || {}) !== comparable(previous.tourBusPlans || {})) requirePermission('managePassengers');
   if(comparable(next.tourCosts || {}) !== comparable(previous.tourCosts || {})) requirePermission('manageCosts');
   if(comparable(passengerStructure(next.passengerLists)) !== comparable(passengerStructure(previous.passengerLists))) {
     const nextIds = new Set((next.passengerLists || []).map(list => String(list.id)));

@@ -1,3 +1,4 @@
+const {validateBusPlans} = require('./_busPlans');
 const path = require('path');
 const {
   TABLE, BUCKET,
@@ -81,6 +82,7 @@ module.exports = async function handler(req, res){
         assertStateChangeAllowed(dataToSave, previousState, authorization);
         dataToSave = applyDesktopAudit(dataToSave, previousState, authorization);
       }
+      validateBusPlans(dataToSave);
       const { error } = await client.from(TABLE).upsert({id: companyRowId(companyId), data: dataToSave, updated_at: new Date().toISOString()}, {onConflict:'id'});
       if(error) throw error;
       res.setHeader('X-Turizm-Company', companyId);

@@ -106,6 +106,10 @@ function separateTourCollections(input, previousInput, sourceKind){
   const previousLegacyTours = Array.isArray(previous.tours) ? previous.tours : [];
   const previousSiteTours = Array.isArray(previous.siteTours) ? previous.siteTours : previousLegacyTours;
   const previousAccountingTours = Array.isArray(previous.accountingTours) ? previous.accountingTours : previousLegacyTours;
+  // Site saves and older app versions must not erase bus plans they do not edit.
+  if(sourceKind !== 'desktop' || !Object.hasOwn(next, 'tourBusPlans')) {
+    if(previous.tourBusPlans !== undefined) next.tourBusPlans = cloneJson(previous.tourBusPlans, {});
+  }
 
   if(sourceKind === 'desktop'){
     next.siteTours = cloneJson(previousSiteTours, []);

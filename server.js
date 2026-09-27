@@ -1,3 +1,4 @@
+const {validateBusPlans} = require('./api/_busPlans');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -321,6 +322,7 @@ const server = http.createServer(async (req, res) => {
           data = filterStateByPermissions(data, previousState, authorization);
           assertStateChangeAllowed(data, previousState, authorization);
           data = applyDesktopAudit(data, previousState, authorization);
+          validateBusPlans(data);
         }
         const { error } = await client.from(TABLE).upsert({
           id: companyRowId(companyId),

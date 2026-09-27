@@ -2,8 +2,8 @@
     'use strict';
     const LEGACY = '__unassigned__';
     const labels = { active: 'Aktif', completed: 'Tamamlandı', draft: 'Taslak' };
-    const tabs = { overview: 'Tur özeti', passengers: 'Yolcular & odalar', accounting: 'Tahsilatlar', costs: 'Giderler & kâr' };
-    const permission = { overview: null, passengers: 'viewPassengers', accounting: 'viewAccounting', costs: 'viewCosts' };
+    const tabs = { overview: 'Tur özeti', passengers: 'Yolcular & odalar', accounting: 'Tahsilatlar', costs: 'Giderler & kâr', buses: 'Otobüs düzeni' };
+    const permission = { overview: null, passengers: 'viewPassengers', accounting: 'viewAccounting', costs: 'viewCosts', buses: 'viewPassengers' };
     const normalize = value => String(value || '').toLocaleLowerCase('tr-TR').replace(/ı/g, 'i').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     function buildTourCards(tours = [], lists = []) {
         const ids = new Set(tours.map(t => String(t.id)));
@@ -25,7 +25,7 @@
     }
     function routeFor(id, tab = 'overview') { return `#work/tour/${encodeURIComponent(id)}/${Object.hasOwn(tabs, tab) ? tab : 'overview'}`; }
     function parseRoute(hash) {
-        const match = /^#work\/tour\/([^/]+)\/(overview|passengers|accounting|costs)$/.exec(hash || '');
+        const match = /^#work\/tour\/([^/]+)\/(overview|passengers|accounting|costs|buses)$/.exec(hash || '');
         if (!match) return null;
         try { return { id: decodeURIComponent(match[1]), tab: match[2] }; } catch (_) { return null; }
     }
@@ -83,6 +83,7 @@
             if (event.target.closest('[data-workspace-edit]') && canLeave()) { const id = selectedId; selectedId = ''; hooks.setTour(''); showLegacy('tours'); hooks.editTour(id); checkpoint('tab-tours'); }
         });
         toggle.onclick = () => {
+            if (hooks.hasExtraChanges?.()) { hooks.toast('Otobüs planını kaydedin veya Vazgeç ile geri alın.'); return; }
             // Appearance changes preserve the existing form DOM and never save business data.
             modern = !modern;
             if (!modern) { selectedId = ''; hooks.setTour(''); }
@@ -104,6 +105,7 @@
             } else navigate(selectedId, selectedId ? 'overview' : 'home', true);
         };
         function fingerprint(panelId) {
+            if (panelId === 'tab-buses') return '';
             const panel = $(({ 'tab-passengers': 'passengerEditorCard', 'tab-tours': 'tourForm', 'tab-costs': 'tourCostForm', 'tab-accounting': 'accountingSearchResults' })[panelId] || panelId);
             if (!panel) return '';
             const inputs = [...panel.querySelectorAll('input,textarea,select')];
@@ -111,9 +113,9 @@
             return JSON.stringify(inputs.filter(input => !input.matches('[type="search"], [data-mrz], [data-tc], #costTourSelect, #listTourSelect')).map(input => [input.id || input.className || input.name, input.type === 'checkbox' ? input.checked : input.value]));
         }
         function checkpoint(panelId) { if (panelId) baseline.set(panelId, fingerprint(panelId)); else ['tab-passengers','tab-tours','tab-costs','tab-accounting'].forEach(id => { if (!baseline.has(id)) baseline.set(id, fingerprint(id)); }); updateDraftButtons(); }
-        function hasChanges(panelId) { return [...baseline].some(([id, value]) => (!panelId || id === panelId) && fingerprint(id) !== value); }
+        function hasChanges(panelId) { if (hooks.hasExtraChanges?.(panelId)) return true; return [...baseline].some(([id, value]) => (!panelId || id === panelId) && fingerprint(id) !== value); }
         function updateDraftButtons() { discardButtons.forEach((button,id) => { button.hidden = !modern || !hasChanges(id); }); }
-        function canLeave() { if (!modern || !hasChanges()) return true; hooks.toast('Kaydedilmemiş değişiklik var. Açık formu kaydedin veya Temizle / Vazgeç düğmesini kullanın.'); return false; }
+        function canLeave() { if (hooks.hasExtraChanges?.()) { hooks.toast('Otobüs planında kaydedilmemiş değişiklik var. Planı kaydedin veya Vazgeç düğmesini kullanın.'); return false; } if (!modern || !hasChanges()) return true; hooks.toast('Kaydedilmemiş değişiklik var. Açık formu kaydedin veya Temizle / Vazgeç düğmesini kullanın.'); return false; }
         function selectedCard() { return currentModel?.cards.find(card => card.id === selectedId); }
         function drawCards() {
             if (!currentModel) return;
@@ -144,13 +146,13 @@
             home.querySelector('.workspace-summary').innerHTML = `<article><span>Aktif turlar</span><strong>${currentModel.cards.filter(t=>t.status==='active'&&!t.legacy).length}</strong><small>Devam eden organizasyonlar</small></article><article><span>Toplam yolcu</span><strong>${currentModel.cards.reduce((n,t)=>n+t.passengerCount,0)}</strong><small>Kayıtlı listelerinizde</small></article><article><span>Kayıtlı listeler</span><strong>${currentModel.cards.reduce((n,t)=>n+t.listCount,0)}</strong><small>Tur bazında düzenli takip</small></article>`;
             drawCards();
             if (!card) return;
-            const allowedTabs=Object.entries(tabs).filter(([key])=> (!permission[key] || currentModel.permissions[permission[key]]) && !(card.legacy&&key==='costs'));
+            const allowedTabs=Object.entries(tabs).filter(([key])=> (!permission[key] || currentModel.permissions[permission[key]]) && !(card.legacy&&['costs','buses'].includes(key)));
             header.innerHTML=`<button type="button" class="workspace-back" data-workspace-back>← Tüm turlar</button><div class="workspace-tour-heading"><div><span class="workspace-kicker">TUR ÇALIŞMA ALANI</span><h2>${escape(card.title)}</h2><p>${escape(dateLabel(card.departureDate))} · ${card.passengerCount} yolcu · ${escape(currentModel.companyName)}</p></div><span class="workspace-tour-status" data-status="${escape(card.status)}">${escape(labels[card.status])}</span></div><nav class="workspace-tour-tabs" aria-label="Seçili tur bölümleri">${allowedTabs.map(([key,label])=>`<button type="button" data-workspace-tab="${key}" class="${view===key?'active':''}" aria-current="${view===key?'page':'false'}">${label}</button>`).join('')}</nav>`;
-            detail.innerHTML=`<div class="workspace-heading"><div><h3>Bu turda ne yapmak istersiniz?</h3><p>Her bölüm yalnızca seçtiğiniz tura ait kayıtları gösterir.</p></div>${!card.legacy&&currentModel.permissions.manageTours?'<button type="button" class="btn btn-outline dark" data-workspace-edit>Tur bilgilerini düzenle</button>':''}</div><div class="workspace-tour-grid">${allowedTabs.filter(([key])=>key!=='overview').map(([key,label])=>`<article class="workspace-tour-card"><span class="workspace-kicker">${escape(({passengers:'YOLCU YÖNETİMİ',accounting:'ÖDEME TAKİBİ',costs:'MALİYET KONTROLÜ'})[key])}</span><h3>${label}</h3><p>${escape(({passengers:`${card.passengerCount} yolcu, ${card.listCount} liste. Kayıtlar, odalar ve pasaport bilgileri.`,accounting:'Tahsilat alın, kalan bakiyeleri ve makbuzları görüntüleyin.',costs:'Otel, uçuş ve diğer giderleri takip edin; turun net kârını görün.'})[key])}</p><button type="button" class="workspace-tour-open" data-workspace-tab="${key}">Bölümü aç ${icon('arrow')}</button></article>`).join('')}</div>`;
+            detail.innerHTML=`<div class="workspace-heading"><div><h3>Bu turda ne yapmak istersiniz?</h3><p>Her bölüm yalnızca seçtiğiniz tura ait kayıtları gösterir.</p></div>${!card.legacy&&currentModel.permissions.manageTours?'<button type="button" class="btn btn-outline dark" data-workspace-edit>Tur bilgilerini düzenle</button>':''}</div><div class="workspace-tour-grid">${allowedTabs.filter(([key])=>key!=='overview').map(([key,label])=>`<article class="workspace-tour-card"><span class="workspace-kicker">${escape(({passengers:'YOLCU YÖNETİMİ',accounting:'ÖDEME TAKİBİ',costs:'MALİYET KONTROLÜ',buses:'YOLCULUK PLANI'})[key])}</span><h3>${label}</h3><p>${escape(({passengers:`${card.passengerCount} yolcu, ${card.listCount} liste. Kayıtlar, odalar ve pasaport bilgileri.`,accounting:'Tahsilat alın, kalan bakiyeleri ve makbuzları görüntüleyin.',costs:'Otel, uçuş ve diğer giderleri takip edin; turun net kârını görün.',buses:'Otobüsleri ve koltukları düzenleyin; yolcuları birlikte yerleştirin.'})[key])}</p><button type="button" class="workspace-tour-open" data-workspace-tab="${key}">Bölümü aç ${icon('arrow')}</button></article>`).join('')}</div>`;
         }
         function navigate(id, tab, replace = false) {
             if (!canLeave()) return false;
-            if (id === LEGACY && tab === 'costs') { hooks.toast('Maliyetler için kayıtlı bir tur seçin.'); return false; }
+            if (id === LEGACY && ['costs','buses'].includes(tab)) { hooks.toast('Maliyetler için kayıtlı bir tur seçin.'); return false; }
             if (id && !currentModel?.cards.some(card=>card.id===id)) { hooks.toast('Bu tur mevcut firma hesabında bulunamadı.'); return false; }
             if (permission[tab] && !currentModel?.permissions[permission[tab]]) return false;
             selectedId=id; view=tab; hooks.setTour(id);
@@ -178,7 +180,7 @@
             else { if (selectedId&&!selectedCard()) navigate('','home',true); paint(); }
         }
         window.addEventListener('popstate',()=>{ if(!modern)return;const route=parseRoute(location.hash);if(!navigate(route?.id||'',route?.tab||'home',true))history.replaceState({},'',location.pathname+location.search+(selectedId?routeFor(selectedId,view):'#work')); });
-        window.addEventListener('beforeunload',event=>{if(modern&&hasChanges()){event.preventDefault();event.returnValue='';}});
+        window.addEventListener('beforeunload',event=>{if(hooks.hasExtraChanges?.()||(modern&&hasChanges())){event.preventDefault();event.returnValue='';}});
         body.classList.toggle('workspace-modern',modern);
         return { refresh, checkpoint, canLeave, hasChanges, panelChanged, navigate, isModern:()=>modern, selectedId:()=>selectedId };
     };

@@ -109,6 +109,28 @@
     let state = null;
     let adminLoggedIn = false;
     let workspaceUI = null;
+    let busWorkspace = null;
+    function renderBusWorkspace() {
+        if (!IS_APP_MODE || !hasPermission('viewPassengers')) return;
+        const tourId = selectedWorkspaceTourId;
+        if (!state.tours.some(t => String(t.id) === tourId)) return;
+        if (!busWorkspace) busWorkspace = window.createBusWorkspace($('tab-buses'), {
+            save: async (id, plan) => {
+                if (!requirePermission('managePassengers')) return {ok:false};
+                // The existing save path preserves accounting and rejects stale snapshots.
+                const previous = clone(state.tourBusPlans || {});
+                const previousStamp = state._meta?.updatedAt;
+                state.tourBusPlans = {...previous, [id]: plan};
+                const ok = await saveData();
+                const storedLocally = !ok && state._meta?.pendingSync === true && state._meta.updatedAt !== previousStamp;
+                if (!ok && !storedLocally) state.tourBusPlans = previous;
+                return {ok, storedLocally};
+            }
+        });
+        busWorkspace.open({key:currentCompanyId + ':' + tourId, tourId,
+            plan:state.tourBusPlans?.[tourId], people:window.TurizmBusPlan.roster(state.passengerLists,tourId),
+            canEdit:hasPermission('managePassengers')});
+    }
     let selectedWorkspaceTourId = '';
 
     function workspaceTourId() { return workspaceUI?.isModern() ? selectedWorkspaceTourId : ''; }
@@ -158,6 +180,7 @@
                 if (tab === 'tab-costs') loadSelectedTourCosts();
                 if (tab === 'tab-accounting') renderAccounting(accountingSearchQuery);
             },
+            hasExtraChanges: panel => (!panel || panel === 'tab-buses') && Boolean(busWorkspace?.isDirty()),
             showPanel: switchTab, newTour: resetTourForm, editTour, toast
         });
     }
@@ -194,7 +217,7 @@
         ['sendWelcomeWhatsApp', 'WhatsApp Kayıt Mesajı'], ['sendReceiptWhatsApp', 'WhatsApp PDF Makbuz'],
         ['viewCosts', 'Maliyetleri Gör'], ['manageCosts', 'Maliyet Yönet'], ['exportBackup', 'Yedek İndir']
     ];
-    const APP_TAB_PERMISSIONS = { dashboard: 'viewDashboard', tours: 'viewTours', passengers: 'viewPassengers', accounting: 'viewAccounting', costs: 'viewCosts' };
+    const APP_TAB_PERMISSIONS = { dashboard: 'viewDashboard', tours: 'viewTours', passengers: 'viewPassengers', accounting: 'viewAccounting', costs: 'viewCosts', buses: 'viewPassengers' };
     const APP_ACTION_VIEW_PERMISSIONS = {
         manageTours: 'viewTours', managePassengers: 'viewPassengers', deletePassengerLists: 'viewPassengers', exportPassengerLists: 'viewPassengers',
         managePrices: 'viewAccounting', recordPayments: 'viewAccounting', voidPayments: 'viewAccounting', printReceipts: 'viewAccounting',
@@ -1401,7 +1424,8 @@
                 ? (Array.isArray(data.blogs) ? data.blogs : d.blogs)
                 : mergeSeoDefaultBlogs(Array.isArray(data.blogs) ? data.blogs : d.blogs),
             passengerLists: normalizePassengerLists(Array.isArray(data.passengerLists) ? data.passengerLists : []),
-            tourCosts: normalizeTourCosts(data.tourCosts)
+            tourCosts: normalizeTourCosts(data.tourCosts),
+            tourBusPlans: data.tourBusPlans && typeof data.tourBusPlans === 'object' && !Array.isArray(data.tourBusPlans) ? clone(data.tourBusPlans) : {}
         };
     }
 
@@ -2061,6 +2085,7 @@
             return true;
         }
         window.TurizmWorkspaceLists?.reset();
+        busWorkspace?.reset();
         selectedWorkspaceTourId = '';
         currentCompanyId = nextCompanyId;
         whatsappIntegrationStatus = null;
@@ -2118,6 +2143,7 @@
         ensurePassengerRows();
         if (IS_APP_MODE) loadWhatsAppIntegrationStatus();
         workspaceUI?.refresh();
+        if ($('tab-buses')?.classList.contains('active')) renderBusWorkspace();
     }
 
     function renderDashboard() {
@@ -2142,6 +2168,7 @@
             renderAccounting(accountingSearchQuery);
         }
         if (tab === 'costs' && IS_APP_MODE) renderCostAccounting();
+        if (tab === 'buses') renderBusWorkspace();
         if (tab === 'users' && isAppOwner()) loadDesktopUsers();
         if (tab === 'passengers') renderPassengerAdmin();
         return true;
@@ -4069,6 +4096,7 @@
         if ($('adminUsername')) $('adminUsername').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
         $('logoutBtn').onclick = () => {
             if (workspaceUI && !workspaceUI.canLeave()) return;
+            busWorkspace?.reset();
             adminLoggedIn = false;
             if (IS_APP_MODE) clearDesktopSession();
             sessionStorage.removeItem(adminPasswordKey());
