@@ -107,10 +107,13 @@
     const sections = Array.from(content.querySelectorAll(':scope > .seo-section'));
     const priceSection = sections.find(section => section.querySelector('h2')?.textContent === 'Program fiyatları');
     if (priceSection) priceSection.remove();
-    const note = document.createElement('small');
-    note.className = 'program-art-note';
-    note.textContent = 'Kapak görseli yapay zekâ ile hazırlanmış temsili tanıtım görselidir.';
-    if (tour.banner.includes('/assets/umre-')) document.querySelector('.seo-hero-copy').append(note);
+    if (tour.banner.includes('/assets/umre-cover-')) document.querySelector('.seo-hero').classList.add('program-poster-hero');
+    document.querySelectorAll('.seo-hotel-media').forEach(media => {
+      const img = media.querySelector('img');
+      if (!img) return;
+      const link = document.createElement('a'); link.href = img.src; link.target = '_blank'; link.rel = 'noopener'; link.setAttribute('aria-label', img.alt + ' fotoğrafını büyüt');
+      img.replaceWith(link); link.append(img);
+    });
     const flow = document.querySelector('.seo-program-flow');
     if (flow) {
       const grid = document.createElement('div'); grid.className = 'program-day-grid';

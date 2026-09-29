@@ -1,0 +1,7 @@
+/* Preserve the full dated campaign artwork, including its typography. */
+#umreTours .tour-img{height:auto;aspect-ratio:3/2}
+#umreTours .tour-img img{width:100%;height:100%;object-fit:contain;transform:none}
+#umreTours .tour-bottom{flex-wrap:wrap;gap:12px}
+#umreTours .tour-price-block{flex:1 1 110px}
+#umreTours .tour-price-block strong{white-space:normal}
+#umreTours .tour-tag{font-size:10px;padding:5px 9px}
