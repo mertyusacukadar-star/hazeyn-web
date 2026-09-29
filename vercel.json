@@ -20,8 +20,8 @@
   ],
   "rewrites": [
     { "source": "/", "destination": "/api/seo?route=home" },
-    { "source": "/tr", "destination": "/api/seo?route=home" },
-    { "source": "/tr/", "destination": "/api/seo?route=home" },
+    { "source": "/tr", "destination": "/index.html" },
+    { "source": "/tr/", "destination": "/index.html" },
     { "source": "/robots.txt", "destination": "/api/seo?route=robots" },
     { "source": "/sitemap.xml", "destination": "/api/seo?route=sitemap" },
     { "source": "/umre-fiyatlari", "destination": "/umre-fiyatlari.html" },
