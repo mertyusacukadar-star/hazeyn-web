@@ -1,0 +1,20 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const root=path.join(__dirname,'..');
+const read=file=>fs.readFileSync(path.join(root,file),'utf8');
+const config=JSON.parse(read('vercel.json'));
+assert.equal(config.rewrites.find(r=>r.source==='/umraniye-umre-turu').destination,'/umraniye-umre-turu.html');
+assert.equal(config.rewrites.find(r=>r.source==='/rehber/:slug').destination,'/rehber/:slug.html');
+const guideFiles=fs.readdirSync(path.join(root,'public/rehber')).filter(x=>x.endsWith('.html'));
+assert.equal(guideFiles.length,12);
+for(const file of guideFiles){assert.match(read('public/rehber/'+file),/<h1>.+<\/h1>/);}
+assert.match(read('public/umraniye-umre-turu.html'),/id="localTours"/);
+assert.match(read('public/app.js'),/slice\(\(blogPage - 1\) \* 6, blogPage \* 6\)/);
+assert.match(read('public/merak-edilenler.html'),/id="blogSearch"/);
+assert.match(read('public/umre-cards.css'),/\[data-program-link\]::after/);
+assert.match(read('public/umre-cards.css'),/prefers-reduced-motion/);
+assert.match(read('public/program-page.js'),/dialog.showModal\(\)/);
+assert.match(read('public/program-page.js'),/window.umreBanner/);
+assert.doesNotMatch(read('public/program-page.js'),/link.target = '_blank'/);
+console.log('Public route restoration, 12 articles, six-item pagination, search, stretched links, reduced motion and in-page viewer passed');

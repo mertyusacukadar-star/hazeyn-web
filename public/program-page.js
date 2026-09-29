@@ -79,7 +79,7 @@
 
   function render(tour, settings) {
     if (window.umrePackage) window.umrePackage(tour);
-    tour.banner = window.umreVisual ? window.umreVisual(tour, tour.banner) : tour.banner;
+    tour.banner = window.umreBanner ? window.umreBanner(tour, tour.banner) : tour.banner;
     const whatsapp = whatsappHref(settings.whatsapp || settings.phone2 || '905330940683', tour.title);
     document.title = `${tour.title} | Hazeyn Turizm`;
     document.querySelector('meta[name="description"]').content = `${tour.departure} tarihli ${tour.title}. Otel, uçuş, oda fiyatları ve program ayrıntıları.`;
@@ -107,13 +107,8 @@
     const sections = Array.from(content.querySelectorAll(':scope > .seo-section'));
     const priceSection = sections.find(section => section.querySelector('h2')?.textContent === 'Program fiyatları');
     if (priceSection) priceSection.remove();
-    if (tour.banner.includes('/assets/umre-cover-')) document.querySelector('.seo-hero').classList.add('program-poster-hero');
-    document.querySelectorAll('.seo-hotel-media').forEach(media => {
-      const img = media.querySelector('img');
-      if (!img) return;
-      const link = document.createElement('a'); link.href = img.src; link.target = '_blank'; link.rel = 'noopener'; link.setAttribute('aria-label', img.alt + ' fotoğrafını büyüt');
-      img.replaceWith(link); link.append(img);
-    });
+    document.querySelector('.seo-hero').classList.add('program-wide-hero');
+    setupImageViewer();
     const flow = document.querySelector('.seo-program-flow');
     if (flow) {
       const grid = document.createElement('div'); grid.className = 'program-day-grid';
@@ -126,6 +121,43 @@
       });
       flow.append(grid);
     }
+  }
+
+  function setupImageViewer() {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'program-image-dialog';
+    dialog.setAttribute('aria-label', 'Program görselleri');
+    dialog.innerHTML = '<div class="image-dialog-toolbar"><span class="image-dialog-caption"></span><button type="button" data-close aria-label="Görseli kapat">✕</button></div><img alt=""><div class="image-dialog-nav"><button type="button" data-prev aria-label="Önceki görsel">←</button><span data-counter></span><button type="button" data-next aria-label="Sonraki görsel">→</button></div>';
+    document.body.append(dialog);
+    const items = [], triggers = [];
+    document.querySelectorAll('.seo-hotel-media img,.seo-gallery img,.program-preparation-grid img').forEach(img => {
+      let trigger = img.closest('a');
+      if (trigger) {trigger.removeAttribute('target');trigger.removeAttribute('rel');}
+      else {
+        trigger = document.createElement('button');trigger.type = 'button';trigger.className = 'program-image-trigger';
+        img.replaceWith(trigger);trigger.append(img);
+      }
+      trigger.setAttribute('aria-label', img.alt + ' — görseli büyüt');
+      trigger.setAttribute('aria-haspopup', 'dialog');
+      let index = items.findIndex(item => item.src === img.src);
+      if (index < 0) {index = items.length;items.push({src:img.src,alt:img.alt});}
+      triggers.push(trigger);
+      trigger.addEventListener('click', event => {event.preventDefault();current=index;opener=trigger;draw();dialog.showModal();document.body.classList.add('image-viewer-open');});
+    });
+    let current = 0, opener;
+    const draw = () => {
+      dialog.querySelector('img').src = items[current].src;
+      dialog.querySelector('img').alt = items[current].alt;
+      dialog.querySelector('.image-dialog-caption').textContent = items[current].alt;
+      dialog.querySelector('[data-counter]').textContent = `${current+1} / ${items.length}`;
+    };
+    const move = step => {current=(current+step+items.length)%items.length;draw();};
+    dialog.querySelector('[data-close]').onclick = () => dialog.close();
+    dialog.querySelector('[data-prev]').onclick = () => move(-1);
+    dialog.querySelector('[data-next]').onclick = () => move(1);
+    dialog.addEventListener('click', event => {if(event.target===dialog) dialog.close();});
+    dialog.addEventListener('keydown', event => {if(event.key==='ArrowLeft'){event.preventDefault();move(-1);}if(event.key==='ArrowRight'){event.preventDefault();move(1);}});
+    dialog.addEventListener('close', () => {document.body.classList.remove('image-viewer-open');opener?.focus({preventScroll:true});});
   }
 
   function setupMenu() {

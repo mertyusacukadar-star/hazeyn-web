@@ -53,7 +53,14 @@
         <div><span class="section-kicker">Blog / Bilgilendirme</span><h2>Umre ve Hac Rehberi</h2></div>
         <a href="index.html#iletisim" class="link-arrow">Soru sorun →</a>
       </div>
+      <div class="blog-tools" id="blogTools">
+        <label for="blogSearch">Merak ettiğiniz konuyu arayın</label>
+        <div class="blog-search-row"><input id="blogSearch" type="search" placeholder="Örn. vize, ihram, pasaport, valiz…" autocomplete="off" aria-controls="blogGrid"><button id="blogSearchClear" type="button">Temizle</button></div>
+        <div class="blog-keywords" aria-label="Popüler aramalar"><button type="button" data-blog-keyword="">Tümü</button><button type="button" data-blog-keyword="vize">Vize</button><button type="button" data-blog-keyword="ihram">İhram</button><button type="button" data-blog-keyword="valiz">Valiz</button><button type="button" data-blog-keyword="fiyat">Fiyatlar</button><button type="button" data-blog-keyword="otel">Oteller</button><button type="button" data-blog-keyword="ravza">Ravza</button></div>
+        <p id="blogSearchStatus" role="status" aria-live="polite"></p>
+      </div>
       <div class="blog-grid" id="blogGrid"></div>
+      <nav id="blogPagination" class="blog-pagination" aria-label="Rehber sayfaları"></nav>
     </section>
   </main>
 
@@ -93,7 +100,8 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=20260811-growth5"></script>
+  <link rel="stylesheet" href="/public-polish.css?v=20260929-3" />
+  <script src="app.js?v=20260929-polish3"></script>
   <script src="tracking.js?v=20260811-growth5" defer></script>
 </body>
 </html>

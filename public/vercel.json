@@ -1,5 +1,9 @@
 {
   "rewrites": [
+    { "source": "/umraniye-umre-turu", "destination": "/umraniye-umre-turu.html" },
+    { "source": "/umraniye-umre-turu/", "destination": "/umraniye-umre-turu.html" },
+    { "source": "/rehber/:slug", "destination": "/rehber/:slug.html" },
+    { "source": "/rehber/:slug/", "destination": "/rehber/:slug.html" },
     { "source": "/tr", "destination": "/index.html" },
     { "source": "/tr/", "destination": "/index.html" },
     { "source": "/admin", "destination": "/admin.html" },

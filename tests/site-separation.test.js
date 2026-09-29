@@ -65,7 +65,7 @@ const vercelConfig = JSON.parse(fs.readFileSync(path.join(repoRoot, 'vercel.json
 for (const source of ['/tr', '/tr/']) {
   assert.ok(vercelConfig.rewrites.some(route => route.source === source && route.destination === '/index.html'), 'Turkish home alias must use the working public page');
 }
-assert.ok(vercelConfig.rewrites.some(route => route.destination.includes('route=program')), 'program detail rewrite must be deployed');
+assert.ok(vercelConfig.rewrites.some(route => route.source === '/:slug([a-z0-9-]+)' && route.destination === '/program.html?slug=:slug'), 'program detail rewrite must use the working standalone page');
 assert.ok(fs.existsSync(path.join(repoRoot, 'api', 'seo.js')), 'SEO program handler must exist');
 const publicVercelConfig = JSON.parse(fs.readFileSync(path.join(repoRoot, 'public', 'vercel.json'), 'utf8'));
 assert.ok(publicVercelConfig.rewrites.some(route => route.source.includes(':slug') && route.destination.includes('/program.html')), 'public-root deployment must open the standalone program page');

@@ -26,4 +26,10 @@
     }
     return tour;
   };
+  window.umreBanner = function(tour, original) {
+    if (!slugs.has(tour.slug)) return original;
+    if (original && !/gallery-medine|heroBannerFile|hotel\.svg|hero\.svg|umre-makkah-sunrise|umre-madinah-night|umre-cover-/.test(original)) return original;
+    const theme = tour.slug.includes('ramazan') ? 'ramazan' : /6-kasim|21-ocak/.test(tour.slug) ? 'medine' : 'mekke';
+    return '/assets/umre-banner-' + theme + '.png';
+  };
 })();
