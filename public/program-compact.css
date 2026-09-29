@@ -1,0 +1,48 @@
+/* Scoped to standalone tour pages: accounting and other site layouts are untouched. */
+body[data-page="program"]{background:#f7f5f0}
+body[data-page="program"] .container{width:min(1320px,calc(100% - 48px));max-width:1320px}
+body[data-page="program"] .seo-hero{min-height:300px;padding:108px 0 34px}
+body[data-page="program"] .seo-hero-copy{max-width:1320px}
+body[data-page="program"] .seo-hero h1{font-size:clamp(32px,3.5vw,52px);margin:12px 0}
+body[data-page="program"] .seo-hero p{font-size:17px;max-width:730px;margin:6px 0}
+body[data-page="program"] .seo-hero-media{object-position:center 58%}
+body[data-page="program"] .seo-content{padding:20px 0 50px}
+body[data-page="program"] .seo-overview{margin:0 0 16px;gap:12px;grid-template-columns:repeat(4,minmax(0,1fr))}
+body[data-page="program"] .seo-stat{padding:16px 20px;border-radius:14px;box-shadow:none}
+body[data-page="program"] .seo-stat strong{font-size:19px}
+.program-at-glance{display:grid;grid-template-columns:1fr 1fr;gap:32px;background:#fff;border:1px solid #e7dfd0;border-radius:20px;padding:24px;margin-bottom:28px;box-shadow:0 8px 32px #26221a05}
+.program-summary-copy h2{font-size:26px;margin:6px 0 14px}
+.program-summary-copy dl{margin:0 0 18px;display:grid;gap:8px}
+.program-summary-copy dl div{display:grid;grid-template-columns:70px 1fr;gap:10px;font-size:14px}
+.program-summary-copy dt{color:#777268}.program-summary-copy dd{margin:0;font-weight:600}
+.program-summary-prices{border-left:1px solid #eee7da;padding-left:30px;align-self:center}
+.program-mini-prices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
+.program-mini-prices div{background:#f8f5ed;border:1px solid #ebe1cd;border-radius:12px;padding:18px 12px}
+.program-mini-prices span{display:block;color:#676055;font-size:13px;margin-bottom:9px}
+.program-mini-prices strong{font-size:clamp(18px,1.8vw,25px);color:#272219;white-space:nowrap}
+.program-summary-prices p,.program-art-note{font-size:12px;line-height:1.5;color:#777268}
+.program-art-note{display:block;color:#e8e3d6;margin-top:16px}
+body[data-page="program"] .seo-section{padding:0;margin:28px 0}
+body[data-page="program"] .seo-section-head{margin-bottom:16px}
+body[data-page="program"] .seo-section h2{font-size:28px}
+body[data-page="program"] .seo-card{padding:22px;border-radius:16px;box-shadow:none}
+body[data-page="program"] .seo-hotel-card{display:flex;gap:20px;align-items:center}
+body[data-page="program"] .seo-hotel-media{width:150px;min-width:150px;height:150px;border-radius:12px;margin:0;overflow:hidden}
+body[data-page="program"] .seo-hotel-media img{width:100%;height:100%;object-fit:cover}
+body[data-page="program"] .seo-hotel-card h3{font-size:22px;margin:8px 0}
+body[data-page="program"] .seo-hotel-card p{font-size:14px}
+body[data-page="program"] .seo-detail-stack{gap:16px}
+body[data-page="program"] .seo-detail-panel-head{padding:0 0 14px}
+body[data-page="program"] .seo-detail-content-visible{padding:0}
+.program-day-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:18px}
+.program-day{background:#f8f6f1;border:1px solid #ebe6dc;padding:16px;border-radius:12px}
+.program-day>b{color:#997027;font-size:14px}.program-day p{font-size:14px;line-height:1.7;margin:8px 0 0!important}
+.program-preparation-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.program-preparation-grid a{display:block;background:white;border:1px solid #e4dece;border-radius:14px;overflow:hidden;color:#25483a;text-decoration:none;transition:transform .2s}
+.program-preparation-grid a:hover{transform:translateY(-4px)}
+.program-preparation-grid img{display:block;width:100%;height:auto}
+.program-preparation-grid span{display:block;padding:14px;font-size:14px;font-weight:700}
+.program-preparation-note{font-size:13px;color:#6e685d;margin-top:16px}
+@media(max-width:760px){.program-preparation-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
+body[data-page="program"] .seo-gallery{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+@media(max-width:760px){body[data-page="program"] .container{width:calc(100% - 28px)}body[data-page="program"] .seo-hero{min-height:280px;padding:100px 0 28px}body[data-page="program"] .seo-overview{grid-template-columns:repeat(2,minmax(0,1fr))}body[data-page="program"] .seo-stat{padding:12px}.program-at-glance{grid-template-columns:1fr;gap:20px;padding:18px}.program-summary-prices{border-left:0;border-top:1px solid #eee7da;padding:18px 0 0}.program-mini-prices div{padding:14px 8px}.program-mini-prices strong{font-size:18px}.program-day-grid{grid-template-columns:1fr}body[data-page="program"] .seo-hotel-card{align-items:flex-start}body[data-page="program"] .seo-hotel-media{width:90px;min-width:90px;height:110px}body[data-page="program"] .seo-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}}

@@ -1686,6 +1686,7 @@
 
     function tourCard(t) {
         t = normalizeTour(t);
+        t.image = window.umreVisual ? window.umreVisual(t, t.image) : t.image;
         const departure = formatDateTR(t.departureDate);
         const duration = durationLabel(t);
         const departureLabel = departureCityLabel(t);

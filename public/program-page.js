@@ -78,6 +78,8 @@
   }
 
   function render(tour, settings) {
+    if (window.umrePackage) window.umrePackage(tour);
+    tour.banner = window.umreVisual ? window.umreVisual(tour, tour.banner) : tour.banner;
     const whatsapp = whatsappHref(settings.whatsapp || settings.phone2 || '905330940683', tour.title);
     document.title = `${tour.title} | Hazeyn Turizm`;
     document.querySelector('meta[name="description"]').content = `${tour.departure} tarihli ${tour.title}. Otel, uçuş, oda fiyatları ve program ayrıntıları.`;
@@ -88,6 +90,39 @@
       <section class="seo-section"><div class="seo-grid-2"><article class="seo-card"><span class="section-kicker">Fiyata dahil</span><h2>Dahil hizmetler</h2>${bullets(tour.included, 'Dahil hizmetler rezervasyon öncesinde paylaşılır.')}</article><article class="seo-card"><span class="section-kicker">Ek hizmetler</span><h2>Dahil olmayanlar</h2>${bullets(tour.excluded, 'Dahil olmayan hizmetler rezervasyon öncesinde paylaşılır.', true)}</article></div></section>
       <section class="seo-section"><div class="seo-section-head"><span class="section-kicker">Program akışı</span><h2>Yolculuk planı ve ziyaretler</h2></div><div class="seo-detail-stack"><article class="seo-card seo-prose seo-detail-panel"><header class="seo-detail-panel-head"><span><span class="section-kicker">Ziyaretler</span><h2>Ziyaret programı</h2></span><span>Rehber eşliğinde</span></header><div class="seo-detail-content-visible">${paragraphs(tour.visits)}</div></article><article class="seo-card seo-prose seo-detail-panel"><header class="seo-detail-panel-head"><span><span class="section-kicker">Gün gün akış</span><h2>Program ayrıntıları</h2></span><span>${escapeHtml(tour.duration)}</span></header><div class="seo-detail-content-visible seo-program-flow">${paragraphs(tour.program)}</div></article></div></section>
       ${gallery(tour)}</div><section class="cta-strip" id="iletisim"><div class="container cta-grid"><div><span class="section-kicker">İletişim</span><h2>Program hakkında bilgi alın</h2><p>Otel, uçuş, kontenjan ve güncel fiyat ayrıntılarını ekibimizle netleştirin.</p></div><div class="contact-cards"><a class="contact-card phone-link" href="tel:${escapeHtml(String(settings.phone || '').replace(/[^\d+]/g, ''))}"><b>Telefon</b><span>${escapeHtml(settings.phone || '')}</span></a><a class="contact-card whatsapp-link" href="${escapeHtml(whatsapp)}" target="_blank" rel="noopener"><b>WhatsApp</b><span>Hemen yazın</span></a><div class="contact-card"><b>Ofis</b><span>${escapeHtml(settings.address || 'Ümraniye / İstanbul')}</span></div></div></div></section>`;
+  }
+
+  function compactLayout(tour, settings) {
+    const content = document.querySelector('.seo-content');
+    const overview = document.querySelector('.seo-overview');
+    const panel = document.createElement('section');
+    panel.className = 'program-at-glance';
+    panel.setAttribute('aria-label', 'Bir bakışta program ve fiyatlar');
+    panel.innerHTML = `<div class="program-summary-copy"><span class="section-kicker">Bir bakışta yolculuğunuz</span><h2>Mekke & Medine</h2><dl><div><dt>Mekke</dt><dd>${escapeHtml(tour.mekkeHotel)}</dd></div><div><dt>Medine</dt><dd>${escapeHtml(tour.medineHotel)}</dd></div><div><dt>Ulaşım</dt><dd>${escapeHtml(tour.flight)}</dd></div></dl><a class="btn btn-gold" href="${escapeHtml(whatsappHref(settings.whatsapp || settings.phone2 || '905330940683', tour.title))}" target="_blank" rel="noopener">Bilgi ve rezervasyon →</a></div><div class="program-summary-prices"><span class="section-kicker">Kişi başı • USD</span><div class="program-mini-prices">${Object.entries(tour.roomPrices).filter(([,price])=>String(price||'').trim()).map(([room,price])=>`<div><span>${escapeHtml(room)} kişilik oda</span><strong>${escapeHtml(price)}</strong></div>`).join('')}</div><p>Fiyatlar kişi başıdır. Kontenjan rezervasyonda teyit edilir.</p></div>`;
+    overview.after(panel);
+    const preparation = document.createElement('section');
+    preparation.className = 'seo-section program-preparation';
+    preparation.innerHTML = `<div class="seo-section-head"><span class="section-kicker">Yolculuk hazırlığı</span><h2>Valizinizi huzurla hazırlayın</h2><p>Hazeyn ihtiyaç listeleri ve yolculuk hatırlatmaları. Tam boy görmek için görsele dokunun.</p></div><div class="program-preparation-grid">${[['genel','Genel ihtiyaç listesi'],['erkek','Erkekler için ihtiyaç listesi'],['kadin','Kadınlar için ihtiyaç listesi'],['harc','Yurt dışı çıkış harcı hatırlatması']].map(([file,title])=>`<a href="/assets/hazirlik-${file}.png" target="_blank" rel="noopener"><img src="/assets/hazirlik-${file}.png" alt="${title}" loading="lazy"/><span>${title} ↗</span></a>`).join('')}</div><p class="program-preparation-note">Kişisel ihtiyaçların temini misafirimize aittir. Güncel harç tutarı, muafiyetler ve ödeme kanalları için <a href="https://dijital.gib.gov.tr/" target="_blank" rel="noopener">Gelir İdaresi Başkanlığının resmî duyurularını</a> kontrol ediniz.</p>`;
+    content.append(preparation);
+    const sections = Array.from(content.querySelectorAll(':scope > .seo-section'));
+    const priceSection = sections.find(section => section.querySelector('h2')?.textContent === 'Program fiyatları');
+    if (priceSection) priceSection.remove();
+    const note = document.createElement('small');
+    note.className = 'program-art-note';
+    note.textContent = 'Kapak görseli yapay zekâ ile hazırlanmış temsili tanıtım görselidir.';
+    if (tour.banner.includes('/assets/umre-')) document.querySelector('.seo-hero-copy').append(note);
+    const flow = document.querySelector('.seo-program-flow');
+    if (flow) {
+      const grid = document.createElement('div'); grid.className = 'program-day-grid';
+      Array.from(flow.children).forEach(paragraph => {
+        const match = /^(\d+)\. Gün — (.*)$/.exec(paragraph.textContent);
+        if (!match) return;
+        const card = document.createElement('article'); card.className = 'program-day';
+        card.innerHTML = `<b>${escapeHtml(match[1])}. Gün</b><p>${escapeHtml(match[2])}</p>`;
+        grid.append(card); paragraph.remove();
+      });
+      flow.append(grid);
+    }
   }
 
   function setupMenu() {
@@ -106,7 +141,7 @@
       const tour = (Array.isArray(state.tours) ? state.tours : []).map(normalizeTour).find(item => item.slug === slug && String(item.status || 'active') !== 'draft');
       if (!tour) throw new Error('Bu program bulunamadı veya yayından kaldırıldı.');
       const settings = state.settings || {};
-      applySettings(settings, tour); render(tour, settings); setupMenu();
+      applySettings(settings, tour); render(tour, settings); compactLayout(tour, settings); setupMenu();
     } catch (error) {
       $('main-content').innerHTML = `<section class="seo-hero"><div class="container seo-hero-copy"><span class="eyebrow">HAZEYN TURİZM</span><h1>Program bulunamadı</h1><p>${escapeHtml(error.message || 'Program yüklenemedi.')}</p><p style="margin-top:24px"><a class="btn btn-gold" href="/index.html#umre">Güncel programlara dön</a></p></div></section>`;
       $('programYear').textContent = new Date().getFullYear(); setupMenu();
