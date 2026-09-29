@@ -81,8 +81,20 @@
     if (window.umrePackage) window.umrePackage(tour);
     tour.banner = window.umreBanner ? window.umreBanner(tour, tour.banner) : tour.banner;
     const whatsapp = whatsappHref(settings.whatsapp || settings.phone2 || '905330940683', tour.title);
-    document.title = `${tour.title} | Hazeyn Turizm`;
-    document.querySelector('meta[name="description"]').content = `${tour.departure} tarihli ${tour.title}. Otel, uçuş, oda fiyatları ve program ayrıntıları.`;
+    const seo = window.hazeynTourMetadata(tour, settings);
+    document.title = seo.title;
+    document.querySelector('meta[name="description"]').content = seo.description;
+    let canonical = document.querySelector('link[rel="canonical"]');
+    if (!canonical) {canonical=document.createElement('link');canonical.rel='canonical';document.head.append(canonical);}
+    canonical.href=seo.url;
+    for (const [property,content] of Object.entries({'og:title':seo.title,'og:description':seo.description,'og:url':seo.url,'og:image':seo.image,'og:type':'website'})) {
+      let tag=document.querySelector(`meta[property="${property}"]`);
+      if(!tag){tag=document.createElement('meta');tag.setAttribute('property',property);document.head.append(tag);}
+      tag.content=content;
+    }
+    let structured=document.getElementById('tourStructuredData');
+    if(!structured){structured=document.createElement('script');structured.id='tourStructuredData';structured.type='application/ld+json';document.head.append(structured);}
+    structured.textContent=JSON.stringify(seo.schema);
     $('main-content').innerHTML = `<section class="seo-hero"><img class="seo-hero-media" src="${escapeHtml(tour.banner)}" alt="${escapeHtml(tour.bannerTitle)}" /><div class="container seo-hero-copy"><div class="seo-breadcrumb"><a href="/index.html">Ana Sayfa</a><span>/</span><a href="/index.html#umre">Umre Programları</a><span>/</span><span>${escapeHtml(tour.title)}</span></div><span class="eyebrow">${escapeHtml(tour.bannerKicker)}</span><h1>${escapeHtml(tour.bannerTitle)}</h1><p>${escapeHtml(`${tour.departure} · ${tour.duration} · ${tour.cities} çıkışlı`)}</p>${tour.bannerSubtitle ? `<p class="seo-hero-subtitle">${escapeHtml(tour.bannerSubtitle)}</p>` : ''}</div></section><div class="container seo-content">
       <section class="seo-overview" aria-label="Program özeti"><article class="seo-stat"><small>Kalkış tarihi</small><strong>${escapeHtml(tour.departure)}</strong></article><article class="seo-stat"><small>Program süresi</small><strong>${escapeHtml(tour.duration)}</strong></article><article class="seo-stat"><small>Çıkış noktası</small><strong>${escapeHtml(tour.cities)}</strong></article><article class="seo-stat"><small>Başlangıç fiyatı</small><strong>${escapeHtml(tour.price)}</strong></article></section>
       <section class="seo-section"><div class="seo-section-head"><span class="section-kicker">Konaklama ve ulaşım</span><h2>Mekke ve Medine otelleri</h2></div><div class="seo-grid-2">${hotelCard('Mekke', tour.mekkeHotel, tour.mekkeDistance, tour.mekkeImages)}${hotelCard('Medine', tour.medineHotel, tour.medineDistance, tour.medineImages)}</div><article class="seo-card" style="margin-top:20px"><span class="section-kicker">Uçuş</span><h3>Havayolu ve uçuş bilgileri</h3><p>${escapeHtml(tour.flight)}</p></article></section>
@@ -169,7 +181,7 @@
 
   async function init() {
     try {
-      const slug = slugify(new URLSearchParams(location.search).get('slug') || location.pathname.split('/').filter(Boolean).pop());
+      const slug = slugify(new URLSearchParams(location.search).get('slug') || (location.pathname.split('/').filter(Boolean).pop() || '').replace(/\.html$/, ''));
       const response = await fetch(`/api/data?program=${encodeURIComponent(slug)}&ts=${Date.now()}`, { cache: 'no-store' });
       if (!response.ok) throw new Error('Program verisi alınamadı.');
       const state = await response.json();
@@ -178,6 +190,9 @@
       const settings = state.settings || {};
       applySettings(settings, tour); render(tour, settings); compactLayout(tour, settings); setupMenu();
     } catch (error) {
+      let robots=document.querySelector('meta[name="robots"]');
+      if(robots) robots.content='noindex,follow';
+      document.getElementById('tourStructuredData')?.remove();
       $('main-content').innerHTML = `<section class="seo-hero"><div class="container seo-hero-copy"><span class="eyebrow">HAZEYN TURİZM</span><h1>Program bulunamadı</h1><p>${escapeHtml(error.message || 'Program yüklenemedi.')}</p><p style="margin-top:24px"><a class="btn btn-gold" href="/index.html#umre">Güncel programlara dön</a></p></div></section>`;
       $('programYear').textContent = new Date().getFullYear(); setupMenu();
     }

@@ -1,15 +1,112 @@
 {
   "rewrites": [
-    { "source": "/umraniye-umre-turu", "destination": "/umraniye-umre-turu.html" },
-    { "source": "/umraniye-umre-turu/", "destination": "/umraniye-umre-turu.html" },
-    { "source": "/rehber/:slug", "destination": "/rehber/:slug.html" },
-    { "source": "/rehber/:slug/", "destination": "/rehber/:slug.html" },
-    { "source": "/tr", "destination": "/index.html" },
-    { "source": "/tr/", "destination": "/index.html" },
-    { "source": "/admin", "destination": "/admin.html" },
-    { "source": "/umre-fiyatlari", "destination": "/umre-fiyatlari.html" },
-    { "source": "/deneyimli-kadro", "destination": "/deneyimli-kadro.html" },
-    { "source": "/merak-edilenler", "destination": "/merak-edilenler.html" },
-    { "source": "/:slug([a-z0-9-]+)", "destination": "/program.html?slug=:slug" }
+    {
+      "source": "/umraniye-umre-turu",
+      "destination": "/umraniye-umre-turu.html"
+    },
+    {
+      "source": "/umraniye-umre-turu/",
+      "destination": "/umraniye-umre-turu.html"
+    },
+    {
+      "source": "/rehber/:slug",
+      "destination": "/rehber/:slug.html"
+    },
+    {
+      "source": "/rehber/:slug/",
+      "destination": "/rehber/:slug.html"
+    },
+    {
+      "source": "/tr",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/tr/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/umre-fiyatlari",
+      "destination": "/umre-fiyatlari.html"
+    },
+    {
+      "source": "/deneyimli-kadro",
+      "destination": "/deneyimli-kadro.html"
+    },
+    {
+      "source": "/merak-edilenler",
+      "destination": "/merak-edilenler.html"
+    },
+    {
+      "source": "/son-15-ramazan-umresi",
+      "destination": "/programlar/son-15-ramazan-umresi.html"
+    },
+    {
+      "source": "/son-15-ramazan-umresi/",
+      "destination": "/programlar/son-15-ramazan-umresi.html"
+    },
+    {
+      "source": "/ramazan-medine-40-vakit-programi",
+      "destination": "/programlar/ramazan-medine-40-vakit-programi.html"
+    },
+    {
+      "source": "/ramazan-medine-40-vakit-programi/",
+      "destination": "/programlar/ramazan-medine-40-vakit-programi.html"
+    },
+    {
+      "source": "/tam-ramazan-umresi-37-gun",
+      "destination": "/programlar/tam-ramazan-umresi-37-gun.html"
+    },
+    {
+      "source": "/tam-ramazan-umresi-37-gun/",
+      "destination": "/programlar/tam-ramazan-umresi-37-gun.html"
+    },
+    {
+      "source": "/21-ocak-2027-umresi",
+      "destination": "/programlar/21-ocak-2027-umresi.html"
+    },
+    {
+      "source": "/21-ocak-2027-umresi/",
+      "destination": "/programlar/21-ocak-2027-umresi.html"
+    },
+    {
+      "source": "/14-aralik-2026-umresi",
+      "destination": "/programlar/14-aralik-2026-umresi.html"
+    },
+    {
+      "source": "/14-aralik-2026-umresi/",
+      "destination": "/programlar/14-aralik-2026-umresi.html"
+    },
+    {
+      "source": "/6-kasim-2026-umresi",
+      "destination": "/programlar/6-kasim-2026-umresi.html"
+    },
+    {
+      "source": "/6-kasim-2026-umresi/",
+      "destination": "/programlar/6-kasim-2026-umresi.html"
+    },
+    {
+      "source": "/19-ekim-2026-umresi",
+      "destination": "/programlar/19-ekim-2026-umresi.html"
+    },
+    {
+      "source": "/19-ekim-2026-umresi/",
+      "destination": "/programlar/19-ekim-2026-umresi.html"
+    },
+    {
+      "source": "/kasim-ara-tatil-umresi",
+      "destination": "/programlar/kasim-ara-tatil-umresi.html"
+    },
+    {
+      "source": "/kasim-ara-tatil-umresi/",
+      "destination": "/programlar/kasim-ara-tatil-umresi.html"
+    },
+    {
+      "source": "/:slug([a-z0-9-]+)",
+      "destination": "/program.html?slug=:slug"
+    }
   ]
 }

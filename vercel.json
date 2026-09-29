@@ -3,34 +3,153 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
       ]
     },
     {
       "source": "/assets/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
       ]
     }
   ],
   "redirects": [
-    { "source": "/uygulama", "destination": "/admin.html?mobile=1", "permanent": false }
+    {
+      "source": "/uygulama",
+      "destination": "/admin.html?mobile=1",
+      "permanent": false
+    }
   ],
   "rewrites": [
-    { "source": "/", "destination": "/index.html" },
-    { "source": "/tr", "destination": "/index.html" },
-    { "source": "/tr/", "destination": "/index.html" },
-    { "source": "/umre-fiyatlari", "destination": "/umre-fiyatlari.html" },
-    { "source": "/umre-fiyatlari/", "destination": "/umre-fiyatlari.html" },
-    { "source": "/umraniye-umre-turu", "destination": "/umraniye-umre-turu.html" },
-    { "source": "/umraniye-umre-turu/", "destination": "/umraniye-umre-turu.html" },
-    { "source": "/rehber/:slug", "destination": "/rehber/:slug.html" },
-    { "source": "/rehber/:slug/", "destination": "/rehber/:slug.html" },
-    { "source": "/admin", "destination": "/admin.html" },
-    { "source": "/deneyimli-kadro", "destination": "/deneyimli-kadro.html" },
-    { "source": "/merak-edilenler", "destination": "/merak-edilenler.html" },
-    { "source": "/:slug([a-z0-9-]+)", "destination": "/program.html?slug=:slug" }
+    {
+      "source": "/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/tr",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/tr/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/umre-fiyatlari",
+      "destination": "/umre-fiyatlari.html"
+    },
+    {
+      "source": "/umre-fiyatlari/",
+      "destination": "/umre-fiyatlari.html"
+    },
+    {
+      "source": "/umraniye-umre-turu",
+      "destination": "/umraniye-umre-turu.html"
+    },
+    {
+      "source": "/umraniye-umre-turu/",
+      "destination": "/umraniye-umre-turu.html"
+    },
+    {
+      "source": "/rehber/:slug",
+      "destination": "/rehber/:slug.html"
+    },
+    {
+      "source": "/rehber/:slug/",
+      "destination": "/rehber/:slug.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/deneyimli-kadro",
+      "destination": "/deneyimli-kadro.html"
+    },
+    {
+      "source": "/merak-edilenler",
+      "destination": "/merak-edilenler.html"
+    },
+    {
+      "source": "/son-15-ramazan-umresi",
+      "destination": "/programlar/son-15-ramazan-umresi.html"
+    },
+    {
+      "source": "/son-15-ramazan-umresi/",
+      "destination": "/programlar/son-15-ramazan-umresi.html"
+    },
+    {
+      "source": "/ramazan-medine-40-vakit-programi",
+      "destination": "/programlar/ramazan-medine-40-vakit-programi.html"
+    },
+    {
+      "source": "/ramazan-medine-40-vakit-programi/",
+      "destination": "/programlar/ramazan-medine-40-vakit-programi.html"
+    },
+    {
+      "source": "/tam-ramazan-umresi-37-gun",
+      "destination": "/programlar/tam-ramazan-umresi-37-gun.html"
+    },
+    {
+      "source": "/tam-ramazan-umresi-37-gun/",
+      "destination": "/programlar/tam-ramazan-umresi-37-gun.html"
+    },
+    {
+      "source": "/21-ocak-2027-umresi",
+      "destination": "/programlar/21-ocak-2027-umresi.html"
+    },
+    {
+      "source": "/21-ocak-2027-umresi/",
+      "destination": "/programlar/21-ocak-2027-umresi.html"
+    },
+    {
+      "source": "/14-aralik-2026-umresi",
+      "destination": "/programlar/14-aralik-2026-umresi.html"
+    },
+    {
+      "source": "/14-aralik-2026-umresi/",
+      "destination": "/programlar/14-aralik-2026-umresi.html"
+    },
+    {
+      "source": "/6-kasim-2026-umresi",
+      "destination": "/programlar/6-kasim-2026-umresi.html"
+    },
+    {
+      "source": "/6-kasim-2026-umresi/",
+      "destination": "/programlar/6-kasim-2026-umresi.html"
+    },
+    {
+      "source": "/19-ekim-2026-umresi",
+      "destination": "/programlar/19-ekim-2026-umresi.html"
+    },
+    {
+      "source": "/19-ekim-2026-umresi/",
+      "destination": "/programlar/19-ekim-2026-umresi.html"
+    },
+    {
+      "source": "/kasim-ara-tatil-umresi",
+      "destination": "/programlar/kasim-ara-tatil-umresi.html"
+    },
+    {
+      "source": "/kasim-ara-tatil-umresi/",
+      "destination": "/programlar/kasim-ara-tatil-umresi.html"
+    },
+    {
+      "source": "/:slug([a-z0-9-]+)",
+      "destination": "/program.html?slug=:slug"
+    }
   ]
 }
