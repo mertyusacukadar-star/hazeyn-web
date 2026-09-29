@@ -620,7 +620,7 @@ function renderSitemap(state, origin) {
 
 function renderRobots(origin) {
   const base = normalizeOrigin(origin);
-  return `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ${base}/sitemap.xml\n`;
+  return `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\nAllow: /api/data\n\nSitemap: ${base}/sitemap.xml\n`;
 }
 
 module.exports = {

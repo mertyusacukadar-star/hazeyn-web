@@ -180,16 +180,29 @@
   }
 
   async function init() {
+    const snapshot = document.getElementById('tourStructuredData');
+    let confirmedUnavailable = false;
     try {
       const slug = slugify(new URLSearchParams(location.search).get('slug') || (location.pathname.split('/').filter(Boolean).pop() || '').replace(/\.html$/, ''));
       const response = await fetch(`/api/data?program=${encodeURIComponent(slug)}&ts=${Date.now()}`, { cache: 'no-store' });
       if (!response.ok) throw new Error('Program verisi alınamadı.');
       const state = await response.json();
+      if (!Array.isArray(state.tours)) throw new Error('Program verisi geçici olarak alınamadı.');
       const tour = (Array.isArray(state.tours) ? state.tours : []).map(normalizeTour).find(item => item.slug === slug && String(item.status || 'active') !== 'draft');
-      if (!tour) throw new Error('Bu program bulunamadı veya yayından kaldırıldı.');
+      if (!tour) {
+        confirmedUnavailable = true;
+        throw new Error('Bu program bulunamadı veya yayından kaldırıldı.');
+      }
       const settings = state.settings || {};
       applySettings(settings, tour); render(tour, settings); compactLayout(tour, settings); setupMenu();
     } catch (error) {
+      // A temporary API failure must not erase published HTML or deindex it.
+      // Confirmed missing/draft tours still follow the unavailable-page path below.
+      if (snapshot && !confirmedUnavailable) {
+        $('programYear').textContent = new Date().getFullYear();
+        setupMenu();
+        return;
+      }
       let robots=document.querySelector('meta[name="robots"]');
       if(robots) robots.content='noindex,follow';
       document.getElementById('tourStructuredData')?.remove();

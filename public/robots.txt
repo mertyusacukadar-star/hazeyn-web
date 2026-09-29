@@ -2,5 +2,6 @@ User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /api/
+Allow: /api/data
 
 Sitemap: https://www.hazeynturizm.com/sitemap.xml
