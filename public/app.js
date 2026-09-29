@@ -2034,7 +2034,7 @@
 
     function renderPublic() {
         applySettings();
-        renderTourGroup('umre', 'umreTours', 4);
+        renderTourGroup('umre', 'umreTours');
         renderTourGroup('hac', 'hacTours', 2);
         renderTourGroup('yurtici', 'yurticiTours', 4);
         renderReviews();
