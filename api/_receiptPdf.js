@@ -10,22 +10,9 @@ const RECEIPT_ASSETS = {
   hakikatLogo:require.resolve('../public/assets/hakikat-logo.png')
 };
 
-const COMPANY = {
-  hazeyn: {
-    name: 'Hazeyn Turizm Seyahat Acentası',
-    logo: 'hazeyn-logo-receipt.png',
-    accent: '#b8892d'
-  },
-  hakikat: {
-    name: 'Hakikat Turizm Seyahat Acentası',
-    logo: 'hakikat-logo.png',
-    accent: '#628c2c'
-  }
-};
-
-function normalizeCompanyId(value){
-  return String(value || '').trim().toLowerCase() === 'hakikat' ? 'hakikat' : 'hazeyn';
-}
+const Companies = require('../public/company-config');
+const COMPANY = Companies.config;
+const normalizeCompanyId = Companies.normalize;
 
 function parseMoneyAmount(value){
   let raw = String(value == null ? '' : value).trim().replace(/[^0-9,.-]/g, '');
@@ -126,7 +113,7 @@ function createReceiptPdf(input){
   const programDate = tour.departureDate || list.date || '';
   const regularFont = RECEIPT_ASSETS.regularFont;
   const boldFont = RECEIPT_ASSETS.boldFont;
-  const logoPath = companyId === 'hakikat' ? RECEIPT_ASSETS.hakikatLogo : RECEIPT_ASSETS.hazeynLogo;
+  const logoPath = companyId !== 'hazeyn' ? RECEIPT_ASSETS.hakikatLogo : RECEIPT_ASSETS.hazeynLogo;
 
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -152,7 +139,7 @@ function createReceiptPdf(input){
     doc.rect(outerX, outerY, outerW, 790).lineWidth(1.3).strokeColor('#1b1812').stroke();
 
     if(fs.existsSync(logoPath)){
-      const logoWidth = companyId === 'hakikat' ? 172 : 155;
+      const logoWidth = companyId !== 'hazeyn' ? 172 : 155;
       doc.image(logoPath, contentX, 48, { fit:[logoWidth, 62], align:'left', valign:'center' });
     }
     doc.font('ReceiptBold').fontSize(20).fillColor('#111').text('TAHSİLAT MAKBUZU', 300, 58, { width:pageW - 352, align:'right' });

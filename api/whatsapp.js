@@ -14,8 +14,9 @@ function requestBody(req){
 }
 
 function cleanCompanyEnv(companyId, name){
-  const prefix = normalizeCompanyId(companyId) === 'hakikat' ? 'HAKIKAT' : 'HAZEYN';
-  return String(process.env[`${prefix}_${name}`] || process.env[name] || '').trim();
+  const company = normalizeCompanyId(companyId), prefix = company.toUpperCase();
+  // A new branch must not send through another branch's inherited account.
+  return String(process.env[`${prefix}_${name}`] || (company === 'afyon' ? '' : process.env[name]) || '').trim();
 }
 
 function whatsappConfig(companyId){
@@ -26,7 +27,7 @@ function whatsappConfig(companyId){
     welcomeTemplate:cleanCompanyEnv(companyId, 'WHATSAPP_WELCOME_TEMPLATE_NAME') || 'yolcu_kaydi_olusturuldu',
     receiptTemplate:cleanCompanyEnv(companyId, 'WHATSAPP_RECEIPT_TEMPLATE_NAME') || 'odeme_makbuzu_pdf',
     language:cleanCompanyEnv(companyId, 'WHATSAPP_TEMPLATE_LANGUAGE') || 'tr',
-    senderNumber:cleanCompanyEnv(companyId, 'WHATSAPP_BUSINESS_NUMBER') || COMPANY_NUMBER
+    senderNumber:cleanCompanyEnv(companyId, 'WHATSAPP_BUSINESS_NUMBER') || (normalizeCompanyId(companyId) === 'afyon' ? '' : COMPANY_NUMBER)
   };
 }
 
@@ -38,7 +39,7 @@ function publicStatus(companyId){
   return {
     ok:true,
     connected:missing.length === 0,
-    senderNumber:`+${config.senderNumber}`,
+    senderNumber:config.senderNumber ? `+${config.senderNumber}` : '',
     welcomeTemplate:config.welcomeTemplate,
     receiptTemplate:config.receiptTemplate,
     missing

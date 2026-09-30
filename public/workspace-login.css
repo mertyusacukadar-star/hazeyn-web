@@ -53,7 +53,7 @@ body.workspace-modern.desktop-app .workspace-login-shell[data-company="hazeyn"] 
 body.workspace-modern.desktop-app .company-choice-logo.dark img {
   filter: brightness(0) saturate(100%) invert(77%) sepia(31%) saturate(573%) hue-rotate(1deg) brightness(92%) contrast(86%);
 }
-body.workspace-modern.desktop-app .workspace-login-shell[data-company="hakikat"] .workspace-login-logo { width: 290px; object-position: left center; }
+body.workspace-modern.desktop-app .workspace-login-shell:is([data-company="hakikat"], [data-company="afyon"]) .workspace-login-logo { width: 290px; object-position: left center; }
 body.workspace-modern.desktop-app .workspace-login-product { display: block; margin-top: 17px; color: #a8bbb8; font-size: 10px; font-weight: 600; letter-spacing: .22em; }
 body.workspace-modern.desktop-app .workspace-login-eyebrow { display: block; margin-bottom: 19px; color: #bda875; font-size: 10px; font-weight: 600; letter-spacing: .16em; }
 body.workspace-modern.desktop-app .workspace-login-title { margin: 0; color: #f2f5f0; font-size: clamp(34px, 4vw, 48px); font-weight: 500; line-height: 1.14; letter-spacing: -1.7px; }
@@ -120,7 +120,7 @@ body.workspace-modern.desktop-app .admin-topbar-actions .signed-user b { display
   body.workspace-modern.desktop-app .workspace-login-brand { display: block; padding: 20px 26px; }
   body.workspace-modern.desktop-app .workspace-login-brand-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
   body.workspace-modern.desktop-app .workspace-login-logo { width: 190px; height: 62px; }
-  body.workspace-modern.desktop-app .workspace-login-shell[data-company="hakikat"] .workspace-login-logo { width: 185px; height: 62px; }
+  body.workspace-modern.desktop-app .workspace-login-shell:is([data-company="hakikat"], [data-company="afyon"]) .workspace-login-logo { width: 185px; height: 62px; }
   body.workspace-modern.desktop-app .workspace-login-product { max-width: 80px; margin: 0; text-align: right; font-size: 8px; line-height: 1.8; letter-spacing: .13em; }
   body.workspace-modern.desktop-app .workspace-login-story,
   body.workspace-modern.desktop-app .workspace-login-brand-footer { display: none; }
@@ -144,7 +144,7 @@ body.workspace-modern.desktop-app .admin-topbar-actions .signed-user b { display
 }
 
 /* Hakikat artwork includes broad transparent margins; crop only those margins. */
-body.workspace-modern.desktop-app .workspace-login-shell[data-company="hakikat"] .workspace-login-logo {
+body.workspace-modern.desktop-app .workspace-login-shell:is([data-company="hakikat"], [data-company="afyon"]) .workspace-login-logo {
   width: min(310px, 100%); height: 112px; object-fit: cover; object-position: center 48%;
 }
 body.workspace-modern.desktop-app .workspace-login-card .company-choice-logo.hakikat {
@@ -153,14 +153,25 @@ body.workspace-modern.desktop-app .workspace-login-card .company-choice-logo.hak
 body.workspace-modern.desktop-app .workspace-login-card .company-choice-logo.hakikat img {
   width: 120px; max-width: 100%; height: 44px; object-fit: cover; object-position: center 48%;
 }
-body.workspace-modern.desktop-app[data-company="hakikat"] .admin-sidebar > img {
+body.workspace-modern.desktop-app:is([data-company="hakikat"], [data-company="afyon"]) .admin-sidebar > img {
   width: 190px; height: 72px; object-fit: cover; object-position: center 48%;
 }
 @media (max-width: 760px) {
-  body.workspace-modern.desktop-app .workspace-login-shell[data-company="hakikat"] .workspace-login-logo {
+  body.workspace-modern.desktop-app .workspace-login-shell:is([data-company="hakikat"], [data-company="afyon"]) .workspace-login-logo {
     width: 185px; height: 68px; flex-shrink: 0;
   }
-  body.workspace-modern.desktop-app[data-company="hakikat"] .admin-sidebar > img {
+  body.workspace-modern.desktop-app:is([data-company="hakikat"], [data-company="afyon"]) .admin-sidebar > img {
     width: 90px; height: 34px; flex-basis: 90px;
   }
+}
+
+/* Three branches stay readable on narrow screens. */
+body.desktop-app .company-login-picker { grid-template-columns: repeat(3,minmax(0,1fr)); }
+body.workspace-modern.desktop-app .workspace-login-card .company-login-picker { grid-template-columns:repeat(3,minmax(0,1fr)); }
+body.desktop-app[data-company="afyon"] { --gold:#397c73; --gold2:#65a69d; --soft:#eef7f4; }
+body.desktop-app .user-company-badges span.afyon { background:#397c73; }
+@media(max-width:740px){
+ body.workspace-modern.desktop-app .workspace-login-card .company-login-picker, body.desktop-app .company-login-picker { grid-template-columns:minmax(0,1fr); gap:8px; }
+ body.workspace-modern.desktop-app .workspace-login-card .company-login-picker > button { flex-direction:row; align-items:center; gap:12px; padding:7px 12px; text-align:left; }
+ body.workspace-modern.desktop-app .workspace-login-card .company-choice-logo { width:105px; min-width:105px; height:40px; margin:0; }
 }

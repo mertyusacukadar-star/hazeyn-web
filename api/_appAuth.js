@@ -1,3 +1,4 @@
+const Companies = require('../public/company-config');
 const crypto = require('crypto');
 const {
   TABLE,
@@ -45,7 +46,7 @@ function normalizeUsername(value){
 
 function normalizeCompanies(value){
   const requested = Array.isArray(value) ? value : [];
-  return [...new Set(requested.map(normalizeCompanyId))].filter(id => id === 'hazeyn' || id === 'hakikat');
+  return Companies.permitted(requested);
 }
 
 function normalizePermissions(value){
@@ -220,7 +221,7 @@ function issueToken(user){
     username: String(user.username),
     name: String(user.displayName || user.username),
     role: user.role === 'owner' ? 'owner' : 'employee',
-    companies: user.role === 'owner' ? ['hazeyn', 'hakikat'] : normalizeCompanies(user.companies),
+    companies: user.role === 'owner' ? [...Companies.ids] : normalizeCompanies(user.companies),
     ver: String(user.authVersion || '1'),
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + SESSION_HOURS * 60 * 60
@@ -283,7 +284,7 @@ function publicUser(user){
     username: String(user.username),
     displayName: String(user.displayName || user.username),
     role: user.role === 'owner' ? 'owner' : 'employee',
-    companies: user.role === 'owner' ? ['hazeyn', 'hakikat'] : normalizeCompanies(user.companies),
+    companies: user.role === 'owner' ? [...Companies.ids] : normalizeCompanies(user.companies),
     permissions: user.role === 'owner' ? normalizePermissions(null) : normalizePermissions(user.permissions),
     active: user.active !== false,
     createdAt: String(user.createdAt || ''),
@@ -297,7 +298,7 @@ function ownerUser(){
     username: 'admin',
     displayName: 'Baş Yönetici',
     role: 'owner',
-    companies: ['hazeyn', 'hakikat'],
+    companies: [...Companies.ids],
     permissions: normalizePermissions(null),
     active: true,
     authVersion: 'owner-v1'

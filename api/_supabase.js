@@ -1,3 +1,4 @@
+const Companies = require('../public/company-config');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -6,6 +7,7 @@ const { createClient } = require('@supabase/supabase-js');
 const TABLE = process.env.SUPABASE_TABLE || 'hazeyn_data';
 const ROW_ID = process.env.SUPABASE_ROW_ID || 'main';
 const HAKIKAT_ROW_ID = process.env.SUPABASE_HAKIKAT_ROW_ID || 'hakikat';
+const AFYON_ROW_ID = process.env.SUPABASE_AFYON_ROW_ID || 'afyon';
 const BUCKET = process.env.SUPABASE_BUCKET || 'hazeyn';
 const CONFIGURED_ADMIN_PASSWORD = process.env.HAZEYN_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '';
 const CONFIGURED_HAKIKAT_PASSWORD = process.env.HAKIKAT_ADMIN_PASSWORD || '';
@@ -35,7 +37,7 @@ function secureEqual(left, right){
 }
 
 function normalizeCompanyId(value){
-  return String(value || '').trim().toLowerCase() === 'hakikat' ? 'hakikat' : 'hazeyn';
+  return Companies.normalize(value);
 }
 
 function requestCompanyId(req){
@@ -45,17 +47,20 @@ function requestCompanyId(req){
 }
 
 function companyRowId(companyId){
-  return normalizeCompanyId(companyId) === 'hakikat' ? HAKIKAT_ROW_ID : ROW_ID;
+  const rows = {hazeyn:ROW_ID,hakikat:HAKIKAT_ROW_ID,afyon:AFYON_ROW_ID};
+  if(new Set(Object.values(rows)).size !== Companies.ids.length || Object.values(rows).includes('turizm-shared-bus-plans-v1')) throw Error('Firma veri satırları birbirinden farklı olmalıdır.');
+  return rows[normalizeCompanyId(companyId)];
 }
 
 function companyDefaultData(companyId){
-  if(normalizeCompanyId(companyId) !== 'hakikat') return readDefaultData();
+  if(normalizeCompanyId(companyId) === 'hazeyn') return readDefaultData();
+  const company = Companies.config[normalizeCompanyId(companyId)];
   return {
     _meta: { updatedAt: 0 },
     settings: {
-      brand: 'Hakikat Turizm Seyahat Acentası',
+      brand: company.name + ' Seyahat Acentası',
       phone: '', phone2: '', whatsapp: '', email: '', website: '', instagram: '', address: '',
-      heroTitle: 'Hakikat Turizm', heroSubtitle: '', heroBanners: [], officeImages: []
+      heroTitle: company.name, heroSubtitle: '', heroBanners: [], officeImages: []
     },
     tours: [], reviews: [], gallery: [], staff: [], blogs: [], passengerLists: []
   };

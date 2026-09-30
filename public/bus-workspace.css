@@ -50,3 +50,8 @@
 @media(max-width:800px){.bus-shared-panel{flex-direction:column;align-items:stretch}.bus-shared-panel .bus-actions{max-width:100%}.bus-company-rules .bus-settings-fields{grid-template-columns:1fr}.bus-company-sides{font-size:10px}}
 
 .bus-exceptions{color:#8b651c;font-size:12px;line-height:1.5}.bus-exceptions:empty{display:none}
+
+.bus-company-tag.afyon {background:#e4f3f1;color:#286c64;}
+.bus-seat.occupied.afyon {border-color:#438b81;background:#eef8f6;}
+.shared-bus-picker fieldset {border:1px solid #d6e4dd;border-radius:12px;padding:14px;margin:12px 0;min-width:0;}
+.shared-bus-picker legend {font-weight:700;padding:0 5px;}

@@ -87,7 +87,7 @@
     if (IS_APP_MODE) document.body.classList.add('desktop-app');
     if (IS_MOBILE_APP) document.body.classList.add('mobile-app');
     if (IS_SITE_ADMIN) document.body.classList.add('site-admin');
-    const COMPANY_CONFIG = {
+    const COMPANY_CONFIG = window.TurizmCompanies?.config || {
         hazeyn: {
             id: 'hazeyn', name: 'Hazeyn Turizm', shortName: 'Hazeyn', receiptPrefix: 'HZ',
             logo: 'assets/logo.png', loginLogo: 'assets/logo.png', receiptLogo: 'assets/hazeyn-logo-receipt.png', publicUrl: 'index.html', accent: '#c4912f'
@@ -99,7 +99,8 @@
     };
 
     function normalizeCompanyId(value) {
-        return String(value || '').trim().toLowerCase() === 'hakikat' ? 'hakikat' : 'hazeyn';
+        const id = String(value || '').trim().toLowerCase();
+        return Object.hasOwn(COMPANY_CONFIG,id) ? id : 'hazeyn';
     }
 
     const requestedCompany = new URLSearchParams(location.search).get('company');
@@ -114,7 +115,7 @@
     async function sharedBusRequest(company, tourId, body) {
         const response = await fetch('/api/bus-shared?company='+encodeURIComponent(company)+'&tourId='+encodeURIComponent(tourId), {
             method:body?'POST':'GET', headers:authorizedHeaders({'Content-Type':'application/json'}), cache:'no-store',
-            ...(body?{body:JSON.stringify(body)}:{})
+            ...(body?{body:JSON.stringify({...body,companySchema:2})}:{})
         });
         const data=await response.json();
         if(!response.ok || !data.ok)throw Error(data.error || 'Ortak otobüs bağlantısı kurulamadı.');
@@ -134,7 +135,7 @@
             $('retryBusPlan').onclick=renderBusWorkspace;return;
         }
         if(sequence!==busLoadSequence||company!==currentCompanyId||tourId!==selectedWorkspaceTourId||!adminLoggedIn)return;
-        if(context.restricted){$('tab-buses').innerHTML='<p class="bus-empty">Bu program ortak otobüs planına bağlı. Görmek için iki firmaya erişim yetkisi gerekir.</p>';return;}
+        if(context.restricted){$('tab-buses').innerHTML='<p class="bus-empty">Bu program ortak otobüs planına bağlı. Görmek için plana dahil tüm firmalara erişim yetkisi gerekir.</p>';return;}
         sharedBusContext=context;
         if (!busWorkspace) busWorkspace = window.createBusWorkspace($('tab-buses'), {
             combine:async()=>{
@@ -143,9 +144,16 @@
                 await sharedBusRequest(currentCompanyId,selectedWorkspaceTourId,{action:'create',sources});
                 busWorkspace.reset();await renderBusWorkspace();
             },
+            extend:async()=>{
+                const record=sharedBusContext.record;
+                const sources=await window.chooseSharedBusSource({company:currentCompanyId,tourId:selectedWorkspaceTourId,catalog:sharedBusContext.catalog,existingSources:record.sources});
+                if(!sources)return;
+                await sharedBusRequest(currentCompanyId,selectedWorkspaceTourId,{action:'extend',id:record.id,revision:record.revision,sources});
+                busWorkspace.reset();await renderBusWorkspace();
+            },
             unlink:async()=>{
                 const record=sharedBusContext.record;
-                if(!record||!await window.askWorkspaceConfirmation('Ortak plan bağlantısı kaldırılsın mı? Ortak plan arşivde saklanır; iki programın birleştirme öncesi ayrı otobüs planları yeniden açılır. Yolcu ve ödeme kayıtları değişmez.'))return;
+                if(!record||!await window.askWorkspaceConfirmation('Ortak plan bağlantısı kaldırılsın mı? Ortak plan arşivde saklanır; programların birleştirme öncesi ayrı otobüs planları yeniden açılır. Yolcu ve ödeme kayıtları değişmez.'))return;
                 await sharedBusRequest(currentCompanyId,selectedWorkspaceTourId,{action:'archive',id:record.id,revision:record.revision});
                 busWorkspace.reset();await renderBusWorkspace();
             },
@@ -170,9 +178,10 @@
         });
         const record=context.record;
         busWorkspace.open({key:company+':'+tourId, tourId, company,
-            companyName:record?'Hazeyn & Hakikat Turizm':currentCompany().name,
+            companyName:record?record.sources.map(s=>COMPANY_CONFIG[s.company].name).join(' + '):currentCompany().name,
             tourTitle:record?record.sources.map(s=>window.TurizmBusCompanies.names[s.company]+' / '+s.title+(s.date?' ('+s.date+')':'')).join(' + '):state.tours.find(t=>String(t.id)===tourId)?.title || '',
             shared:record,canCombine:context.canCombine!==false,
+            canExtend:record && Object.keys(context.catalog).some(c=>!record.sources.some(s=>s.company===c)),
             plan:record?.plan||state.tourBusPlans?.[tourId], people:record?context.people:window.TurizmBusPlan.roster(state.passengerLists,tourId),
             canEdit:hasPermission('managePassengers'),canPrint:hasPermission('exportPassengerLists')});
     }
@@ -356,8 +365,8 @@
     }
 
     function allowedCompanyIds() {
-        if (!IS_APP_MODE || isAppOwner()) return ['hazeyn', 'hakikat'];
-        return Array.isArray(currentAppUser?.companies) ? currentAppUser.companies.map(normalizeCompanyId) : [];
+        if (!IS_APP_MODE || isAppOwner()) return Object.keys(COMPANY_CONFIG);
+        return Array.isArray(currentAppUser?.companies) ? currentAppUser.companies.filter(id => Object.hasOwn(COMPANY_CONFIG,id)) : [];
     }
 
     function canAccessCompany(companyId) {
@@ -394,14 +403,14 @@
 
     function defaultDataForCompany() {
         const data = clone(DEFAULT_DATA);
-        if (currentCompanyId !== 'hakikat') return data;
+        if (currentCompanyId === 'hazeyn') return data;
         data.settings = {
             ...data.settings,
-            brand: 'Hakikat Turizm Seyahat Acentası',
+            brand: currentCompany().name + ' Seyahat Acentası',
             phone: '', phone2: '', whatsapp: '', email: '', website: '', instagram: '', address: '',
-            heroTitle: 'Hakikat Turizm', heroSubtitle: '', heroMode: 'single', heroBanners: [], officeImages: [],
-            staffBannerKicker: 'HAKİKAT TURİZM', staffBannerTitle: 'Deneyimli Kadro', staffBannerSubtitle: '', staffBannerImage: '',
-            blogBannerKicker: 'HAKİKAT TURİZM', blogBannerTitle: 'Merak Edilenler', blogBannerSubtitle: '', blogBannerImage: ''
+            heroTitle: currentCompany().name, heroSubtitle: '', heroMode: 'single', heroBanners: [], officeImages: [],
+            staffBannerKicker: currentCompany().name.toLocaleUpperCase('tr-TR'), staffBannerTitle: 'Deneyimli Kadro', staffBannerSubtitle: '', staffBannerImage: '',
+            blogBannerKicker: currentCompany().name.toLocaleUpperCase('tr-TR'), blogBannerTitle: 'Merak Edilenler', blogBannerSubtitle: '', blogBannerImage: ''
         };
         data.tours = [];
         data.reviews = [];
@@ -1102,6 +1111,8 @@
     function renderWhatsAppIntegrationStatus() {
         const target = $('whatsappIntegrationStatus');
         if (!target || !IS_APP_MODE) return;
+        const number = $('whatsappSenderNumber');
+        if (number) number.textContent = whatsappIntegrationStatus?.senderNumber || (currentCompanyId === 'afyon' ? 'Afyon Hakikat WhatsApp' : '+90 332 351 43 51');
         target.className = 'whatsapp-status';
         if (!whatsappIntegrationStatus) {
             target.classList.add('checking');
@@ -1465,7 +1476,7 @@
             reviews: Array.isArray(data.reviews) ? data.reviews : d.reviews,
             gallery: Array.isArray(data.gallery) ? data.gallery : d.gallery,
             staff: Array.isArray(data.staff) ? data.staff : d.staff,
-            blogs: currentCompanyId === 'hakikat'
+            blogs: currentCompanyId !== 'hazeyn'
                 ? (Array.isArray(data.blogs) ? data.blogs : d.blogs)
                 : mergeSeoDefaultBlogs(Array.isArray(data.blogs) ? data.blogs : d.blogs),
             passengerLists: normalizePassengerLists(Array.isArray(data.passengerLists) ? data.passengerLists : []),
@@ -2246,7 +2257,7 @@
         target.innerHTML = desktopUsers.length ? desktopUsers.map(user => `
             <article class="desktop-user-card ${user.active === false ? 'inactive' : ''}" data-desktop-user-id="${escapeHtml(user.id)}">
                 <div><b>${escapeHtml(user.displayName)}</b><small>@${escapeHtml(user.username)} • ${user.active === false ? 'Pasif' : 'Aktif'}</small></div>
-                <div class="user-company-badges">${(user.companies || []).map(company => `<span class="${escapeHtml(company)}">${company === 'hakikat' ? 'Hakikat' : 'Hazeyn'}</span>`).join('')}</div>
+                <div class="user-company-badges">${(user.companies || []).map(company => `<span class="${escapeHtml(company)}">${escapeHtml(COMPANY_CONFIG[company]?.shortName || company)}</span>`).join('')}</div>
                 <div class="user-permission-badges">${permissionBadges(user)}</div>
                 <div class="admin-item-actions"><button class="icon-btn" type="button" data-edit-desktop-user="${escapeHtml(user.id)}">Düzenle</button><button class="icon-btn danger" type="button" data-delete-desktop-user="${escapeHtml(user.id)}">Sil</button></div>
             </article>`).join('') : '<div class="empty small">Henüz çalışan kullanıcısı oluşturulmadı.</div>';
@@ -2272,6 +2283,7 @@
         $('desktopUserPassword').value = '';
         $('desktopUserHazeyn').checked = (user.companies || []).includes('hazeyn');
         $('desktopUserHakikat').checked = (user.companies || []).includes('hakikat');
+        $('desktopUserAfyon').checked = (user.companies || []).includes('afyon');
         $('desktopUserActive').checked = user.active !== false;
         const permissions = normalizeAppPermissions(user.permissions);
         document.querySelectorAll('[data-app-permission]').forEach(input => { input.checked = permissions[input.dataset.appPermission] === true; });
@@ -2284,6 +2296,7 @@
         const companies = [];
         if ($('desktopUserHazeyn').checked) companies.push('hazeyn');
         if ($('desktopUserHakikat').checked) companies.push('hakikat');
+        if ($('desktopUserAfyon').checked) companies.push('afyon');
         const permissions = permissionSelectionFromForm();
         if (!['viewDashboard', 'viewTours', 'viewPassengers', 'viewAccounting', 'viewCosts'].some(key => permissions[key])) {
             toast('Çalışan için en az bir bölüm görme yetkisi seç.');
@@ -3696,7 +3709,7 @@
         const company = currentCompany();
         const logoUrl = companyLogoUrl();
         const receiptLogoStyle = IS_APP_MODE
-            ? (company.id === 'hakikat'
+            ? (company.id !== 'hazeyn'
                 ? 'width:66mm;height:24mm;object-fit:contain;object-position:left center;background:transparent;border:0;border-radius:0;padding:0'
                 : 'width:58mm;height:21mm;object-fit:contain;object-position:left center;background:transparent;border:0;border-radius:0;padding:0')
             : 'width:52mm;height:20mm;object-fit:contain;background:#111;border-radius:4px;padding:3mm';

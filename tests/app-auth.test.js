@@ -26,7 +26,7 @@ require.cache[supabasePath] = {
     supabaseAdmin:() => supabaseStub,
     checkAdmin:req => req && req.headers && req.headers['x-admin-password'] === 'legacy',
     verifyAdminCredential:value => value === 'adminpass',
-    normalizeCompanyId:value => String(value || '').toLowerCase() === 'hakikat' ? 'hakikat' : 'hazeyn'
+    normalizeCompanyId:require('../public/company-config').normalize
   }
 };
 
@@ -81,5 +81,16 @@ const auth = require('../api/_appAuth');
   auth.applyDesktopAudit(next, previous, authorization);
   assert.strictEqual(next.passengerLists[0].passengers[0].accounting.payments[0].receivedBy.name, 'Ayşe Çalışan');
 
-  console.log('app-auth tests passed');
+  assert.deepStrictEqual(ownerLogin.user.companies,['hazeyn','hakikat','afyon']);
+  assert.strictEqual(await auth.authorizeDataRequest(request,'afyon'),null);
+  const branch=await auth.saveEmployee({displayName:'Afyon QA',username:'afyonqa',password:'test-only-pass',companies:['afyon','unknown'],permissions:{viewPassengers:true},active:true});
+  const branchLogin=await auth.login('afyonqa','test-only-pass');
+  assert.deepStrictEqual(branchLogin.user.companies,['afyon']);
+  const branchRequest={headers:{authorization:'Bearer '+branchLogin.token}};
+  assert(await auth.authorizeDataRequest(branchRequest,'afyon'));
+  assert.strictEqual(await auth.authorizeDataRequest(branchRequest,'hazeyn'),null);
+  assert.strictEqual(await auth.authorizeDataRequest(branchRequest,'hakikat'),null);
+  await auth.saveEmployee({...branch,companies:['hakikat']});
+  assert.strictEqual(await auth.authorizeDataRequest(branchRequest,'afyon'),null);
+  console.log('app-auth tests passed, including Afyon grants, denied sibling access and revocation');
 })().catch(error => { console.error(error); process.exitCode = 1; });

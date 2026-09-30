@@ -2,10 +2,7 @@
     'use strict';
     let installed = false;
     let card, shell, anchor, passwordLabel, message, observer;
-    const companies = {
-        hazeyn: { name: 'Hazeyn Turizm', logo: 'assets/logo.png' },
-        hakikat: { name: 'Hakikat Turizm', logo: 'assets/hakikat-logo-white.png' }
-    };
+    const companies = root.TurizmCompanies.config;
 
     function refresh(company, modern) {
         if (!installed) return;
@@ -14,7 +11,7 @@
             (typeof modern === 'boolean' ? modern : body.classList.contains('workspace-modern'));
         const key = (typeof company === 'string' ? company : company?.id) || body.dataset.company;
         const brand = companies[key] || companies.hazeyn;
-        shell.dataset.company = key === 'hakikat' ? 'hakikat' : 'hazeyn';
+        shell.dataset.company = Object.hasOwn(companies,key) ? key : 'hazeyn';
         const logo = shell.querySelector('.workspace-login-logo');
         if (logo.getAttribute('src') !== brand.logo) logo.setAttribute('src', brand.logo);
         logo.alt = brand.name;

@@ -105,7 +105,8 @@ function companyFromRequest(req, requestUrl){
 }
 
 function localDbPath(companyId){
-  return normalizeCompanyId(companyId) === 'hakikat' ? path.join(DATA_DIR, 'db-hakikat.json') : DB_PATH;
+  const company = normalizeCompanyId(companyId);
+  return company === 'hazeyn' ? DB_PATH : path.join(DATA_DIR, `db-${company}.json`);
 }
 
 function readLocalState(companyId = 'hazeyn'){

@@ -13,11 +13,11 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/assets/mobile-app-icon-192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/mobile-app-icon-180.png" />
     <link rel="stylesheet" href="style.css?v=20260917-livecamera2" />
-    <link rel="stylesheet" href="workspace-ui.css?v=20260927-shared3" />
-<link rel="stylesheet" href="workspace-lists.css?v=20260927-shared3" />
-    <link rel="stylesheet" href="workspace-login.css?v=20260927-shared3" />
-    <link rel="stylesheet" href="bus-workspace.css?v=20260927-shared3">
-    <link rel="stylesheet" href="passenger-fields.css?v=20260927-shared3">
+    <link rel="stylesheet" href="workspace-ui.css?v=20260930-afyon1" />
+<link rel="stylesheet" href="workspace-lists.css?v=20260930-afyon1" />
+    <link rel="stylesheet" href="workspace-login.css?v=20260930-afyon1" />
+    <link rel="stylesheet" href="bus-workspace.css?v=20260930-afyon1">
+    <link rel="stylesheet" href="passenger-fields.css?v=20260930-afyon1">
 </head>
 <body data-page="admin" class="admin-body">
     <div id="mobileInstallBar" class="mobile-install-bar" hidden>
@@ -31,6 +31,7 @@
             <div class="company-login-picker" aria-label="Firma hesabı">
                 <button type="button" data-company-choice="hazeyn" aria-pressed="false"><span class="company-choice-logo dark"><img src="assets/logo.png" alt="Hazeyn Turizm"></span><b>Hazeyn Turizm</b><small>Ayrı yolcu ve muhasebe hesabı</small></button>
                 <button type="button" data-company-choice="hakikat" aria-pressed="false"><span class="company-choice-logo hakikat"><img src="assets/hakikat-logo-white.png" alt="Hakikat Turizm"></span><b>Hakikat Turizm</b><small>Ayrı yolcu ve muhasebe hesabı</small></button>
+                <button type="button" data-company-choice="afyon" aria-pressed="false"><span class="company-choice-logo hakikat"><img src="assets/hakikat-logo-white.png" alt="Afyon Hakikat"></span><b>Afyon Hakikat</b><small>Ayrı yolcu ve muhasebe hesabı</small></button>
             </div>
             <img class="selected-company-logo" src="assets/logo.png" alt="Hazeyn Turizm" data-company-logo="login" />
             <h1 id="loginHeading"><span data-company-name>Hazeyn Turizm</span> Girişi</h1>
@@ -64,7 +65,7 @@
                 <div><span class="section-kicker" data-company-short-name>Hazeyn</span><h1>Yönetici Paneli</h1></div>
                 <div class="admin-topbar-actions">
                     <div class="desktop-only signed-user"><small>Giriş yapan</small><b id="signedUserName">—</b></div>
-                    <label class="company-switcher"><span>Firma hesabı</span><select id="companySwitcher"><option value="hazeyn">Hazeyn Turizm</option><option value="hakikat">Hakikat Turizm</option></select></label>
+                    <label class="company-switcher"><span>Firma hesabı</span><select id="companySwitcher"><option value="hazeyn">Hazeyn Turizm</option><option value="hakikat">Hakikat Turizm</option><option value="afyon">Afyon Hakikat</option></select></label>
                     <label class="global-passenger-search" data-permission="viewAccounting"><span>Tüm programlarda yolcu ara</span><input id="globalPassengerSearch" type="search" placeholder="Ad veya soyad yazın..." autocomplete="off" /></label>
                     <button id="refreshAdminData" class="btn btn-outline dark" type="button">Senkronize Et</button>
                     <button id="exportBtn" class="btn btn-outline dark" data-permission="exportBackup">Yedek İndir</button>
@@ -89,7 +90,7 @@
                 <div class="admin-card desktop-only whatsapp-integration-card" id="whatsappIntegrationCard">
                     <div>
                         <span class="section-kicker">KURUMSAL WHATSAPP</span>
-                        <h2>+90 332 351 43 51</h2>
+                        <h2 id="whatsappSenderNumber">+90 332 351 43 51</h2>
                         <p>Yeni yolcu kaydında kayıt mesajı, ödeme alındığında PDF makbuzu otomatik gönderilir.</p>
                     </div>
                     <span class="whatsapp-status checking" id="whatsappIntegrationStatus">Bağlantı kontrol ediliyor…</span>
@@ -406,6 +407,7 @@
                             <legend>Görebileceği Firma</legend>
                             <label><input id="desktopUserHazeyn" type="checkbox" value="hazeyn" /> Hazeyn Turizm</label>
                             <label><input id="desktopUserHakikat" type="checkbox" value="hakikat" /> Hakikat Turizm</label>
+                            <label><input id="desktopUserAfyon" type="checkbox" value="afyon" /> Afyon Hakikat</label>
                         </fieldset>
                         <fieldset class="app-permission-fieldset">
                             <legend>Uygulama Yetkileri</legend>
@@ -440,7 +442,7 @@
                     <div class="admin-card">
                         <span class="section-kicker">PERSONEL ERİŞİMİ</span>
                         <h2>Kayıtlı Kullanıcılar</h2>
-                        <div class="owner-account-card"><div><b>Baş Yönetici</b><small>Kullanıcı adı: admin</small></div><span>Hazeyn + Hakikat</span></div>
+                        <div class="owner-account-card"><div><b>Baş Yönetici</b><small>Kullanıcı adı: admin</small></div><span>Hazeyn + Hakikat + Afyon Hakikat</span></div>
                         <div id="desktopUserList" class="admin-list desktop-user-list"></div>
                     </div>
                 </div>
@@ -544,17 +546,18 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="mrz-camera.js?v=20260917-livecamera2"></script>
     <script src="document-reader.js?v=20260917-livecamera2"></script>
-    <script src="workspace-dialog.js?v=20260927-shared3"></script>
-    <script src="workspace-collections.js?v=20260927-shared3"></script>
-    <script src="workspace-lists.js?v=20260927-shared3"></script>
-    <script src="workspace-login.js?v=20260927-shared3"></script>
-    <script src="bus-plan.js?v=20260927-shared3"></script>
-    <script src="bus-companies.js?v=20260927-shared3"></script>
-    <script src="bus-shared-picker.js?v=20260927-shared3"></script>
-    <script src="bus-print.js?v=20260927-shared3"></script>
-    <script src="bus-workspace.js?v=20260927-shared3"></script>
-    <script src="workspace-ui.js?v=20260927-shared3"></script>
-    <script src="passenger-fields.js?v=20260927-shared3"></script>
-    <script src="app.js?v=20260927-shared3"></script>
+    <script src="company-config.js?v=20260930-afyon1"></script>
+    <script src="workspace-dialog.js?v=20260930-afyon1"></script>
+    <script src="workspace-collections.js?v=20260930-afyon1"></script>
+    <script src="workspace-lists.js?v=20260930-afyon1"></script>
+    <script src="workspace-login.js?v=20260930-afyon1"></script>
+    <script src="bus-plan.js?v=20260930-afyon1"></script>
+    <script src="bus-companies.js?v=20260930-afyon1"></script>
+    <script src="bus-shared-picker.js?v=20260930-afyon1"></script>
+    <script src="bus-print.js?v=20260930-afyon1"></script>
+    <script src="bus-workspace.js?v=20260930-afyon1"></script>
+    <script src="workspace-ui.js?v=20260930-afyon1"></script>
+    <script src="passenger-fields.js?v=20260930-afyon1"></script>
+    <script src="app.js?v=20260930-afyon1"></script>
 </body>
 </html>

@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict');
 const path=require('node:path');
 let auth={user:{role:'owner',displayName:'QA'}},conflict=false,readFailure=false;
-const companies=['hazeyn','hakikat'];
+const companies=['hazeyn','hakikat','afyon'];
 const rows=Object.fromEntries(companies.map(c=>[c,{id:c,updated_at:'2026-01-01T00:00:00.000Z',data:{tours:[{id:c+'-tour',title:c}],passengerLists:[{id:'l',tourId:c+'-tour',passengers:[{id:'p',name:'QA Test',tc:'PRIVATE',accounting:{payments:[{amount:500}]}}]}]}}]));
 const original=JSON.stringify(rows),reads=[],writes=[];
 const client={from(){let filters=[],change,operation;return {
@@ -19,7 +19,7 @@ async function request(method,body,company='hazeyn'){let status;const headers={}
 (async()=>{
  auth=null;assert.equal((await request('GET')).status,403);assert.equal(reads.length,0);
  auth={user:{role:'owner',displayName:'QA'}};
- const sources=companies.map(company=>({company,tourId:company+'-tour',listIds:null}));
+ const sources=companies.slice(0,2).map(company=>({company,tourId:company+'-tour',listIds:null}));
  conflict=true;assert.equal((await request('POST',{action:'create',sources})).status,409);conflict=false;
  const created=await request('POST',{action:'create',sources});assert.equal(created.status,200);const record=created.body.record;
  assert(record);assert.equal((await request('GET',null,'hakikat')).body.record.id,record.id);
@@ -34,6 +34,24 @@ async function request(method,body,company='hazeyn'){let status;const headers={}
  assert.equal((await request('GET',null,'hakikat')).status,403);assert.equal((await request('POST',{action:'create',sources})).status,403);
  auth={user:{role:'employee',companies,permissions:{viewPassengers:true}}};assert.equal((await request('GET')).status,200);assert.equal((await request('POST',{action:'save'})).status,403);
  assert(writes.every(id=>id==='turizm-shared-bus-plans-v1'));
+ assert.equal(JSON.stringify(Object.fromEntries(companies.map(c=>[c,rows[c]]))),original);
+ auth={user:{role:'employee',companies:['hazeyn','hakikat'],permissions:{viewPassengers:true,managePassengers:true}}};reads.length=0;
+ const oldPair=await request('GET');assert.equal(oldPair.status,200);assert(!oldPair.body.catalog.afyon);assert(!reads.includes('afyon'));
+ const three=[...sources,{company:'afyon',tourId:'afyon-tour',listIds:null}];
+ const extend={action:'extend',id:record.id,revision:2,sources:three,companySchema:2};
+ assert.equal((await request('POST',extend)).status,403);
+ auth={user:{role:'owner',displayName:'QA'}};
+ const combined=await request('POST',extend);assert.equal(combined.status,200);assert.equal(combined.body.record.sources.length,3);
+ assert.equal((await request('GET',null,'afyon')).body.record.id,record.id);
+ const current=combined.body.record;
+ const save={action:'save',id:current.id,revision:current.revision,plan:current.plan,companySchema:2};
+ auth={user:{role:'employee',companies:['hazeyn','hakikat'],permissions:{viewPassengers:true,managePassengers:true}}};reads.length=0;
+ const blocked=await request('GET');assert(blocked.body.restricted);assert.equal(blocked.body.record,null);assert.deepEqual(reads,['turizm-shared-bus-plans-v1']);
+ assert.equal((await request('POST',save)).status,403);
+ assert.equal((await request('POST',{action:'archive',id:current.id,revision:current.revision,companySchema:2})).status,403);
+ auth={user:{role:'owner',displayName:'QA'}};
+ assert.equal((await request('POST',{...save,companySchema:undefined})).status,409);
+ assert.equal((await request('POST',save)).status,200);
  assert.equal(JSON.stringify(Object.fromEntries(companies.map(c=>[c,rows[c]]))),original);
  console.log('shared bus API: authorization, minimal disclosure, canonical store, insert/update conflicts and untouched company records passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});
