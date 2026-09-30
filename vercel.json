@@ -44,6 +44,36 @@
       ],
       "destination": "/:tourSlug",
       "permanent": true
+    },
+    {
+      "source": "/tr/haberler",
+      "destination": "/merak-edilenler",
+      "permanent": true
+    },
+    {
+      "source": "/tr/haberler/",
+      "destination": "/merak-edilenler",
+      "permanent": true
+    },
+    {
+      "source": "/tr/iletisim",
+      "destination": "/tr#iletisim",
+      "permanent": true
+    },
+    {
+      "source": "/tr/iletisim/",
+      "destination": "/tr#iletisim",
+      "permanent": true
+    },
+    {
+      "source": "/tr/hac-umre",
+      "destination": "/umre-fiyatlari",
+      "permanent": true
+    },
+    {
+      "source": "/tr/hac-umre/",
+      "destination": "/umre-fiyatlari",
+      "permanent": true
     }
   ],
   "rewrites": [

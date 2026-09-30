@@ -1,5 +1,7 @@
 /* Scoped to standalone tour pages: accounting and other site layouts are untouched. */
 body[data-page="program"]{background:#f7f5f0}
+/* Above-the-fold facts are visible immediately, never faded through blank space. */
+body[data-page="program"] .seo-overview,body[data-page="program"] .seo-hero-copy,body[data-page="program"] .seo-content>.seo-section,body[data-page="program"] .seo-expired{animation:none}
 body[data-page="program"] .container{width:min(1320px,calc(100% - 48px));max-width:1320px}
 body[data-page="program"] .seo-hero{min-height:300px;padding:108px 0 34px}
 body[data-page="program"] .seo-hero-copy{max-width:1320px}

@@ -21,6 +21,11 @@ for(const file of ['vercel.json','public/vercel.json']) {
   config.rewrites=rewrites;
   config.redirects=(config.redirects||[]).filter(r=>r.source!=='/program.html');
   config.redirects.push({source:'/program.html',has:[{type:'query',key:'slug',value:'(?<tourSlug>[a-z0-9-]+)'}],destination:'/:tourSlug',permanent:true});
+  const legacy={'/tr/haberler':'/merak-edilenler','/tr/iletisim':'/tr#iletisim','/tr/hac-umre':'/umre-fiyatlari'};
+  for(const [source,destination] of Object.entries(legacy)) {
+    config.redirects=config.redirects.filter(r=>r.source!==source&&r.source!==source+'/');
+    config.redirects.push({source,destination,permanent:true},{source:source+'/',destination,permanent:true});
+  }
   const prefix=file.startsWith('public/')?'':'public/';
   config.functions={...config.functions,'api/site-page.js':{includeFiles:prefix+'{index.html,merak-edilenler.html,deneyimli-kadro.html,api/_public-snapshot.json}'}};
   fs.writeFileSync(path.join(root,file),JSON.stringify(config,null,2)+'\n');
