@@ -9,15 +9,17 @@ assert.ok(!JSON.stringify(meta.schema).includes('aggregateRating'));
 assert.equal(metadata({slug:'unknown',title:'Tarih bekleniyor',roomPrices:{2:'Sorunuz'}}).schema['@graph'][1].offers.length,0);
 const config=JSON.parse(fs.readFileSync(path.join(root,'vercel.json')));
 const files=fs.readdirSync(path.join(root,'public/programlar'));
-assert.equal(files.length,8);
+assert.equal(files.length,9);
 for(const file of files){
   const html=fs.readFileSync(path.join(root,'public/programlar',file),'utf8');
   assert.doesNotMatch(html,/Program yükleniyor/);
   assert.match(html,/rel="canonical"/);
-  assert.match(html,/Oda fiyatları ve konaklama/);
-  const schema=JSON.parse(html.match(/id="tourStructuredData" type="application\/ld\+json">([^<]+)/)[1]);
-  assert.equal(schema['@graph'][1]['@type'],'TouristTrip');
-  assert.equal(schema['@graph'][1].offers.length,3);
-  assert.ok(config.rewrites.some(r=>r.source==='/'+file.replace('.html','')&&r.destination==='/programlar/'+file));
+  assert.match(html,/Bir bakışta program ve fiyatlar/);
+  const schemas=[...html.matchAll(/<script type="application\/ld\+json">([^<]+)/g)].map(m=>JSON.parse(m[1]));
+  const trip=schemas.find(s=>s['@type']==='TouristTrip');
+  assert.ok(trip);
+  if(!file.startsWith('13-agustos')) assert.equal(trip.offers.length,3);
+  else assert.match(html,/Bu program sona ermiştir/);
+  assert.ok(config.rewrites.some(r=>r.source==='/:slug([a-z0-9-]+)'&&r.destination==='/api/site-page?route=program&slug=:slug'));
 }
-console.log('8 crawlable tour pages, canonical URLs, valid JSON-LD, room prices and no fabricated ratings passed');
+console.log('8 complete current tours + one archive, canonical URLs, valid JSON-LD, room prices and no fabricated ratings passed');

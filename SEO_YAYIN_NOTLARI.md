@@ -1,18 +1,13 @@
-# Umre görünürlüğü — 29 Eylül 2026
+# Hazeyn public site — 30 Eylül 2026
 
-Sekiz aktif tur için ilk HTML'de başlık, tarih, süre, otel ve oda fiyatları bulunur. Mevcut program-page.js canlı public API'den güncel ayrıntıları yüklemeye devam eder. Canonical, Open Graph, TouristTrip/Offer ve BreadcrumbList bilgileri aynı veriden oluşturulur. Sahte puan, değerlendirme veya garanti eklenmedi.
+Ana sayfa, tur ayrıntıları, fiyatlar, Ümraniye, rehber ve kadro sayfaları yayınlanmış site verisinden sunucuda hazırlanır. Başlık, açıklama, kapak, otel, fiyatlar ve günlük program ilk HTML'de bulunur. JavaScript'in sonradan eski bannerı veya boş programı değiştirmesi gerekmez.
 
-## İçerik güncelleme
+`api/site-page.js` yalnızca GET kabul eder ve sanitizePublicState kullanır. Muhasebe, yolcular ve kimlik bilgileri public HTML'e eklenmez; bu endpoint hiçbir veri kaydı yapmaz. Panelde kaydedilen site içeriği sonraki renderlarda okunur (edge önbelleği 30 saniye, stale-while-revalidate 60 saniye). Bağlantı kesilirse son public yayın kopyası gösterilir. Eski kapaklar ortak tasarım katmanında düzeltilir; yeni özel yüklemeler korunur.
 
-Statik HTML arama motoru kopyasıdır; yönetim panelindeki değişiklikler JavaScript görünümüne hemen yansır, ilk HTML kopyasını otomatik güncellemez. Tur/fiyat/durum değişince `node scripts/build-tour-seo.cjs` çalıştırılıp değişiklikler yayınlanmalıdır. Bu adım public API dışında veri okumaz, muhasebeye yazmaz. Yeni/sona eren tur değişikliklerinde sitemap de güncellenmelidir. Uzun vadede sunucu tarafında canlı render veya güvenli yayın tetikleyicisi eklenmelidir.
+`node scripts/prepare-public-pages.cjs` public API'den sadece yayınlanabilir alanları okuyarak yedek HTML ve public snapshot üretir. Eski build-tour-seo / restore-public-pages komutları aynı hazırlayıcıya yönlendirilir. `node scripts/configure-public-routes.cjs` iki Vercel proje kökü için yönlendirme ayarlarını üretir. Deployment sonrası canlı endpoint, yönlendirmeler ve ilk HTML tekrar doğrulanmalıdır.
 
-## Kullanıcıyla yapılacaklar
+Tur URL'leri kalıcı `/<slug>` biçimindedir. Eski `program.html?slug=…` bağlantıları kalıcı yönlendirilir. Sona eren programlar aktif listelerden ve sitemap'ten çıkarılır; arşiv URL'si açıklamayla açık kalır. Oda seçenekleri TouristTrip/Offer olarak işaretlenir. Puan veya yorum şeması uydurulmaz. Güncel sitemap canlı site verisinden üretilir.
 
-1. Google hesabıyla Search Console'a giriş; mevcut mülk varsa onu kullan, yoksa alan adı sahipliğini doğrula. Mevcut DNS kayıtlarını silme.
-2. `https://www.hazeynturizm.com/sitemap.xml` adresini gönder. URL Denetimi ile ana sayfa ve tur sayfalarının durumunu kontrol et.
-3. Google Haritalar'da mevcut Hazeyn profilini bul; mükerrer profil oluşturma. İşletme sahibi doğrulamasını kullanıcı tamamlar.
-4. Gerçek işletme adı, adres, telefon, çalışma saatleri, TÜRSAB belge bilgisi ve gerçek ofis/kafile fotoğraflarını işletme sahibinden doğrula. Bilinmeyen bilgi ekleme.
-5. Gerçek müşterilerden dürüst yorum iste; sahte yorum, toplu spam ve satın alınmış bağlantı kullanma.
-6. Search Console gösterim/tıklama/indeks verileriyle sonucu ölç. Ücretli reklam için ayrı bütçe ve açık onay gerekir.
+Search Console'da sitemap gönderimi ve 6 Kasım turunun indeksleme isteği 29 Eylül'de kabul edildi. Google Haritalar'daki mevcut işletme için site ekleme önerisi gönderildi; işletme sahipliği doğrulaması değildir. Sonuçlar Search Console gösterim/tıklama/indeks raporuyla takip edilir. Ücretli reklam, satın alınmış link veya sahte yorum uygulanmadı.
 
-Google, AI sonuçları için özel işaretleme gerekmediğini ve indeksleme/gösterim garantisi olmadığını belirtir: https://developers.google.com/search/docs/appearance/ai-features
+Google sıralaması, indeksleme zamanı veya yapay zekâ önerisi garanti edilemez. Google AI özellikleri için ayrıca özel şema gerekmediğini belirtir: https://developers.google.com/search/docs/appearance/ai-features

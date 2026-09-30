@@ -22,3 +22,17 @@ body[data-page="public"] a.contact-card:hover{background:#ffffff16;border-color:
 .blog-pagination{justify-content:center;margin-top:32px}.blog-pagination button:disabled{opacity:.4;cursor:default}
 .blog-tools button:focus-visible,.blog-pagination button:focus-visible,.blog-tools input:focus-visible{outline:3px solid #c79b42;outline-offset:3px}
 #blogSearchStatus{margin:14px 0 0;color:#686052;font-size:14px}.blog-empty{grid-column:1/-1;padding:30px;background:#f7f4ec;border-radius:16px}
+.site-tour-card{position:relative;transition:transform .25s ease,box-shadow .25s ease;border:1px solid #e9e1d3;overflow:hidden}
+.site-tour-card:hover,.site-tour-card:focus-within{transform:translateY(-6px);box-shadow:0 20px 45px #152d2320}
+.site-tour-card .tour-img img{width:100%;height:100%;object-fit:cover;transition:transform .4s ease}
+.site-tour-card:hover .tour-img img{transform:scale(1.035)}
+.site-tour-card .tour-body{display:flex;flex-direction:column;gap:0;flex:1}
+.site-tour-card .tour-description{font-size:13px;line-height:1.65;color:#6c665e;margin:12px 0}
+.site-tour-card .tour-bottom{margin-top:auto;gap:12px;flex-wrap:wrap}
+.site-tour-card .tour-price-block{min-width:100px}.site-tour-card .small-btn{white-space:nowrap}
+.site-tour-card .small-btn:after{content:"";position:absolute;inset:0;z-index:1}
+.site-tour-card:focus-within{outline:3px solid #b99750;outline-offset:3px}
+body.seo-page .cta-strip{background:radial-gradient(ellipse at top right,#1d4b3e 0,transparent 65%),#102b24}
+.site-header .nav-links{gap:12px}.site-header .nav-links a{font-size:12px}
+@media(min-width:1320px){.site-header .nav{width:min(1540px,94vw)}.site-header .logo-wrap{min-width:155px}.site-header .logo{width:150px}.site-header .nav-actions .btn{padding:11px 14px;font-size:12px}}
+@media(prefers-reduced-motion:reduce){.site-tour-card,.site-tour-card .tour-img img{transition:none}.site-tour-card:hover,.site-tour-card:focus-within,.site-tour-card:hover .tour-img img{transform:none}}

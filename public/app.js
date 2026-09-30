@@ -1397,6 +1397,10 @@
     }
 
     async function loadData() {
+        if (page === 'public') {
+            const embedded = parseJson(document.getElementById('hazeynPublicData')?.textContent);
+            if (embedded && Array.isArray(embedded.tours)) return mergeDefaults(embedded);
+        }
         const key = companyCacheKey();
         const local = parseJson(localStorage.getItem(key));
         const indexed = await idbGet(key);
@@ -1454,11 +1458,12 @@
         delete settings.adminPassword;
         delete settings.password;
         const legacyTours = Array.isArray(data.tours) ? data.tours : d.tours;
-        const siteTours = normalizeTours(Array.isArray(data.siteTours) ? data.siteTours : legacyTours);
+        const siteTours = normalizeTours(Array.isArray(data.siteTours) ? data.siteTours : legacyTours).map(t =>
+            !IS_APP_MODE && window.hazeynSiteDesign ? window.hazeynSiteDesign(t) : t);
         const accountingTours = normalizeTours(Array.isArray(data.accountingTours) ? data.accountingTours : legacyTours);
         return {
             _meta: { ...d._meta, ...(data._meta || {}) },
-            settings,
+            settings: !IS_APP_MODE && window.hazeynSiteSettings ? window.hazeynSiteSettings(settings) : settings,
             tours: clone(IS_APP_MODE ? accountingTours : siteTours),
             siteTours,
             accountingTours,
@@ -1688,6 +1693,7 @@
 
     function tourCard(t) {
         t = normalizeTour(t);
+        if (t.type === 'umre' && window.hazeynTourCard) return window.hazeynTourCard(t);
         t.image = window.umreVisual ? window.umreVisual(t, t.image) : t.image;
         const departure = formatDateTR(t.departureDate);
         const duration = durationLabel(t);
@@ -1701,7 +1707,7 @@
             <h3>${escapeHtml(t.title)}</h3>
             <div class="tour-meta">${departure ? `<span>📅 ${escapeHtml(departure)}</span>` : ''}${duration ? `<span>◷ ${escapeHtml(duration)}</span>` : ''}<span>✈ ${escapeHtml(departureLabel)}</span></div>
             <div class="tour-hotels">${escapeHtml(hotelText)}</div>
-            <div class="tour-bottom"><span class="price tour-price-block">${t.type === 'umre' ? '<small>Başlangıç fiyatı</small>' : ''}<strong>${escapeHtml(cardText)}</strong></span><a class="small-btn" data-program-link data-track="program_click" data-program-id="${escapeHtml(t.id)}" data-program-title="${escapeHtml(t.title)}" data-program-slug="${escapeHtml(slug)}" href="/program.html?slug=${encodeURIComponent(slug)}">Programı İncele <span aria-hidden="true">→</span></a></div>
+            <div class="tour-bottom"><span class="price tour-price-block">${t.type === 'umre' ? '<small>Başlangıç fiyatı</small>' : ''}<strong>${escapeHtml(cardText)}</strong></span><a class="small-btn" data-program-link data-track="program_click" data-program-id="${escapeHtml(t.id)}" data-program-title="${escapeHtml(t.title)}" data-program-slug="${escapeHtml(slug)}" href="/${encodeURIComponent(slug)}">Programı İncele <span aria-hidden="true">→</span></a></div>
         </div>
     </article>`;
     }
@@ -1709,7 +1715,8 @@
     function renderTourGroup(type, targetId, limit) {
         const target = $(targetId);
         if (!target) return;
-        const list = state.tours.filter(t => t.type === type && normalizedTourStatus(t) !== 'draft' && (type !== 'umre' || normalizedTourStatus(t) === 'active')).sort((a, b) => String(a.departureDate || '9999-12-31').localeCompare(String(b.departureDate || '9999-12-31'))).slice(0, limit || 50);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const list = state.tours.filter(t => t.type === type && t.published !== false && normalizedTourStatus(t) !== 'draft' && (type !== 'umre' || (normalizedTourStatus(t) === 'active' && (!parseLocalDate(t.departureDate) || parseLocalDate(t.departureDate) >= today)))).sort((a, b) => String(a.departureDate || '9999-12-31').localeCompare(String(b.departureDate || '9999-12-31'))).slice(0, limit || 50);
         target.innerHTML = list.map(tourCard).join('');
         const optionalGroup = target.closest('.optional-tour-group');
         if (optionalGroup) optionalGroup.hidden = list.length === 0;

@@ -176,7 +176,7 @@ function capacityLabel(value) {
 }
 
 function normalizeTour(source = {}) {
-  source = require('./public/umre-visuals').tour(source);
+  source = require('../umre-visuals').tour(source);
   const title = text(source.title) || 'Umre Programı';
   const durationText = text(source.nights || source.duration || source.dayNight);
   const durationDays = Number(source.durationDays) || firstNumber(durationText, /(\d+)\s*g[üu]n/i);
@@ -555,7 +555,7 @@ function activeUmreTours(state) {
 }
 
 function programCard(tour, headingLevel = 2) {
-  if (tour.type === 'umre') return require('./public/tour-card')(tour);
+  if (tour.type === 'umre') return require('../tour-card')(tour);
   const Heading = headingLevel === 3 ? 'h3' : 'h2';
   const cities = tour.departureCities.map(cityLabel).join(' / ');
   const price = (key) => escapeHtml(tour.roomPrices[key] || 'Bilgi alınız');
