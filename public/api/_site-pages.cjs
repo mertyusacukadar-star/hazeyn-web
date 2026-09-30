@@ -36,7 +36,9 @@ function template(name,input) {
     html=content(html,'umreTours',tours.map(card).join(''));
     const hero=(state.settings.heroBanners || [])[0];
     if(hero) {
-      html=html.replace(/<div class="hero-bg"[^>]*>[\s\S]*?<\/div>/,`<div class="hero-bg"><div class="hero-slide active" style="background-image:url('${escape(hero.image)}')"></div></div>`);
+      // Replace the whole background block, not just the inner slide's closing tag.
+      // Templates are also regenerated from their last published copy.
+      html=html.replace(/<div class="hero-bg"[^>]*>[\s\S]*?(?=<div class="hero-overlay")/,`<div class="hero-bg"><div class="hero-slide active" style="background-image:url('${escape(hero.image)}')"></div></div>\n      `);
       html=content(html,'heroTitle',escape(hero.title));
       html=content(html,'heroSubtitle',escape(hero.subtitle));
     }

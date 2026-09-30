@@ -33,6 +33,7 @@ const custom=design.tour({...tour,image:'/assets/new-custom-cover.jpg'});
 assert.equal(custom.image,'/assets/new-custom-cover.jpg');
 const sanitized=sanitizePublicState({...snapshot,siteTours:[tour],tours:[{title:'ACCOUNTING_SENTINEL'}],passengerLists:[{name:'PRIVATE_SENTINEL'}],settings:{...snapshot.settings,adminPassword:'SECRET_SENTINEL'}});
 const publicHtml=render.template('index.html',sanitized);
+assert.match(publicHtml,/<div class="hero-bg"><div class="hero-slide active"[^>]*><\/div><\/div>\s*<div class="hero-overlay"/);
 assert.doesNotMatch(publicHtml,/ACCOUNTING_SENTINEL|PRIVATE_SENTINEL|SECRET_SENTINEL/);
 const endpoint=fs.readFileSync('public/api/site-page.js','utf8');
 assert.match(endpoint,/req.method!=='GET'/);

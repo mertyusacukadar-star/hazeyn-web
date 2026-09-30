@@ -12,4 +12,6 @@ Search Console'da sitemap gönderimi ve 6 Kasım turunun indeksleme isteği 29 E
 
 Google sıralaması, indeksleme zamanı veya yapay zekâ önerisi garanti edilemez. Google AI özellikleri için ayrıca özel şema gerekmediğini belirtir: https://developers.google.com/search/docs/appearance/ai-features
 
+30 Eylül Search Console denetiminde 19 Ekim programı dizine eklenmiş olarak göründü. Canlı URL testi indekslenebilir sonucu verdi; güncel içerik için yeniden tarama isteği kabul edilerek öncelikli kuyruğa eklendi. Bu sonuç üst sıra veya önerilme garantisi değildir. `npm run test:public` ilk HTML, canlı veri güncellemeleri, mahremiyet, rota, arşiv ve bağlantı kesilmesi testlerini birlikte çalıştırır.
+
 Vercel bu projede `server.js` Node sunucusunu da çalıştırır. `/api/site-page` GET-only adapterı bu sunucuya bağlanmıştır; mevcut veri/yetki/muhasebe endpointleri değiştirilmemiştir. 30 Eylül canlı denetiminde ana sayfalar ve sekiz program 200 döndü. Google 404 raporundaki `/tr/haberler`, `/tr/iletisim`, `/tr/hac-umre` adresleri karşılıklarına kalıcı yönlendirilir. Karşılığı doğrulanamayan eski 5 yıldız/kampanya veya kültür turu adresleri için yeni içerik uydurulmaz; özgün içerik bulunmadan topluca ana sayfaya yönlendirilmez.
