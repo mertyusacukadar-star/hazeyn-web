@@ -42,7 +42,7 @@ async function prepare() {
     ...blogs.map(b=>'rehber/'+b.slug+'.html')];
   for(const name of htmlFiles) {
     const file=path.join(publicDir,name);
-    fs.writeFileSync(file,fs.readFileSync(file,'utf8').replace(/[ \t]+(?=\r?$)/gm,''));
+    fs.writeFileSync(file,fs.readFileSync(file,'utf8').replace(/\r\n?/g,'\n').replace(/[ \t]+$/gm,''));
   }
   console.log('Prepared complete first-paint HTML, shared navigation, covers and '+blogs.length+' guides.');
 }
