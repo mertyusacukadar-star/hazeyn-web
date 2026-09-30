@@ -176,6 +176,7 @@ function capacityLabel(value) {
 }
 
 function normalizeTour(source = {}) {
+  source = require('./public/umre-visuals').tour(source);
   const title = text(source.title) || 'Umre Programı';
   const durationText = text(source.nights || source.duration || source.dayNight);
   const durationDays = Number(source.durationDays) || firstNumber(durationText, /(\d+)\s*g[üu]n/i);
@@ -358,7 +359,7 @@ function programParagraphs(value) {
   if (!items.length) return '<p>Detaylı program akışı için Hazeyn Turizm ile iletişime geçebilirsiniz.</p>';
   return items.map((item) => {
     const day = item.match(/^(\d+)\.\s*Gün\s*[—–-]?\s*(.*)$/i);
-    if (day) return `<h3 class="seo-program-day"><span>${escapeHtml(day[1])}</span>${escapeHtml(day[2] || `${day[1]}. Gün`)}</h3>`;
+    if (day) return `<article class="program-day"><b>${escapeHtml(day[1])}. Gün</b><p>${escapeHtml(day[2])}</p></article>`;
     const info = item.match(/^(Mekke Konaklama|Medine Konaklama|Program|Umre Sayısı|Not):\s*(.*)$/i);
     if (info) return `<p class="seo-program-note"><strong>${escapeHtml(info[1])}</strong><span>${escapeHtml(info[2])}</span></p>`;
     return `<p>${escapeHtml(item)}</p>`;
@@ -385,7 +386,7 @@ function header(settings) {
       <a class="logo-wrap" href="/tr" aria-label="Hazeyn Turizm ana sayfa"><img src="/assets/logo.png" alt="Hazeyn Turizm" class="logo" width="210" height="60"></a>
       <button class="menu-toggle" id="menuToggle" type="button" aria-controls="mobileNavOverlay" aria-expanded="false" aria-label="Menüyü aç"><svg class="menu-icon menu-icon-bars" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7.5h14M5 12h14M5 16.5h14"/></svg><svg class="menu-icon menu-icon-close" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></button>
       <div class="nav-links" id="navLinks">
-        <a href="/tr#umre">Umre Programları</a><a href="/umre-fiyatlari.html">Umre Fiyatları</a><a href="/tr#hac">Hac Programları</a><a href="/tr#yurtici">Yurt İçi Turlar</a><a href="/merak-edilenler">Yolculuk Rehberi</a><a href="/deneyimli-kadro">Deneyimli Kadro</a><a href="/umraniye-umre-turu">Ümraniye Ofisi</a>
+        <a href="/tr#umre">Umre Programları</a><a href="/umre-fiyatlari">Umre Fiyatları</a><a href="/tr#hac">Hac Programları</a><a href="/tr#yurtici">Yurt İçi Turlar</a><a href="/deneyimli-kadro">Deneyimli Kadro</a><a href="/merak-edilenler">Merak Edilenler</a><a href="/tr#yorumlar">Yorumlar</a><a href="/umraniye-umre-turu">Ümraniye Ofisi</a><a href="/tr#iletisim">İletişim</a>
       </div>
       <div class="nav-actions" id="navActions">
         <a class="btn btn-ghost phone-link" data-track="phone_call" href="${escapeHtml(phoneHref(settings.phone))}">${phoneIcon}<span>Hemen Ara</span></a>
@@ -394,6 +395,11 @@ function header(settings) {
       </div>
     </nav>
   </header>`;
+}
+
+function viewerIcon(kind) {
+  const paths={close:'M6 6l12 12M18 6L6 18',prev:'M15 5l-7 7 7 7',next:'M9 5l7 7-7 7'};
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${paths[kind]}"/></svg>`;
 }
 
 function contactStrip(settings, message) {
@@ -459,11 +465,11 @@ function basePage({ state, origin, title, description, canonicalPath, ogImage, c
   <link rel="canonical" href="${escapeHtml(canonical)}"><meta name="robots" content="index,follow,max-image-preview:large">
   <meta property="og:locale" content="tr_TR"><meta property="og:type" content="website"><meta property="og:site_name" content="Hazeyn Turizm"><meta property="og:title" content="${escapeHtml(title)}"><meta property="og:description" content="${escapeHtml(description)}"><meta property="og:url" content="${escapeHtml(canonical)}"><meta property="og:image" content="${escapeHtml(image)}">
   <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${escapeHtml(title)}"><meta name="twitter:description" content="${escapeHtml(description)}"><meta name="twitter:image" content="${escapeHtml(image)}">
-  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png"><link rel="apple-touch-icon" href="/assets/icon.png"><link rel="stylesheet" href="/style.css?v=20260813-program3">${jsonLd}
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png"><link rel="apple-touch-icon" href="/assets/icon.png"><link rel="stylesheet" href="/style.css?v=20260813-program3"><link rel="stylesheet" href="/public-polish.css?v=20260930-3">${pageType === 'program' ? '<link rel="stylesheet" href="/program-compact.css?v=20260930-2">' : ''}${jsonLd}
 </head><body class="seo-page" data-page="${escapeHtml(pageType)}">
   <a class="seo-skip" href="#main-content">İçeriğe geç</a>${header(settings)}
   <main id="main-content">${content}${contactStrip(settings, generalMessage)}</main>${footer(settings)}
-  <a class="seo-mobile-whatsapp whatsapp-link" data-track="whatsapp_click" href="${escapeHtml(whatsappHref(settings, generalMessage))}" target="_blank" rel="noopener" aria-label="WhatsApp'tan bilgi al">✦</a>
+  <a class="seo-mobile-whatsapp whatsapp-link" data-track="whatsapp_click" href="${escapeHtml(whatsappHref(settings, generalMessage))}" target="_blank" rel="noopener" aria-label="WhatsApp'tan bilgi al">${header(settings).match(/<a class="btn btn-gold whatsapp-link"[^>]*>(<svg[\s\S]*?<\/svg>)/)[1]}</a>
   <script>window.HAZEYN_PAGE_DATA=${pageData};window.HAZEYN_TRACKING_SETTINGS=${trackingSettings};(function(){var b=document.getElementById('menuToggle'),n=document.getElementById('navLinks'),a=document.getElementById('navActions');if(!b||!n||!a)return;var o=document.createElement('div');o.id='mobileNavOverlay';o.className='mobile-nav-overlay';o.setAttribute('aria-hidden','true');o.innerHTML='<div class="mobile-nav-shell"><nav class="mobile-nav-links">'+n.innerHTML+'</nav><div class="mobile-nav-actions">'+a.innerHTML+'</div></div>';document.body.appendChild(o);o.querySelectorAll('.mobile-nav-links a').forEach(function(l,i){l.style.setProperty('--menu-index',i)});function close(){o.classList.remove('open');o.setAttribute('aria-hidden','true');b.classList.remove('open');b.setAttribute('aria-expanded','false');b.setAttribute('aria-label','Menüyü aç');document.body.classList.remove('mobile-menu-open')}function open(){o.classList.add('open');o.setAttribute('aria-hidden','false');b.classList.add('open');b.setAttribute('aria-expanded','true');b.setAttribute('aria-label','Menüyü kapat');document.body.classList.add('mobile-menu-open')}b.addEventListener('click',function(){o.classList.contains('open')?close():open()});o.addEventListener('click',function(e){if(e.target.closest('a'))close()});document.addEventListener('keydown',function(e){if(e.key==='Escape')close()})})();(function(){var box=document.getElementById('seoLightbox');if(!box)return;document.body.appendChild(box);var raw=Array.prototype.slice.call(document.querySelectorAll('[data-lightbox-src]')),items=[],seen={};raw.forEach(function(trigger){var src=trigger.getAttribute('data-lightbox-src');if(!src||seen[src])return;seen[src]=true;items.push({src:src,caption:trigger.getAttribute('data-lightbox-caption')||'Program görseli'})});var image=box.querySelector('img'),caption=box.querySelector('figcaption b'),counter=box.querySelector('figcaption span'),closeButton=box.querySelector('.seo-lightbox-close'),prev=box.querySelector('.seo-lightbox-prev'),next=box.querySelector('.seo-lightbox-next'),current=0,lastFocus=null;function draw(){var item=items[current];if(!item)return;image.src=item.src;image.alt=item.caption;caption.textContent=item.caption;counter.textContent=(current+1)+' / '+items.length;prev.hidden=next.hidden=items.length<2}function open(src){var found=items.findIndex(function(item){return item.src===src});current=found<0?0:found;lastFocus=document.activeElement;draw();box.classList.add('open');box.setAttribute('aria-hidden','false');document.body.classList.add('seo-lightbox-open');closeButton.focus()}function close(){box.classList.remove('open');box.setAttribute('aria-hidden','true');document.body.classList.remove('seo-lightbox-open');image.removeAttribute('src');if(lastFocus&&lastFocus.focus)lastFocus.focus()}function move(step){current=(current+step+items.length)%items.length;draw()}raw.forEach(function(trigger){trigger.addEventListener('click',function(){open(trigger.getAttribute('data-lightbox-src'))})});closeButton.addEventListener('click',close);prev.addEventListener('click',function(){move(-1)});next.addEventListener('click',function(){move(1)});box.addEventListener('click',function(event){if(event.target===box)close()});document.addEventListener('keydown',function(event){if(!box.classList.contains('open'))return;if(event.key==='Escape')close();if(event.key==='ArrowLeft')move(-1);if(event.key==='ArrowRight')move(1)})})();</script><script src="/tracking.js?v=20260811-growth5" defer></script>
 </body></html>`;
 }
@@ -508,7 +514,7 @@ function renderProgramPage(state, tourInput, origin) {
   const expired = isTourExpired(tour);
   const cities = tour.departureCities.map(cityLabel).join(' / ');
   const message = `Merhaba, Hazeyn Turizm web sitenizden ulaşıyorum. ${tour.title} hakkında bilgi almak istiyorum.`;
-  const offers = Object.entries(tour.roomPrices).map(([room, price]) => ({ '@type': 'Offer', name: `${room} kişilik oda`, price: text(price).replace(/\D/g, '') || undefined, priceCurrency: /TL|₺/i.test(price) ? 'TRY' : 'USD', description: price, availability: expired || /full|dolu/i.test(tour.capacityStatus) ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock', url: pageUrl }));
+  const offers = Object.entries(tour.roomPrices).map(([room, price]) => ({ '@type': 'Offer', name: `${room} kişilik odada kişi başı`, price: text(price).replace(/\D/g, '') || undefined, priceCurrency: /TL|₺/i.test(price) ? 'TRY' : 'USD', description: price, ...(expired ? {availability:'https://schema.org/SoldOut'} : {}), url: pageUrl }));
   const schemaImages = [...new Set([tour.detailBannerImage, tour.image, ...(tour.hotelImages.mekke || []), ...(tour.hotelImages.medine || []), ...tour.groupImages].filter(Boolean))];
   const schemas = [organizationSchema(state, origin), breadcrumbSchema(origin, [{ name: 'Ana Sayfa', path: '/tr' }, { name: 'Umre Programları', path: '/tr#umre' }, { name: tour.title, path: canonicalPath }]), {
     '@context': 'https://schema.org', '@type': 'TouristTrip', name: tour.title, description: tour.seoDescription, image: schemaImages.map((image) => absoluteUrl(image, origin)), touristType: 'Umre yolcusu', itinerary: tour.visitProgram || tour.program,
@@ -529,7 +535,7 @@ function renderProgramPage(state, tourInput, origin) {
   const gallery = visualItems.map((item) => `<figure class="seo-gallery-card"><button type="button" class="seo-gallery-button" data-lightbox-src="${escapeHtml(item.image)}" data-lightbox-caption="${escapeHtml(item.label)}" aria-label="${escapeHtml(`${item.label} görselini büyüt`)}"><img src="${escapeHtml(item.image)}" alt="${escapeHtml(`${tour.title} ${item.label.toLocaleLowerCase('tr-TR')} görseli`)}" loading="lazy" decoding="async" draggable="false"><span class="seo-gallery-label"><b>${escapeHtml(item.label)}</b><span>Büyüt</span></span></button></figure>`).join('');
   const hotelImage = (images, alt, label) => images && images.length ? `<button type="button" class="seo-hotel-media" data-lightbox-src="${escapeHtml(images[0])}" data-lightbox-caption="${escapeHtml(label)}" aria-label="${escapeHtml(`${label} görselini büyüt`)}"><img src="${escapeHtml(images[0])}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async" draggable="false"><span class="seo-image-zoom">Görseli büyüt</span>${images.length > 1 ? `<span class="seo-image-count">${images.length} görsel</span>` : ''}</button>` : '';
   const bannerMeta = `${formatDate(tour.departureDate)} · ${tour.durationLabel} · ${cities} çıkışlı`;
-  const content = `<section class="seo-hero"><img class="seo-hero-media pos-${escapeHtml(tour.detailBannerPosition)}" src="${escapeHtml(tour.detailBannerImage)}" alt="${escapeHtml(`${tour.detailBannerTitle} program banner görseli`)}" fetchpriority="high"><div class="container seo-hero-copy">
+  let content = `<section class="seo-hero program-wide-hero"><img class="seo-hero-media pos-${escapeHtml(tour.detailBannerPosition)}" src="${escapeHtml(tour.detailBannerImage)}" alt="${escapeHtml(`${tour.detailBannerTitle} program banner görseli`)}" fetchpriority="high"><div class="container seo-hero-copy">
     <div class="seo-breadcrumb"><a href="/tr">Ana Sayfa</a><span>/</span><a href="/tr#umre">Umre Programları</a><span>/</span><span>${escapeHtml(tour.title)}</span></div><span class="eyebrow">${escapeHtml(tour.detailBannerKicker || tour.capacityStatus)}</span><h1>${escapeHtml(tour.detailBannerTitle)}</h1><p>${escapeHtml(bannerMeta)}</p>${tour.detailBannerSubtitle ? `<p class="seo-hero-subtitle">${escapeHtml(tour.detailBannerSubtitle)}</p>` : ''}
   </div></section><div class="container seo-content">
     <section class="seo-overview" aria-label="Program özeti"><article class="seo-stat"><small>Kalkış tarihi</small><strong>${escapeHtml(formatDate(tour.departureDate))}</strong></article><article class="seo-stat"><small>Program süresi</small><strong>${escapeHtml(tour.durationLabel)}</strong></article><article class="seo-stat"><small>Çıkış noktası</small><strong>${escapeHtml(cities)}</strong></article><article class="seo-stat"><small>Başlangıç fiyatı</small><strong>${escapeHtml(tour.price)}</strong></article></section>
@@ -539,15 +545,22 @@ function renderProgramPage(state, tourInput, origin) {
     <section class="seo-section"><div class="seo-grid-2"><article class="seo-card"><span class="section-kicker">Fiyata dahil</span><h2>Dahil hizmetler</h2>${bulletList(tour.includedServices, 'Dahil hizmetler rezervasyon öncesinde program ekibimiz tarafından paylaşılır.')}</article><article class="seo-card"><span class="section-kicker">Ek hizmetler</span><h2>Dahil olmayanlar</h2>${bulletList(tour.excludedServices, 'Dahil olmayan hizmetler rezervasyon öncesinde program ekibimiz tarafından paylaşılır.').replace('seo-check-list', 'seo-check-list excluded')}</article></div></section>
     <section class="seo-section"><div class="seo-section-head"><span class="section-kicker">Program akışı</span><h2>Yolculuk planı ve ziyaretler</h2><p>Tüm program ayrıntıları aşağıda açık biçimde yer alır; ayrıca bir alana basmanız gerekmez.</p></div><div class="seo-detail-stack"><article class="seo-card seo-prose seo-detail-panel"><header class="seo-detail-panel-head"><span><span class="section-kicker">Ziyaretler</span><h2>Ziyaret programı</h2></span><span>Rehber eşliğinde</span></header><div class="seo-detail-content-visible">${paragraphs(tour.visitProgram || 'Mekke ve Medine ziyaretleri kafile rehberi eşliğinde programlanır.')}</div></article><article class="seo-card seo-prose seo-detail-panel"><header class="seo-detail-panel-head"><span><span class="section-kicker">Gün gün akış</span><h2>Program ayrıntıları</h2></span><span>${escapeHtml(tour.durationLabel)}</span></header><div class="seo-detail-content-visible seo-program-flow">${programParagraphs(tour.program)}</div></article></div></section>
     ${gallery ? `<section class="seo-section"><div class="seo-section-head"><span class="section-kicker">Görseller</span><h2>Programdan kareler</h2><p>Otel ve kafile görsellerini tam boy görüntülemek için seçin.</p></div><div class="seo-gallery seo-gallery-count-${Math.min(3, visualItems.length)}">${gallery}</div></section>` : ''}
-  </div>${gallery ? `<div class="seo-lightbox" id="seoLightbox" role="dialog" aria-modal="true" aria-hidden="true" aria-label="Program görsel galerisi"><button type="button" class="seo-lightbox-close" aria-label="Galeriyi kapat">×</button><button type="button" class="seo-lightbox-nav seo-lightbox-prev" aria-label="Önceki görsel">‹</button><figure class="seo-lightbox-figure"><div class="seo-lightbox-image-wrap"><img src="" alt="" draggable="false"></div><figcaption><b></b><span></span></figcaption></figure><button type="button" class="seo-lightbox-nav seo-lightbox-next" aria-label="Sonraki görsel">›</button></div>` : ''}`;
-  return basePage({ state, origin, title: tour.seoTitle, description: tour.seoDescription, canonicalPath, ogImage: tour.detailBannerImage, content, schemas, pageType: 'program', pageTitle: tour.title, pageId: tour.id, pageSlug: tour.slug });
+  </div><div class="seo-lightbox" id="seoLightbox" role="dialog" aria-modal="true" aria-hidden="true" aria-label="Program görsel galerisi"><button type="button" class="seo-lightbox-close" aria-label="Galeriyi kapat">${viewerIcon('close')}</button><button type="button" class="seo-lightbox-nav seo-lightbox-prev" aria-label="Önceki görsel">${viewerIcon('prev')}</button><figure class="seo-lightbox-figure"><div class="seo-lightbox-image-wrap"><img alt="" draggable="false"></div><figcaption><b></b><span></span></figcaption></figure><button type="button" class="seo-lightbox-nav seo-lightbox-next" aria-label="Sonraki görsel">${viewerIcon('next')}</button></div>`;
+  const summary = `<section class="program-at-glance" aria-label="Bir bakışta program ve fiyatlar"><div class="program-summary-copy"><span class="section-kicker">Bir bakışta yolculuğunuz</span><h2>Mekke & Medine</h2><dl><div><dt>Mekke</dt><dd>${escapeHtml(tour.mekkeHotelName)}</dd></div><div><dt>Medine</dt><dd>${escapeHtml(tour.medineHotelName)}</dd></div><div><dt>Ulaşım</dt><dd>${escapeHtml(tour.flightDetails)}</dd></div></dl><a class="btn btn-gold" href="${escapeHtml(whatsappHref(settings,message))}">Bilgi ve rezervasyon →</a></div><div class="program-summary-prices"><span class="section-kicker">Kişi başı • USD</span><div class="program-mini-prices">${Object.entries(tour.roomPrices).filter(([,p])=>text(p)).map(([room,price])=>`<div><span>${escapeHtml(room)} kişilik oda</span><strong>${escapeHtml(price)}</strong></div>`).join('')}</div><p>Fiyatlar kişi başıdır. Kontenjan rezervasyonda teyit edilir.</p></div></section>`;
+  content = content.replace(/(<section class="seo-overview"[\s\S]*?<\/section>)/, '$1'+summary)
+    .replace(/<section class="seo-section"><div class="seo-section-head"><span class="section-kicker">Oda tipine göre[\s\S]*?<\/section>/, '')
+    .replace('seo-detail-content-visible seo-program-flow','seo-detail-content-visible seo-program-flow program-day-grid');
+  const preparation = `<section class="seo-section program-preparation"><div class="seo-section-head"><span class="section-kicker">Yolculuk hazırlığı</span><h2>Valizinizi huzurla hazırlayın</h2><p>Hazeyn ihtiyaç listeleri ve yolculuk hatırlatmaları. Tam boy görmek için görsele dokunun.</p></div><div class="program-preparation-grid">${[['genel','Genel ihtiyaç listesi'],['erkek','Erkekler için ihtiyaç listesi'],['kadin','Kadınlar için ihtiyaç listesi'],['harc','Yurt dışı çıkış harcı hatırlatması']].map(([file,title])=>`<button type="button" data-lightbox-src="/assets/hazirlik-${file}.png" data-lightbox-caption="${title}" aria-label="${title} görselini büyüt"><img src="/assets/hazirlik-${file}.png" alt="${title}" loading="lazy"><span>${title}</span></button>`).join('')}</div><p class="program-preparation-note">Kişisel ihtiyaçların temini misafirimize aittir. Güncel harç bilgileri için <a href="https://dijital.gib.gov.tr/" target="_blank" rel="noopener">Gelir İdaresi Başkanlığı</a> duyurularını kontrol ediniz.</p></section>`;
+  content = content.replace('</div><div class="seo-lightbox"', preparation+'</div><div class="seo-lightbox"');
+  return basePage({ state, origin, title: tour.seoTitle, description: tour.seoDescription, canonicalPath, ogImage: tour.detailBannerImage, content:content.replace(/[ \t]+$/gm,''), schemas, pageType: 'program', pageTitle: tour.title, pageId: tour.id, pageSlug: tour.slug });
 }
 
 function activeUmreTours(state) {
-  return (Array.isArray(state && state.tours) ? state.tours : []).map(normalizeTour).filter((tour) => tour.type === 'umre' && tour.status === 'active' && !isTourExpired(tour)).sort((a, b) => text(a.departureDate).localeCompare(text(b.departureDate)));
+  return (Array.isArray(state && state.tours) ? state.tours : []).map(normalizeTour).filter((tour) => tour.type === 'umre' && tour.status === 'active' && tour.published !== false && !isTourExpired(tour)).sort((a, b) => text(a.departureDate || '9999').localeCompare(text(b.departureDate || '9999')));
 }
 
 function programCard(tour, headingLevel = 2) {
+  if (tour.type === 'umre') return require('./public/tour-card')(tour);
   const Heading = headingLevel === 3 ? 'h3' : 'h2';
   const cities = tour.departureCities.map(cityLabel).join(' / ');
   const price = (key) => escapeHtml(tour.roomPrices[key] || 'Bilgi alınız');
@@ -611,8 +624,8 @@ function renderSitemap(state, origin) {
     { path: '/umraniye-umre-turu', priority: '0.8', frequency: 'weekly' },
     { path: '/merak-edilenler', priority: '0.8', frequency: 'weekly' },
     { path: '/deneyimli-kadro', priority: '0.6', frequency: 'monthly' },
-    ...(Array.isArray(state && state.tours) ? state.tours : []).map(normalizeTour).filter((tour) => tour.status !== 'draft').map((tour) => ({ path: `/${tour.slug}`, priority: isTourExpired(tour) ? '0.5' : '0.9', frequency: isTourExpired(tour) ? 'yearly' : 'weekly' })),
-    ...mergedBlogs(state).map((blog) => ({ path: `/rehber/${blog.slug}`, priority: '0.7', frequency: 'monthly' }))
+    ...(Array.isArray(state && state.tours) ? state.tours : []).map(normalizeTour).filter((tour) => tour.status === 'active' && tour.published !== false && !isTourExpired(tour)).map((tour) => ({ path: `/${tour.slug}`, priority: '0.9', frequency: 'weekly' })),
+    ...mergedBlogs(state).filter(blog=>blog.status!=='draft'&&blog.published!==false).map((blog) => ({ path: `/rehber/${blog.slug}`, priority: '0.7', frequency: 'monthly' }))
   ];
   const unique = [...new Map(routes.map((route) => [route.path, route])).values()];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${unique.map((route) => `  <url><loc>${escapeXml(new URL(route.path, `${base}/`).href)}</loc><lastmod>${lastmod}</lastmod><changefreq>${route.frequency}</changefreq><priority>${route.priority}</priority></url>`).join('\n')}\n</urlset>`;
@@ -620,10 +633,11 @@ function renderSitemap(state, origin) {
 
 function renderRobots(origin) {
   const base = normalizeOrigin(origin);
-  return `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ${base}/sitemap.xml\n`;
+  return `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\nAllow: /api/data\n\nSitemap: ${base}/sitemap.xml\n`;
 }
 
 module.exports = {
+  header, activeUmreTours, programCard,
   slugify,
   normalizeTour,
   normalizeBlog,

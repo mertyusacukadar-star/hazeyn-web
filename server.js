@@ -36,6 +36,7 @@ const {
 const { renderHomePage } = require('./home-render');
 const whatsappHandler = require('./api/whatsapp');
 const sharedBusHandler = require('./api/bus-shared');
+const publicPageHandler = require('./public/api/site-page');
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
@@ -144,6 +145,19 @@ const server = http.createServer(async (req, res) => {
   ensureDb();
   const requestUrl = new URL(req.url, 'http://localhost');
   const pathname = requestUrl.pathname;
+  // Vercel deploys this Node server as well as standalone API entry points.
+  // Keep the public GET-only renderer separate from all accounting/write routes.
+  if(pathname === '/api/site-page'){
+    req.query = Object.fromEntries(requestUrl.searchParams.entries());
+    let statusCode = 200;
+    const adapter = {
+      setHeader(name, value){ res.setHeader(name, value); },
+      status(code){ statusCode = Number(code) || 200; return adapter; },
+      send(body){ res.statusCode = statusCode; res.end(body); return adapter; }
+    };
+    try { return await publicPageHandler(req, adapter); }
+    catch(error) { return send(res, 503, 'Sayfa hazırlanamadı. Lütfen tekrar deneyin.'); }
+  }
   if(pathname === '/api/whatsapp' || pathname === '/api/bus-shared'){
     try {
       req.query = Object.fromEntries(requestUrl.searchParams.entries());

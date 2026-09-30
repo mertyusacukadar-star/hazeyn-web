@@ -1408,6 +1408,10 @@
     }
 
     async function loadData() {
+        if (page === 'public') {
+            const embedded = parseJson(document.getElementById('hazeynPublicData')?.textContent);
+            if (embedded && Array.isArray(embedded.tours)) return mergeDefaults(embedded);
+        }
         const key = companyCacheKey();
         const local = parseJson(localStorage.getItem(key));
         const indexed = await idbGet(key);
@@ -1465,11 +1469,12 @@
         delete settings.adminPassword;
         delete settings.password;
         const legacyTours = Array.isArray(data.tours) ? data.tours : d.tours;
-        const siteTours = normalizeTours(Array.isArray(data.siteTours) ? data.siteTours : legacyTours);
+        const siteTours = normalizeTours(Array.isArray(data.siteTours) ? data.siteTours : legacyTours).map(t =>
+            !IS_APP_MODE && window.hazeynSiteDesign ? window.hazeynSiteDesign(t) : t);
         const accountingTours = normalizeTours(Array.isArray(data.accountingTours) ? data.accountingTours : legacyTours);
         return {
             _meta: { ...d._meta, ...(data._meta || {}) },
-            settings,
+            settings: !IS_APP_MODE && window.hazeynSiteSettings ? window.hazeynSiteSettings(settings) : settings,
             tours: clone(IS_APP_MODE ? accountingTours : siteTours),
             siteTours,
             accountingTours,
@@ -1624,20 +1629,22 @@
         const s = state.settings || {};
         const staffHero = $('staffPageHero');
         if (staffHero) {
-            const image = String(s.staffBannerImage || DEFAULT_DATA.settings.staffBannerImage).replace(/["\\\n\r]/g, '');
+            const image = String(!s.staffBannerImage || /(?:^|\/)hero\.svg$/.test(s.staffBannerImage) ? '/assets/umre-madinah-night.png' : s.staffBannerImage).replace(/["\\\n\r]/g, '');
             staffHero.style.backgroundImage = `linear-gradient(135deg,rgba(8,8,10,.9),rgba(22,22,24,.55)),url("${image}")`;
             if ($('staffBannerKicker')) $('staffBannerKicker').textContent = s.staffBannerKicker || DEFAULT_DATA.settings.staffBannerKicker;
             if ($('staffBannerTitle')) $('staffBannerTitle').textContent = s.staffBannerTitle || DEFAULT_DATA.settings.staffBannerTitle;
             if ($('staffBannerSubtitle')) $('staffBannerSubtitle').textContent = s.staffBannerSubtitle || DEFAULT_DATA.settings.staffBannerSubtitle;
+            if ($('staffBannerSubtitle')?.textContent.includes('tanıtabilirsiniz')) $('staffBannerSubtitle').textContent = 'İlk hazırlıktan dönüş yolculuğuna kadar yanınızda olan hocalarımız ve kafile ekibimizle tanışın.';
         }
 
         const blogHero = $('blogPageHero');
         if (blogHero) {
-            const image = String(s.blogBannerImage || DEFAULT_DATA.settings.blogBannerImage).replace(/["\\\n\r]/g, '');
+            const image = String(!s.blogBannerImage || /(?:^|\/)hero\.svg$/.test(s.blogBannerImage) ? '/assets/umre-makkah-sunrise.png' : s.blogBannerImage).replace(/["\\\n\r]/g, '');
             blogHero.style.backgroundImage = `linear-gradient(135deg,rgba(8,8,10,.9),rgba(72,48,10,.58)),url("${image}")`;
             if ($('blogBannerKicker')) $('blogBannerKicker').textContent = s.blogBannerKicker || DEFAULT_DATA.settings.blogBannerKicker;
             if ($('blogBannerTitle')) $('blogBannerTitle').textContent = s.blogBannerTitle || DEFAULT_DATA.settings.blogBannerTitle;
             if ($('blogBannerSubtitle')) $('blogBannerSubtitle').textContent = s.blogBannerSubtitle || DEFAULT_DATA.settings.blogBannerSubtitle;
+            if ($('blogBannerSubtitle')?.textContent.includes('yayınlayabilirsiniz')) $('blogBannerSubtitle').textContent = 'Niyetinizden yolculuğunuza: hazırlık listeleri, umre rehberi ve merak ettiğiniz soruların cevapları bir arada.';
         }
     }
 
@@ -1697,6 +1704,8 @@
 
     function tourCard(t) {
         t = normalizeTour(t);
+        if (t.type === 'umre' && window.hazeynTourCard) return window.hazeynTourCard(t);
+        t.image = window.umreVisual ? window.umreVisual(t, t.image) : t.image;
         const departure = formatDateTR(t.departureDate);
         const duration = durationLabel(t);
         const departureLabel = departureCityLabel(t);
@@ -1709,7 +1718,7 @@
             <h3>${escapeHtml(t.title)}</h3>
             <div class="tour-meta">${departure ? `<span>📅 ${escapeHtml(departure)}</span>` : ''}${duration ? `<span>◷ ${escapeHtml(duration)}</span>` : ''}<span>✈ ${escapeHtml(departureLabel)}</span></div>
             <div class="tour-hotels">${escapeHtml(hotelText)}</div>
-            <div class="tour-bottom"><span class="price tour-price-block">${t.type === 'umre' ? '<small>Başlangıç fiyatı</small>' : ''}<strong>${escapeHtml(cardText)}</strong></span><a class="small-btn" data-program-link data-track="program_click" data-program-id="${escapeHtml(t.id)}" data-program-title="${escapeHtml(t.title)}" data-program-slug="${escapeHtml(slug)}" href="/program.html?slug=${encodeURIComponent(slug)}">Programı İncele <span aria-hidden="true">→</span></a></div>
+            <div class="tour-bottom"><span class="price tour-price-block">${t.type === 'umre' ? '<small>Başlangıç fiyatı</small>' : ''}<strong>${escapeHtml(cardText)}</strong></span><a class="small-btn" data-program-link data-track="program_click" data-program-id="${escapeHtml(t.id)}" data-program-title="${escapeHtml(t.title)}" data-program-slug="${escapeHtml(slug)}" href="/${encodeURIComponent(slug)}">Programı İncele <span aria-hidden="true">→</span></a></div>
         </div>
     </article>`;
     }
@@ -1717,7 +1726,8 @@
     function renderTourGroup(type, targetId, limit) {
         const target = $(targetId);
         if (!target) return;
-        const list = state.tours.filter(t => t.type === type && normalizedTourStatus(t) !== 'draft' && (type !== 'umre' || normalizedTourStatus(t) === 'active')).sort((a, b) => String(a.departureDate || '9999-12-31').localeCompare(String(b.departureDate || '9999-12-31'))).slice(0, limit || 50);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const list = state.tours.filter(t => t.type === type && t.published !== false && normalizedTourStatus(t) !== 'draft' && (type !== 'umre' || (normalizedTourStatus(t) === 'active' && (!parseLocalDate(t.departureDate) || parseLocalDate(t.departureDate) >= today)))).sort((a, b) => String(a.departureDate || '9999-12-31').localeCompare(String(b.departureDate || '9999-12-31'))).slice(0, limit || 50);
         target.innerHTML = list.map(tourCard).join('');
         const optionalGroup = target.closest('.optional-tour-group');
         if (optionalGroup) optionalGroup.hidden = list.length === 0;
@@ -1754,11 +1764,40 @@
         target.innerHTML = list.map(s => `<article class="staff-card reveal"><div class="staff-photo"><img src="${escapeHtml(s.image || 'assets/icon.png')}" alt="${escapeHtml(s.name)}" loading="lazy" decoding="async" onerror="this.src='assets/icon.png'"></div><div><span>${escapeHtml(s.role || `${currentCompany().shortName} Ekibi`)}</span><h3>${escapeHtml(s.name || '')}</h3><p>${escapeHtml(s.bio || '')}</p></div></article>`).join('');
     }
 
+    let blogPage = 1;
     function renderBlogs() {
         const target = $('blogGrid');
         if (!target) return;
-        const list = mergeSeoDefaultBlogs(state.blogs && state.blogs.length ? state.blogs : DEFAULT_DATA.blogs);
-        target.innerHTML = list.map(normalizeBlog).map(b => `<a class="blog-card reveal" href="/rehber/${escapeHtml(b.slug)}"><span>${escapeHtml(b.category || 'Merak Edilenler')}</span><h3>${escapeHtml(b.title || '')}</h3><p>${escapeHtml(b.summary || firstLine(b.content) || '')}</p><span class="text-btn">Devamını Oku →</span></a>`).join('');
+        const fold = value => String(value || '').toLocaleLowerCase('tr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ı/g, 'i');
+        const query = fold($('blogSearch')?.value).trim();
+        const terms = query.split(/\s+/).filter(Boolean);
+        const list = mergeSeoDefaultBlogs(state.blogs && state.blogs.length ? state.blogs : DEFAULT_DATA.blogs).map(normalizeBlog).filter(b => {
+            const text = fold([b.title,b.category,b.summary,b.content,b.keywords].join(' '));
+            return terms.every(term => text.includes(term));
+        });
+        const count = Math.max(1, Math.ceil(list.length / 6));
+        blogPage = Math.min(blogPage, count);
+        target.innerHTML = list.slice((blogPage - 1) * 6, blogPage * 6).map(b => `<a class="blog-card reveal" href="/rehber/${escapeHtml(b.slug)}"><span>${escapeHtml(b.category || 'Merak Edilenler')}</span><h3>${escapeHtml(b.title || '')}</h3><p>${escapeHtml(b.summary || firstLine(b.content) || '')}</p><span class="text-btn">Devamını Oku →</span></a>`).join('') || '<p class="blog-empty">Bu aramayla eşleşen yazı bulunamadı. Başka bir kelime deneyin veya aramayı temizleyin.</p>';
+        if ($('blogSearchStatus')) $('blogSearchStatus').textContent = `${list.length} yazı${list.length ? ` · Sayfa ${blogPage} / ${count}` : ''}`;
+        const pagination = $('blogPagination');
+        if (pagination) {
+            pagination.innerHTML = count > 1 ? `<button type="button" data-blog-page="${blogPage-1}" ${blogPage === 1 ? 'disabled' : ''}>← Önceki</button>` + Array.from({length:count}, (_,i) => `<button type="button" data-blog-page="${i+1}" ${blogPage === i+1 ? 'aria-current="page"' : ''}>${i+1}</button>`).join('') + `<button type="button" data-blog-page="${blogPage+1}" ${blogPage === count ? 'disabled' : ''}>Sonraki →</button>` : '';
+            pagination.onclick = event => {
+                const button = event.target.closest('[data-blog-page]');
+                if (!button || button.disabled) return;
+                blogPage = Number(button.dataset.blogPage);
+                renderBlogs();
+                $('blogTools')?.scrollIntoView({block:'start', behavior:'instant'});
+                pagination.querySelector('[aria-current="page"]')?.focus({preventScroll:true});
+            };
+        }
+        if ($('blogSearch')) $('blogSearch').oninput = () => {blogPage = 1;renderBlogs();};
+        if ($('blogSearchClear')) $('blogSearchClear').onclick = () => {$('blogSearch').value = '';blogPage = 1;renderBlogs();$('blogSearch').focus();};
+        document.querySelectorAll('[data-blog-keyword]').forEach(button => {
+            button.setAttribute('aria-pressed', String(fold(button.dataset.blogKeyword) === query));
+            button.onclick = () => {$('blogSearch').value = button.dataset.blogKeyword;blogPage = 1;renderBlogs();};
+        });
+        requestAnimationFrame(initScrollReveals);
     }
 
     function setModalOpen(open) {
@@ -2045,7 +2084,7 @@
 
     function renderPublic() {
         applySettings();
-        renderTourGroup('umre', 'umreTours', 4);
+        renderTourGroup('umre', 'umreTours');
         renderTourGroup('hac', 'hacTours', 2);
         renderTourGroup('yurtici', 'yurticiTours', 4);
         renderReviews();
@@ -2056,10 +2095,27 @@
         bindPublicSwipeInteractions();
         initMobileNavigation();
         requestAnimationFrame(initScrollReveals);
+        // Hash navigation must run after asynchronous tour rendering changes page height.
+        if (location.hash && !document.body.dataset.initialAnchorAligned) {
+            document.body.dataset.initialAnchorAligned = '1';
+            requestAnimationFrame(() => document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView({behavior:'instant', block:'start'}));
+        }
 
         if (document.body.dataset.publicEventsBound !== '1') {
         document.body.dataset.publicEventsBound = '1';
         document.addEventListener('click', (e) => {
+            const anchor = e.target.closest('a[href]');
+            if (anchor && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey && e.button === 0) {
+                const url = new URL(anchor.href, location.href);
+                const homePaths = ['/', '/tr', '/tr/', '/index.html'];
+                const samePage = url.pathname === location.pathname || (homePaths.includes(url.pathname) && homePaths.includes(location.pathname));
+                const target = url.hash && document.getElementById(decodeURIComponent(url.hash.slice(1)));
+                if (url.origin === location.origin && samePage && target) {
+                    e.preventDefault();
+                    history.pushState(null, '', location.pathname + location.search + url.hash);
+                    requestAnimationFrame(() => target.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block:'start'}));
+                }
+            }
             const tourBtn = e.target.closest('[data-tour]');
             if (tourBtn) openTourModal(tourBtn.dataset.tour);
             const galleryBtn = e.target.closest('[data-gallery-index]');

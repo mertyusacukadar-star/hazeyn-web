@@ -1,9 +1,149 @@
 {
   "rewrites": [
-    { "source": "/admin", "destination": "/admin.html" },
-    { "source": "/umre-fiyatlari", "destination": "/umre-fiyatlari.html" },
-    { "source": "/deneyimli-kadro", "destination": "/deneyimli-kadro.html" },
-    { "source": "/merak-edilenler", "destination": "/merak-edilenler.html" },
-    { "source": "/:slug([a-z0-9-]+)", "destination": "/program.html?slug=:slug" }
-  ]
+    {
+      "source": "/",
+      "destination": "/api/site-page?route=home"
+    },
+    {
+      "source": "/tr",
+      "destination": "/api/site-page?route=home"
+    },
+    {
+      "source": "/tr/",
+      "destination": "/api/site-page?route=home"
+    },
+    {
+      "source": "/index.html",
+      "destination": "/api/site-page?route=home"
+    },
+    {
+      "source": "/merak-edilenler",
+      "destination": "/api/site-page?route=blog"
+    },
+    {
+      "source": "/merak-edilenler/",
+      "destination": "/api/site-page?route=blog"
+    },
+    {
+      "source": "/merak-edilenler.html",
+      "destination": "/api/site-page?route=blog"
+    },
+    {
+      "source": "/deneyimli-kadro",
+      "destination": "/api/site-page?route=staff"
+    },
+    {
+      "source": "/deneyimli-kadro/",
+      "destination": "/api/site-page?route=staff"
+    },
+    {
+      "source": "/deneyimli-kadro.html",
+      "destination": "/api/site-page?route=staff"
+    },
+    {
+      "source": "/umraniye-umre-turu",
+      "destination": "/api/site-page?route=local"
+    },
+    {
+      "source": "/umraniye-umre-turu/",
+      "destination": "/api/site-page?route=local"
+    },
+    {
+      "source": "/umraniye-umre-turu.html",
+      "destination": "/api/site-page?route=local"
+    },
+    {
+      "source": "/umre-fiyatlari",
+      "destination": "/api/site-page?route=prices"
+    },
+    {
+      "source": "/umre-fiyatlari/",
+      "destination": "/api/site-page?route=prices"
+    },
+    {
+      "source": "/umre-fiyatlari.html",
+      "destination": "/api/site-page?route=prices"
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": "/api/site-page?route=sitemap"
+    },
+    {
+      "source": "/rehber/:slug",
+      "destination": "/api/site-page?route=article&slug=:slug"
+    },
+    {
+      "source": "/rehber/:slug/",
+      "destination": "/api/site-page?route=article&slug=:slug"
+    },
+    {
+      "source": "/rehber/:slug.html",
+      "destination": "/api/site-page?route=article&slug=:slug"
+    },
+    {
+      "source": "/programlar/:slug.html",
+      "destination": "/api/site-page?route=program&slug=:slug"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/:slug([a-z0-9-]+)",
+      "destination": "/api/site-page?route=program&slug=:slug"
+    },
+    {
+      "source": "/:slug([a-z0-9-]+)/",
+      "destination": "/api/site-page?route=program&slug=:slug"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/program.html",
+      "has": [
+        {
+          "type": "query",
+          "key": "slug",
+          "value": "(?<tourSlug>[a-z0-9-]+)"
+        }
+      ],
+      "destination": "/:tourSlug",
+      "permanent": true
+    },
+    {
+      "source": "/tr/haberler",
+      "destination": "/merak-edilenler",
+      "permanent": true
+    },
+    {
+      "source": "/tr/haberler/",
+      "destination": "/merak-edilenler",
+      "permanent": true
+    },
+    {
+      "source": "/tr/iletisim",
+      "destination": "/tr#iletisim",
+      "permanent": true
+    },
+    {
+      "source": "/tr/iletisim/",
+      "destination": "/tr#iletisim",
+      "permanent": true
+    },
+    {
+      "source": "/tr/hac-umre",
+      "destination": "/umre-fiyatlari",
+      "permanent": true
+    },
+    {
+      "source": "/tr/hac-umre/",
+      "destination": "/umre-fiyatlari",
+      "permanent": true
+    }
+  ],
+  "functions": {
+    "api/site-page.js": {
+      "includeFiles": "{index.html,merak-edilenler.html,deneyimli-kadro.html,api/_public-snapshot.json}"
+    }
+  }
 }
