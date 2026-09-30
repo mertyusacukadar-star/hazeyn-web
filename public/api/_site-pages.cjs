@@ -25,7 +25,10 @@ function prepared(input) {
 }
 function template(name,input) {
   const state=prepared(input);
-  let html=fs.readFileSync(path.join(root,name),'utf8');
+  // Static paths let both serverless and Node-server bundlers include templates.
+  let html=name==='index.html' ? fs.readFileSync(path.join(__dirname,'../index.html'),'utf8')
+    : name==='merak-edilenler.html' ? fs.readFileSync(path.join(__dirname,'../merak-edilenler.html'),'utf8')
+    : fs.readFileSync(path.join(__dirname,'../deneyimli-kadro.html'),'utf8');
   html=html.replace(/<script id="hazeynPublicData"[\s\S]*?<\/script>/g,'');
   html=content(html,'navLinks',pages.header(state.settings).match(/<div class="nav-links" id="navLinks">([\s\S]*?)<\/div>/)[1]);
   if(name==='index.html') {
