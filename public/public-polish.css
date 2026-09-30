@@ -28,11 +28,43 @@ body[data-page="public"] a.contact-card:hover{background:#ffffff16;border-color:
 .site-tour-card:hover .tour-img img{transform:scale(1.035)}
 .site-tour-card .tour-body{display:flex;flex-direction:column;gap:0;flex:1}
 .site-tour-card .tour-description{font-size:13px;line-height:1.65;color:#6c665e;margin:12px 0}
-.site-tour-card .tour-bottom{margin-top:auto;gap:12px;flex-wrap:wrap}
-.site-tour-card .tour-price-block{min-width:100px}.site-tour-card .small-btn{white-space:nowrap}
+.site-tour-card.tour-card .tour-bottom{display:grid;grid-template-columns:minmax(0,1fr);margin-top:auto;gap:12px;align-items:stretch}
+.site-tour-card .tour-price-block{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.site-tour-card .tour-price-block strong{line-height:1.35}
+.site-tour-card .small-btn{white-space:normal;width:100%;min-width:0;box-sizing:border-box;text-align:center}
 .site-tour-card .small-btn:after{content:"";position:absolute;inset:0;z-index:1}
 .site-tour-card:focus-within{outline:3px solid #b99750;outline-offset:3px}
 body.seo-page .cta-strip{background:radial-gradient(ellipse at top right,#1d4b3e 0,transparent 65%),#102b24}
 .site-header .nav-links{gap:12px}.site-header .nav-links a{font-size:12px}
 @media(min-width:1320px){.site-header .nav{width:min(1540px,94vw)}.site-header .logo-wrap{min-width:155px}.site-header .logo{width:150px}.site-header .nav-actions .btn{padding:11px 14px;font-size:12px}}
 @media(prefers-reduced-motion:reduce){.site-tour-card,.site-tour-card .tour-img img{transition:none}.site-tour-card:hover,.site-tour-card:focus-within,.site-tour-card:hover .tour-img img{transform:none}}
+/* Shared public controls only: not used by the accounting workspace. */
+:is(body[data-page="public"],body.seo-page) :is(.nav-actions,.mobile-nav-actions) .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;line-height:1.2;box-sizing:border-box;text-align:center}
+:is(body[data-page="public"],body.seo-page) :is(.nav-actions,.mobile-nav-actions) .btn>span{line-height:1.2;display:block}
+:is(body[data-page="public"],body.seo-page) .seo-action-icon{display:block;width:18px;height:18px;flex:0 0 18px;fill:currentColor}
+:is(body[data-page="public"],body.seo-page) .phone-link .seo-action-icon,:is(body[data-page="public"],body.seo-page) .instagram-link .seo-action-icon{color:var(--gold2)}
+:is(body[data-page="public"],body.seo-page) .btn-gold .seo-action-icon{color:white}
+body.seo-page .seo-mobile-whatsapp .seo-action-icon{width:26px;height:26px;flex-basis:26px}
+/* Explicit image dimensions prevent intrinsic poster height from overflowing a grid. */
+body.seo-page .seo-lightbox{box-sizing:border-box;padding:64px 76px 32px}
+body.seo-page .seo-lightbox-figure{display:grid;grid-template-rows:minmax(0,1fr) auto;width:min(1180px,100%);height:calc(100dvh - 96px);max-height:900px;min-width:0;min-height:0}
+body.seo-page .seo-lightbox-image-wrap{display:block;min-width:0;min-height:0;overflow:hidden}
+body.seo-page .seo-lightbox .seo-lightbox-image-wrap img{display:block;width:100%;height:100%;min-width:0;min-height:0;max-width:100%;max-height:100%;object-fit:contain}
+body.seo-page .seo-lightbox figcaption{min-width:0;padding:14px 18px;gap:12px}
+body.seo-page .seo-lightbox figcaption b{min-width:0;overflow-wrap:anywhere}
+body.seo-page .seo-lightbox figcaption span{flex-shrink:0}
+body.seo-page :is(.seo-lightbox-close,.seo-lightbox-nav){display:flex;align-items:center;justify-content:center;width:48px;height:48px;padding:0;margin:0;box-sizing:border-box;line-height:1;border-radius:50%}
+body.seo-page :is(.seo-lightbox-close,.seo-lightbox-nav) svg{display:block;width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+body.seo-page .seo-lightbox-close{top:max(12px,env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right))}
+body.seo-page .seo-lightbox-prev{left:14px}
+body.seo-page .seo-lightbox-next{right:14px}
+body.seo-page :is(.seo-lightbox-close,.seo-lightbox-nav):focus-visible{outline:3px solid var(--gold2);outline-offset:3px}
+body.seo-page .seo-lightbox-nav[hidden]{display:none}
+@media(max-width:720px){
+ body.seo-page .seo-lightbox{padding:64px 12px calc(76px + env(safe-area-inset-bottom))}
+ body.seo-page .seo-lightbox-figure{width:100%;height:calc(100dvh - 140px - env(safe-area-inset-bottom));border-radius:16px}
+ body.seo-page .seo-lightbox-nav{top:auto;bottom:max(14px,env(safe-area-inset-bottom));transform:none}
+ body.seo-page .seo-lightbox-prev{left:calc(50% - 58px)}
+ body.seo-page .seo-lightbox-next{right:auto;left:calc(50% + 10px)}
+ body.seo-page .seo-lightbox figcaption b{font-size:13px}
+}

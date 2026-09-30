@@ -30,7 +30,9 @@ function template(name,input) {
     : name==='merak-edilenler.html' ? fs.readFileSync(path.join(__dirname,'../merak-edilenler.html'),'utf8')
     : fs.readFileSync(path.join(__dirname,'../deneyimli-kadro.html'),'utf8');
   html=html.replace(/<script id="hazeynPublicData"[\s\S]*?<\/script>/g,'');
+  html=html.replace(/<div class="nav-actions">/g,'<div class="nav-actions" id="navActions">');
   html=content(html,'navLinks',pages.header(state.settings).match(/<div class="nav-links" id="navLinks">([\s\S]*?)<\/div>/)[1]);
+  html=content(html,'navActions',pages.header(state.settings).match(/<div class="nav-actions" id="navActions">([\s\S]*?)<\/div>/)[1]);
   if(name==='index.html') {
     const tours=pages.activeUmreTours(state);
     html=content(html,'umreTours',tours.map(card).join(''));
