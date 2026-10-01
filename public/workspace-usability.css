@@ -1,0 +1,33 @@
+/* Accounting-only layout; printed documents retain their own styles. */
+@media screen {
+ body.desktop-app .admin-topbar{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:20px;border-radius:18px}
+ body.desktop-app .admin-topbar>div:first-child{flex:1 0 200px}
+ body.desktop-app .admin-topbar .admin-topbar-actions{display:flex;flex:3 1 700px;flex-wrap:wrap;align-items:end;gap:12px}
+ body.desktop-app .admin-topbar h1{font-size:22px;margin:6px 0}
+ body.desktop-app .workspace-search{background:transparent!important;padding:0!important;border:0!important}
+ body.desktop-app input[type=number]{appearance:textfield;-moz-appearance:textfield}
+ body.desktop-app input[type=number]::-webkit-inner-spin-button,body.desktop-app input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+ .passenger-editor-tools{display:flex;align-items:end;flex-wrap:wrap;gap:12px;margin:20px 0 12px}
+ .passenger-editor-tools label{flex:1 1 250px}.passenger-editor-tools>div{display:flex;align-items:center;gap:12px}
+ .passenger-editor-tools button{padding:10px 14px;border:1px solid var(--workspace-border,#cbd9d3);border-radius:10px;background:transparent;color:inherit;cursor:pointer}
+ .passenger-editor-tools button:disabled{opacity:.4;cursor:default}
+ body.desktop-app #passengerEditorCard>.form-actions{position:sticky;bottom:0;z-index:5;background:#fff;padding:12px;border-top:1px solid #cad8d3}
+ html[data-theme=dark] body.desktop-app #passengerEditorCard>.form-actions{background:#192b2e;border-color:#344b4f}
+ body.desktop-app #passengerTable select{min-width:100px;padding-right:28px}
+ body.desktop-app #passengerTable tr[hidden]{display:none!important}
+ body.desktop-app #passengerTable th:first-child,body.desktop-app #passengerTable td:first-child{position:sticky;left:0;z-index:3;background:#fff;min-width:245px;width:245px;box-shadow:4px 0 8px #0000000d}
+ body.desktop-app #passengerTable th:last-child,body.desktop-app #passengerTable td:last-child{position:sticky;right:0;z-index:3;background:#fff;min-width:65px;box-shadow:-4px 0 8px #0000000d}
+ body.desktop-app #passengerTable .p-name{min-width:220px;width:100%;resize:vertical;min-height:48px;white-space:pre-wrap;line-height:1.45;font:inherit;padding:10px;border:1px solid #cbd9d3;border-radius:10px}
+ html[data-theme=dark] body.desktop-app #passengerTable td:first-child,html[data-theme=dark] body.desktop-app #passengerTable th:first-child,html[data-theme=dark] body.desktop-app #passengerTable td:last-child,html[data-theme=dark] body.desktop-app #passengerTable th:last-child{background:#192b2e}
+ html[data-theme=dark] body.desktop-app #passengerTable .p-name{background:#192b2e;color:#e5efeb;border-color:#344b4f}
+ body.desktop-app .recovery-dialog{padding:0!important;max-height:88dvh;overflow:auto;scroll-padding-top:88px}
+ .recovery-dialog>header{position:sticky;top:0;z-index:5;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0!important;padding:18px 24px;border-bottom:1px solid #cad8d3}
+ .recovery-dialog>header h2{margin:0}.recovery-dialog>header button[data-close]{display:grid;place-items:center;width:38px;height:38px;min-width:38px;padding:0!important;line-height:1;font:26px/1 system-ui;flex-shrink:0}
+ .recovery-content{padding:22px 26px}.recovery-footer{position:sticky;bottom:0;z-index:5;background:#fff;display:flex;justify-content:flex-end;padding:12px 24px;border-top:1px solid #cad8d3}
+ html[data-theme=dark] .recovery-dialog>header,html[data-theme=dark] .recovery-footer{background:#192b2e;color:#e5efeb;border-color:#344b4f}
+ body.desktop-app .toast{display:none;pointer-events:auto;align-items:center;gap:12px;max-width:min(700px,calc(100vw - 32px));flex-wrap:wrap}body.desktop-app .toast.show{display:flex}.toast button{background:transparent;border:1px solid currentColor;color:inherit;border-radius:8px;padding:8px;cursor:pointer}
+ .workspace-attention{outline:3px solid #e8ab39!important;outline-offset:5px;animation:workspace-pointer 1s ease-in-out 3}
+ @keyframes workspace-pointer{50%{box-shadow:0 0 0 10px #e8ab3933}}
+ @media(prefers-reduced-motion:reduce){.workspace-attention{animation:none}}
+ @media(max-width:760px){body.desktop-app #passengerTable tbody tr::before{content:attr(data-position)}body.desktop-app #passengerTable td:first-child,body.desktop-app #passengerTable td:last-child{position:static;width:auto;min-width:0;box-shadow:none}body.desktop-app #passengerTable .p-name{min-width:0}.recovery-content{padding:16px}.recovery-dialog>header{padding:14px 16px}}
+}

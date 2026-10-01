@@ -16,7 +16,7 @@ function requestBody(req){
 function cleanCompanyEnv(companyId, name){
   const company = normalizeCompanyId(companyId), prefix = company.toUpperCase();
   // A new branch must not send through another branch's inherited account.
-  return String(process.env[`${prefix}_${name}`] || (company === 'afyon' ? '' : process.env[name]) || '').trim();
+  return String(process.env[`${prefix}_${name}`] || (!['hazeyn','hakikat'].includes(company) ? '' : process.env[name]) || '').trim();
 }
 
 function whatsappConfig(companyId){
@@ -27,7 +27,7 @@ function whatsappConfig(companyId){
     welcomeTemplate:cleanCompanyEnv(companyId, 'WHATSAPP_WELCOME_TEMPLATE_NAME') || 'yolcu_kaydi_olusturuldu',
     receiptTemplate:cleanCompanyEnv(companyId, 'WHATSAPP_RECEIPT_TEMPLATE_NAME') || 'odeme_makbuzu_pdf',
     language:cleanCompanyEnv(companyId, 'WHATSAPP_TEMPLATE_LANGUAGE') || 'tr',
-    senderNumber:cleanCompanyEnv(companyId, 'WHATSAPP_BUSINESS_NUMBER') || (normalizeCompanyId(companyId) === 'afyon' ? '' : COMPANY_NUMBER)
+    senderNumber:cleanCompanyEnv(companyId, 'WHATSAPP_BUSINESS_NUMBER') || (!['hazeyn','hakikat'].includes(normalizeCompanyId(companyId)) ? '' : COMPANY_NUMBER)
   };
 }
 
@@ -154,6 +154,7 @@ async function sendTemplate(config, recipient, templateName, components){
 
 module.exports = async function handler(req, res){
   res.setHeader('Cache-Control', 'no-store');
+  try{await require('./_companies').load(supabaseAdmin());}catch(_){return res.status(503).json({ok:false,error:'Firma listesi yüklenemedi.'});}
   const action = String(req.query && req.query.action || 'status');
   const companyId = normalizeCompanyId(req.headers && req.headers['x-company-id'] || req.query && req.query.company);
   const permission = action === 'status' ? null : (action === 'receipt' ? 'sendReceiptWhatsApp' : 'sendWelcomeWhatsApp');

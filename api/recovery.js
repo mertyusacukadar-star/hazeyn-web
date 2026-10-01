@@ -8,18 +8,20 @@ const BusCompanies=require('../public/bus-companies');
 const SharedRules=require('./_sharedBuses');
 const R=require('./_recovery');
 const SHARED='turizm-shared-bus-plans-v1';
+const DIRECTORY='turizm-company-directory-v1';
 module.exports=async function(req,res){
  res.setHeader('Cache-Control','no-store');
  try{
   const auth=await authenticateDesktopRequest(req);
   // Complete backups contain financial records, identity documents and account hashes.
-  if(auth?.user?.role!=='owner')return res.status(403).json({ok:false,error:'Yedek ve kurtarma merkezi yalnızca baş yöneticiye açıktır.'});
+  if(auth?.user?.role!=='owner'&&auth?.user?.permissions?.manageRecovery!==true)return res.status(403).json({ok:false,error:'Yedek ve kurtarma yetkiniz bulunmuyor.'});
   const client=supabaseAdmin(), company=req.query?.company;
   if(!Companies.valid(company))R.fail('Geçerli bir firma seçin.',400);
   const action=req.query?.action||'history';
   const resource=req.query?.resource||company;
-  if(![company,'sharedBuses','users'].includes(resource))R.fail('Geçersiz yedek bölümü.',400);
-  const id=resource==='users'?USERS_ROW_ID:resource==='sharedBuses'?SHARED:companyRowId(company);
+  if(![company,'sharedBuses','users','companyDirectory'].includes(resource))R.fail('Geçersiz yedek bölümü.',400);
+  if(resource==='companyDirectory'&&auth.user.role!=='owner')R.fail('Firma tanımlarını yalnız baş yönetici geri yükleyebilir.',403);
+  const id=resource==='companyDirectory'?DIRECTORY:resource==='users'?USERS_ROW_ID:resource==='sharedBuses'?SHARED:companyRowId(company);
   if(req.method==='GET'&&action==='history'){
    const page=Math.max(0,Math.min(10000,Number(req.query?.page)||0));
    const result=await client.from(TABLE).select('id,updated_at,data->reason,data->revision').like('id',R.prefix(id)+'%').order('updated_at',{ascending:false}).range(page*20,page*20+20);
@@ -28,9 +30,10 @@ module.exports=async function(req,res){
   }
   if(req.method==='GET'&&action==='export'){
    const records={};
+   const directory=await R.read(client,DIRECTORY);records.companyDirectory={data:directory?.data||{companies:Companies.ids.map(id=>Companies.config[id])},revision:directory?.updated_at||''};
    for(const c of Companies.ids){const row=await R.read(client,companyRowId(c));records[c]={data:row?.data||companyDefaultData(c),revision:row?.updated_at||''};}
    for(const [name,key] of [['sharedBuses',SHARED],['users',USERS_ROW_ID]]){const row=await R.read(client,key);records[name]={data:row?.data||(name==='users'?{users:[]}:{plans:[]}),revision:row?.updated_at||''};}
-   for(const [name,key] of [...Companies.ids.map(c=>[c,companyRowId(c)]),['sharedBuses',SHARED],['users',USERS_ROW_ID]]){
+   for(const [name,key] of [...Companies.ids.map(c=>[c,companyRowId(c)]),['sharedBuses',SHARED],['users',USERS_ROW_ID],['companyDirectory',DIRECTORY]]){
     const latest=await R.read(client,key);
     if((latest?.updated_at||'')!==records[name].revision)R.fail('Yedek hazırlanırken kayıtlar değişti. Tutarlı dosya için tekrar yedek indirin.',409);
    }
@@ -54,7 +57,7 @@ module.exports=async function(req,res){
    return res.status(200).json({ok:true,revision:await R.write(client,id,row,next,'before-tour-import')});
   }
   if(action==='checkpoint'){
-   for(const key of [...Companies.ids.map(companyRowId),SHARED,USERS_ROW_ID]) await R.snapshot(client,key,await R.read(client,key),'checkpoint');
+   for(const key of [...Companies.ids.map(companyRowId),SHARED,USERS_ROW_ID,DIRECTORY]) await R.snapshot(client,key,await R.read(client,key),'checkpoint');
    return res.status(200).json({ok:true});
   }
   if(action==='preview'||action==='restore'){
@@ -76,7 +79,17 @@ module.exports=async function(req,res){
    }
    const row=await R.read(client,id), current=row?.data||companyDefaultData(company);
    let data,counts;
-   if(resource==='users'){
+   if(resource==='companyDirectory'){
+    if(!Array.isArray(source?.companies)||source.companies.length>100||new Set(source.companies.map(c=>c?.id)).size!==source.companies.length)R.fail('Firma yedeği geçersiz.',400);
+    const merged=Object.fromEntries(Companies.ids.map(c=>[c,Companies.config[c]]));
+    for(const c of source.companies){
+     if(!c||!/^(hazeyn|hakikat|afyon|c_[a-f0-9]{24})$/.test(c.id)||typeof c.name!=='string'||c.name.length<2||c.name.length>70)R.fail('Firma yedeği geçersiz.',400);
+     const image=v=>typeof v==='string'&&v.length<=400000&&(/^(assets\/[a-z0-9-]+\.png)$/.test(v)||/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+=*$/.test(v));
+     if(![c.logo,c.loginLogo,c.receiptLogo].every(image))R.fail('Firma logosu geçersiz.',400);
+     merged[c.id]={id:c.id,name:c.name,shortName:c.name,city:String(c.city||'').slice(0,60),receiptPrefix:String(c.receiptPrefix||'F').replace(/[^A-Z0-9]/g,'').slice(0,12),logo:c.logo,loginLogo:c.loginLogo,receiptLogo:c.receiptLogo,accent:/^#[0-9a-f]{6}$/i.test(c.accent)?c.accent:'#397c73',publicUrl:c.id==='hazeyn'?'index.html':''};
+    }
+    data={companies:Object.values(merged)};counts={companies:data.companies.length};
+   }else if(resource==='users'){
     if(!Array.isArray(source?.users)||source.users.some(u=>!u.id||u.role!=='employee'||typeof u.username!=='string'||typeof u.passwordHash!=='string'||typeof u.passwordSalt!=='string'||!Array.isArray(u.companies)||u.companies.some(c=>!Companies.valid(c))))R.fail('Kullanıcı yedeği geçersiz.',400);
     if(new Set(source.users.map(u=>u.id)).size!==source.users.length||new Set(source.users.map(u=>u.username)).size!==source.users.length)R.fail('Yedekte yinelenen kullanıcı var.',400);
     data={users:source.users.map(u=>({...structuredClone(u),authVersion:require('crypto').randomUUID()})),updatedAt:Date.now()};counts={users:data.users.length};
@@ -105,6 +118,7 @@ module.exports=async function(req,res){
     if((shared?.data?.plans||[]).some(p=>!p.archived&&p.sources.some(s=>s.company===company)))R.fail('Bu firmada ortak otobüs planı var. Diğer firmanın yolcularını korumak için önce ortak plan bağlantısını kaldırın.',409);
    }
    const revision=await R.write(client,id,row,data,'before-restore');
+   if(resource==='companyDirectory')Companies.apply(data.companies);
    return res.status(200).json({ok:true,revision});
   }
   return res.status(400).json({ok:false,error:'Geçersiz kurtarma işlemi.'});

@@ -2,7 +2,7 @@
 'use strict';
 const P=typeof module!=='undefined'&&module.exports?require('./bus-plan'):root.TurizmBusPlan;
 const Companies=typeof module!=='undefined'&&module.exports?require('./company-config'):root.TurizmCompanies;
-const names=Object.fromEntries(Companies.ids.map(c=>[c,Companies.config[c].shortName+' · '+Companies.config[c].city]));
+const names=new Proxy({}, {get:(_,c)=>Companies.config[c]?Companies.config[c].shortName+' / '+Companies.config[c].city:undefined,ownKeys:()=>Companies.ids,getOwnPropertyDescriptor:()=>({enumerable:true,configurable:true})});
 const opposite=c=>c==='hazeyn'?'hakikat':'hazeyn';
 const rightCompany=rule=>rule.right||opposite(rule.left);
 const personKey=(company,id)=>JSON.stringify([company,id]);

@@ -48,8 +48,8 @@ function requestCompanyId(req){
 
 function companyRowId(companyId){
   const rows = {hazeyn:ROW_ID,hakikat:HAKIKAT_ROW_ID,afyon:AFYON_ROW_ID};
-  if(new Set(Object.values(rows)).size !== Companies.ids.length || Object.values(rows).includes('turizm-shared-bus-plans-v1')) throw Error('Firma veri satırları birbirinden farklı olmalıdır.');
-  return rows[normalizeCompanyId(companyId)];
+  if(new Set(Object.values(rows)).size !== 3 || Object.values(rows).includes('turizm-shared-bus-plans-v1')) throw Error('Firma veri satırları birbirinden farklı olmalıdır.');
+  const id=normalizeCompanyId(companyId);return rows[id] || 'company:'+id;
 }
 
 function companyDefaultData(companyId){

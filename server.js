@@ -1,6 +1,7 @@
 const dataHandler = require('./api/data');
 const recoveryHandler = require('./api/recovery');
 const backupCloudHandler = require('./api/backup-cloud');
+const companyHandler = require('./api/companies');
 const {validateBusPlans} = require('./api/_busPlans');
 const http = require('http');
 const fs = require('fs');
@@ -161,10 +162,10 @@ const server = http.createServer(async (req, res) => {
     try { return await publicPageHandler(req, adapter); }
     catch(error) { return send(res, 503, 'Sayfa hazırlanamadı. Lütfen tekrar deneyin.'); }
   }
-  if(['/api/whatsapp','/api/bus-shared','/api/data','/api/recovery','/api/backup-cloud'].includes(pathname)){
+  if(['/api/whatsapp','/api/bus-shared','/api/data','/api/recovery','/api/backup-cloud','/api/companies'].includes(pathname)){
     try {
       req.query = Object.fromEntries(requestUrl.searchParams.entries());
-      if(req.method === 'POST') req.body = await readJsonBody(req, ['/api/data','/api/recovery'].includes(pathname) ? 16 * 1024 * 1024 : pathname==='/api/backup-cloud' ? 4 * 1024 * 1024 : 256 * 1024);
+      if(req.method === 'POST') req.body = await readJsonBody(req, ['/api/data','/api/recovery','/api/companies'].includes(pathname) ? 16 * 1024 * 1024 : pathname==='/api/backup-cloud' ? 4 * 1024 * 1024 : 256 * 1024);
       let statusCode = 200;
       const adapter = {
         setHeader(name, value){ res.setHeader(name, value); },
@@ -172,7 +173,7 @@ const server = http.createServer(async (req, res) => {
         send(body){res.statusCode=statusCode;res.end(body);return adapter;},
         json(payload){ return send(res, statusCode, JSON.stringify(payload), 'application/json; charset=utf-8'); }
       };
-      return await ({'/api/data':dataHandler,'/api/recovery':recoveryHandler,'/api/backup-cloud':backupCloudHandler,'/api/bus-shared':sharedBusHandler,'/api/whatsapp':whatsappHandler}[pathname])(req, adapter);
+      return await ({'/api/data':dataHandler,'/api/recovery':recoveryHandler,'/api/backup-cloud':backupCloudHandler,'/api/companies':companyHandler,'/api/bus-shared':sharedBusHandler,'/api/whatsapp':whatsappHandler}[pathname])(req, adapter);
     } catch(error){
       return send(res, Number(error && error.statusCode) || 500, JSON.stringify({ok:false, error:error.message || 'WhatsApp işlemi tamamlanamadı.'}), 'application/json; charset=utf-8');
     }

@@ -49,6 +49,10 @@ console.log('Afyon: isolated defaults/IDs/receipts, every company pair, 3-compan
  require.cache[authPath]={id:authPath,filename:authPath,loaded:true,exports:{authenticateDesktopRequest:async()=>({user:{role:'owner'}}),hasUserPermission:()=>true}};
  process.env.WHATSAPP_ACCESS_TOKEN='synthetic-token';process.env.WHATSAPP_PHONE_NUMBER_ID='synthetic-number';
  delete process.env.AFYON_WHATSAPP_ACCESS_TOKEN;delete process.env.AFYON_WHATSAPP_PHONE_NUMBER_ID;delete process.env.AFYON_WHATSAPP_BUSINESS_NUMBER;
+ const directoryPath=require.resolve('../api/_companies');
+ require.cache[directoryPath]={id:directoryPath,filename:directoryPath,loaded:true,exports:{load:async()=>Companies}};
+ const dbPath=require.resolve('../api/_supabase');
+ require.cache[dbPath].exports.supabaseAdmin=()=>({});
  const handler=require('../api/whatsapp');
  const status=async company=>{let code,result;await handler({method:'GET',headers:{'x-company-id':company},query:{action:'status'}},{setHeader(){},status(n){code=n;return this;},json(v){result=v;}});assert.equal(code,200);return result;};
  assert.equal((await status('hazeyn')).connected,true);

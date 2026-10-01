@@ -1,5 +1,7 @@
 (function(root){
 'use strict';
+const companies=typeof module!=='undefined'&&module.exports?require('./company-config'):root.TurizmCompanies;
+const companyIds=()=>companies?.ids||['hazeyn','hakikat','afyon'];
 const copy = value => JSON.parse(JSON.stringify(value));
 const key = (listId,passengerId) => JSON.stringify([String(listId),String(passengerId)]);
 const fold = value => String(value || '').toLocaleUpperCase('tr-TR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/İ/g,'I');
@@ -41,8 +43,8 @@ function normalizePlan(value){
     let next={id:b.id.slice(0,100),name:String(b.name || 'Otobüs').slice(0,80),capacity,limit:integer(b.limit,capacity,0,capacity),doorAfter:integer(b.doorAfter,6,0,30),rear:integer(b.rear,5,0,5),assignments};
     if(b.doorBackRows!==undefined&&b.doorBackRows!==null&&b.doorBackRows!=='')next.doorBackRows=integer(b.doorBackRows,0,0,20);
     if(validLayout(b.layout)&&customCapacity(b.layout)===capacity)next.layout=copy(b.layout);
-    if(b.companyRule&&['free','split','hazeyn','hakikat','afyon'].includes(b.companyRule.mode)&&['hazeyn','hakikat','afyon'].includes(b.companyRule.left)&&['hazeyn','hakikat','afyon','any'].includes(b.companyRule.center))next.companyRule={mode:b.companyRule.mode,left:b.companyRule.left,center:b.companyRule.center};
-    if(next.companyRule && b.companyRule.right !== undefined && ['hazeyn','hakikat','afyon'].includes(b.companyRule.right))next.companyRule.right=b.companyRule.right;
+    if(b.companyRule&&['free','split',...companyIds()].includes(b.companyRule.mode)&&companyIds().includes(b.companyRule.left)&&[...companyIds(),'any'].includes(b.companyRule.center))next.companyRule={mode:b.companyRule.mode,left:b.companyRule.left,center:b.companyRule.center};
+    if(next.companyRule && b.companyRule.right !== undefined && companyIds().includes(b.companyRule.right))next.companyRule.right=b.companyRule.right;
     try{next=renumber(next,b.seatLabels);}catch(_){} // Invalid imported labels fall back to the original numbering.
     return next;
   });

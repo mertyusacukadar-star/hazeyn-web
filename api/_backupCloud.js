@@ -16,6 +16,16 @@ function config(provider){
 function encryptionKey(){const source=process.env.BACKUP_TOKEN_ENCRYPTION_KEY||process.env.DESKTOP_SESSION_SECRET||process.env.SUPABASE_SERVICE_ROLE_KEY;if(!source)R.fail('Bulut bağlantısı için sunucu şifreleme anahtarı eksik.',503);return crypto.createHash('sha256').update('turizm-cloud-v1\0'+source).digest();}
 function seal(value){const iv=crypto.randomBytes(12),cipher=crypto.createCipheriv('aes-256-gcm',encryptionKey(),iv),data=Buffer.concat([cipher.update(JSON.stringify(value),'utf8'),cipher.final()]);return {iv:iv.toString('base64'),tag:cipher.getAuthTag().toString('base64'),data:data.toString('base64')};}
 function unseal(value){const decipher=crypto.createDecipheriv('aes-256-gcm',encryptionKey(),Buffer.from(value.iv,'base64'));decipher.setAuthTag(Buffer.from(value.tag,'base64'));return JSON.parse(Buffer.concat([decipher.update(Buffer.from(value.data,'base64')),decipher.final()]).toString());}
+async function configured(client,provider){const base=config(provider),row=await R.read(client,'turizm-cloud-settings-v1:'+provider);return row?.data?.secret?{...base,...unseal(row.data.secret)}:base;}
+async function configure(client,provider,input){
+ config(provider);
+ const clientId=String(input.clientId||'').trim(),clientSecret=String(input.clientSecret||'').trim();
+ if(!clientId||!clientSecret||clientId.length>1000||clientSecret.length>2000||/[\r\n]/.test(clientId+clientSecret))R.fail('Geçerli istemci kimliğini ve gizli anahtarı girin.',400);
+ const key='turizm-cloud-settings-v1:'+provider,old=await R.read(client,key);
+ await put(client,key,old,{secret:seal({clientId,clientSecret})});
+ await disconnect(client,provider);
+ return {ok:true,redirect:config(provider).redirect};
+}
 async function put(client,id,old,data){
  const updated_at=new Date(Math.max(Date.now(),(Date.parse(old?.updated_at)||0)+1)).toISOString();
  const q=old?client.from(TABLE).update({data,updated_at}).eq('id',id).eq('updated_at',old.updated_at):client.from(TABLE).insert({id,data,updated_at});
@@ -25,7 +35,7 @@ async function put(client,id,old,data){
 async function remote(url,options={}){const res=await fetch(url,{...options,signal:AbortSignal.timeout(20000)});if(!res.ok)R.fail('Bulut hizmeti işlemi tamamlamadı. Hesap bağlantısını, kotayı ve interneti kontrol edin.',502);return res;}
 async function json(url,options){return (await remote(url,options)).json();}
 async function start(client,provider){
- const c=config(provider);if(!c.clientId||!c.clientSecret)R.fail(`${c.name} için sunucu OAuth kurulumu gerekiyor. Hesap henüz bağlanmadı.`,503);
+ const c=await configured(client,provider);if(!c.clientId||!c.clientSecret)R.fail(`${c.name} için sunucu OAuth kurulumu gerekiyor. Hesap henüz bağlanmadı.`,503);
  const state=crypto.randomBytes(32).toString('base64url'),verifier=crypto.randomBytes(48).toString('base64url');
  const id='turizm-cloud-oauth-v1:'+crypto.createHash('sha256').update(state).digest('hex');
  await put(client,id,null,{provider,expiresAt:Date.now()+10*60000,used:false,secret:seal({verifier})});
@@ -40,7 +50,7 @@ async function callback(client,query){
  if(!state||state.used||state.expiresAt<Date.now())R.fail('Bağlantı onayı geçersiz veya süresi dolmuş.',400);
  await put(client,id,row,{provider:state.provider,used:true,expiresAt:state.expiresAt});
  if(query.error||!query.code)R.fail('Hesap bağlantısı onaylanmadı.',400);
- const c=config(state.provider),verifier=unseal(state.secret).verifier;
+ const c=await configured(client,state.provider),verifier=unseal(state.secret).verifier;
  const tokens=await json(c.token,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:c.clientId,client_secret:c.clientSecret,code:query.code,redirect_uri:c.redirect,grant_type:'authorization_code',code_verifier:verifier})});
  if(!tokens.refresh_token||!tokens.access_token)R.fail('Kalıcı yedek izni alınamadı. Hesabı yeniden bağlayın.',400);
  const headers={Authorization:'Bearer '+tokens.access_token};
@@ -50,10 +60,10 @@ async function callback(client,query){
  return c.name;
 }
 async function status(client){
- const result={};for(const provider of Object.keys(names)){const c=config(provider),row=await R.read(client,connectionId(provider));result[provider]={configured:Boolean(c.clientId&&c.clientSecret),connected:row?.data?.connected===true,account:row?.data?.account||'',lastSuccess:row?.data?.lastSuccess||''};}return result;
+ const result={};for(const provider of Object.keys(names)){const c=await configured(client,provider),row=await R.read(client,connectionId(provider));result[provider]={configured:Boolean(c.clientId&&c.clientSecret),connected:row?.data?.connected===true,account:row?.data?.account||'',lastSuccess:row?.data?.lastSuccess||'',redirect:c.redirect};}return result;
 }
 async function credentials(client,provider){
- const id=connectionId(provider),c=config(provider);let row=await R.read(client,id);
+ const id=connectionId(provider),c=await configured(client,provider);let row=await R.read(client,id);
  if(!row?.data?.connected||!row.data.secret)R.fail(`${c.name} hesabını önce bağlayın.`,409);
  let tokens=unseal(row.data.secret);
  if(!tokens.expiresAt||tokens.expiresAt<Date.now()+60000){
@@ -105,4 +115,4 @@ async function download(client,provider,id){
  if(!validEncrypted(data))R.fail('Buluttaki dosya geçerli bir şifreli yedek değil.',400);return data;
 }
 async function disconnect(client,provider){config(provider);const id=connectionId(provider),row=await R.read(client,id);if(row)await put(client,id,row,{provider,connected:false,disconnectedAt:new Date().toISOString()});}
-module.exports={config,seal,unseal,put,start,callback,status,upload,list,download,disconnect,validEncrypted};
+module.exports={config,configure,configured,seal,unseal,put,start,callback,status,upload,list,download,disconnect,validEncrypted};

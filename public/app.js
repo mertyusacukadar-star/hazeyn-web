@@ -178,6 +178,7 @@
         });
         const record=context.record;
         busWorkspace.open({key:company+':'+tourId, tourId, company,
+            logos:(record?record.sources.map(s=>s.company):[company]).map(id=>({name:COMPANY_CONFIG[id].name,url:new URL(COMPANY_CONFIG[id].receiptLogo||COMPANY_CONFIG[id].logo,location.href).href})),
             companyName:record?record.sources.map(s=>COMPANY_CONFIG[s.company].name).join(' + '):currentCompany().name,
             tourTitle:record?record.sources.map(s=>window.TurizmBusCompanies.names[s.company]+' / '+s.title+(s.date?' ('+s.date+')':'')).join(' + '):state.tours.find(t=>String(t.id)===tourId)?.title || '',
             shared:record,canCombine:context.canCombine!==false,
@@ -270,7 +271,7 @@
         ['viewPassengers', 'Yolcu Listelerini Gör'], ['managePassengers', 'Yolcu Yönet'], ['deletePassengerLists', 'Yolcu Listesi Sil'], ['exportPassengerLists', 'PDF / Excel'],
         ['viewAccounting', 'Muhasebeyi Gör'], ['managePrices', 'Fiyat Değiştir'], ['recordPayments', 'Ödeme Al'], ['voidPayments', 'Ödeme İptal'], ['printReceipts', 'Makbuz Yazdır'],
         ['sendWelcomeWhatsApp', 'WhatsApp Kayıt Mesajı'], ['sendReceiptWhatsApp', 'WhatsApp PDF Makbuz'],
-        ['viewCosts', 'Maliyetleri Gör'], ['manageCosts', 'Maliyet Yönet'], ['exportBackup', 'Yedek İndir']
+        ['viewCosts', 'Maliyetleri Gör'], ['manageCosts', 'Maliyet Yönet'], ['manageRecovery', 'Tüm Firmalar: Yedek ve Kurtarma'], ['exportBackup', 'Yedek İndir']
     ];
     const APP_TAB_PERMISSIONS = { dashboard: 'viewDashboard', tours: 'viewTours', passengers: 'viewPassengers', accounting: 'viewAccounting', costs: 'viewCosts', buses: 'viewPassengers' };
     const APP_ACTION_VIEW_PERMISSIONS = {
@@ -347,7 +348,7 @@
 
     function normalizeAppPermissions(source) {
         const explicit = source && typeof source === 'object' && !Array.isArray(source);
-        return Object.fromEntries(APP_PERMISSION_DEFINITIONS.map(([key]) => [key, explicit ? source[key] === true : true]));
+        return Object.fromEntries(APP_PERMISSION_DEFINITIONS.map(([key]) => [key, explicit ? source[key] === true : key !== 'manageRecovery']));
     }
 
     function hasPermission(permission) {
@@ -500,7 +501,7 @@
     function applyPermissionUI() {
         if (!IS_APP_MODE || page !== 'admin') return;
         document.querySelectorAll('[data-permission]').forEach(element => {
-            const allowed = hasPermission(element.dataset.permission);
+            const allowed = element.id==='exportBtn'&&canManageRecovery() || hasPermission(element.dataset.permission);
             element.hidden = !allowed;
             element.style.display = allowed ? '' : 'none';
         });
@@ -1007,13 +1008,14 @@
         notice.replaceChildren(); const text=document.createElement('span'); text.textContent=message; const close=document.createElement('button'); close.type='button'; close.textContent='Kapat'; close.onclick=()=>notice.remove(); notice.append(text,close);
     }
 
-    function toast(msg) {
+    function toast(msg, target) {
         const el = $('toast');
         if (!el) { showAppError(msg); return; }
-        el.textContent = msg;
+        const actionable=window.TurizmGuidance?.show(el,msg,target);
+        if(!window.TurizmGuidance)el.textContent=msg;
         el.classList.add('show');
         clearTimeout(el._t);
-        el._t = setTimeout(() => el.classList.remove('show'), 2300);
+        el._t = setTimeout(() => el.classList.remove('show'), actionable?15000:6500);
     }
 
     function getAdminPassword() {
@@ -1113,7 +1115,7 @@
         const target = $('whatsappIntegrationStatus');
         if (!target || !IS_APP_MODE) return;
         const number = $('whatsappSenderNumber');
-        if (number) number.textContent = whatsappIntegrationStatus?.senderNumber || (currentCompanyId === 'afyon' ? 'Afyon Hakikat WhatsApp' : '+90 332 351 43 51');
+        if (number) number.textContent = whatsappIntegrationStatus?.senderNumber || (!['hazeyn','hakikat'].includes(currentCompanyId) ? currentCompany().name+' WhatsApp' : '+90 332 351 43 51');
         target.className = 'whatsapp-status';
         if (!whatsappIntegrationStatus) {
             target.classList.add('checking');
@@ -2308,7 +2310,7 @@
         $('desktopUserForm').reset();
         $('desktopUserId').value = '';
         $('desktopUserActive').checked = true;
-        document.querySelectorAll('[data-app-permission]').forEach(input => { input.checked = true; });
+        document.querySelectorAll('[data-app-permission]').forEach(input => { input.checked = input.dataset.appPermission!=='manageRecovery'; });
     }
 
     function permissionSelectionFromForm() {
@@ -2327,6 +2329,7 @@
     function renderDesktopUsers() {
         const target = $('desktopUserList');
         if (!target || !isAppOwner()) return;
+        const ownerBadge=document.querySelector('.owner-account-card>span');if(ownerBadge)ownerBadge.textContent=Object.values(COMPANY_CONFIG).map(c=>c.shortName).join(' + ');
         target.innerHTML = desktopUsers.length ? desktopUsers.map(user => `
             <article class="desktop-user-card ${user.active === false ? 'inactive' : ''}" data-desktop-user-id="${escapeHtml(user.id)}">
                 <div><b>${escapeHtml(user.displayName)}</b><small>@${escapeHtml(user.username)} • ${user.active === false ? 'Pasif' : 'Aktif'}</small></div>
@@ -2354,9 +2357,7 @@
         $('desktopUserDisplayName').value = user.displayName || '';
         $('desktopUsername').value = user.username || '';
         $('desktopUserPassword').value = '';
-        $('desktopUserHazeyn').checked = (user.companies || []).includes('hazeyn');
-        $('desktopUserHakikat').checked = (user.companies || []).includes('hakikat');
-        $('desktopUserAfyon').checked = (user.companies || []).includes('afyon');
+        document.querySelectorAll('.company-permission-fieldset input').forEach(el=>el.checked=(user.companies||[]).includes(el.value));
         $('desktopUserActive').checked = user.active !== false;
         const permissions = normalizeAppPermissions(user.permissions);
         document.querySelectorAll('[data-app-permission]').forEach(input => { input.checked = permissions[input.dataset.appPermission] === true; });
@@ -2367,9 +2368,7 @@
         event.preventDefault();
         if (!isAppOwner()) return;
         const companies = [];
-        if ($('desktopUserHazeyn').checked) companies.push('hazeyn');
-        if ($('desktopUserHakikat').checked) companies.push('hakikat');
-        if ($('desktopUserAfyon').checked) companies.push('afyon');
+        document.querySelectorAll('.company-permission-fieldset input:checked').forEach(el=>companies.push(el.value));
         const permissions = permissionSelectionFromForm();
         if (!['viewDashboard', 'viewTours', 'viewPassengers', 'viewAccounting', 'viewCosts'].some(key => permissions[key])) {
             toast('Çalışan için en az bir bölüm görme yetkisi seç.');
@@ -2941,7 +2940,7 @@
         tr._createdBy = clone(p.createdBy || null);
         tr._document = Object.fromEntries(['identityNo', 'identityEnd', 'nationality', 'issuingCountry', 'placeOfBirth', 'issuingAuthority', 'documentReadAt', 'documentVerification'].filter(key => p[key]).map(key => [key, p[key]]));
         tr.innerHTML = `
-        <td><input class="p-name" value="${escapeHtml(p.name || '')}" placeholder="Ad Soyad"></td>
+        <td><textarea class="p-name" rows="2" placeholder="Ad Soyad">${escapeHtml(p.name || '')}</textarea></td>
         <td><select class="p-gender"><option value="">Seç</option><option ${gender === 'Kadın' ? 'selected' : ''}>Kadın</option><option ${gender === 'Erkek' ? 'selected' : ''}>Erkek</option></select></td>
         <td><input class="p-tc" value="${escapeHtml(p.tc || '')}" placeholder="TC No" inputmode="numeric"></td>
         <td><input class="p-phone" value="${escapeHtml(p.phone || '')}" placeholder="05xx" inputmode="tel"></td>
@@ -2957,7 +2956,7 @@
         <td><input class="p-note" value="${escapeHtml(p.note || '')}" placeholder="Not"></td>
         <td><button type="button" class="icon-btn danger remove-row">Sil</button></td>`;
         const labels = ['Ad Soyad','Cinsiyet','TC No','Telefon Numarası','Pasaport Numarası','Doğum Tarihi','Pasaport Başlangıç','Pasaport Bitiş','Oda Kaç Kişilik','Kişiye Özel Fiyat','Para Birimi','Mekke Oda No','Medine Oda No','Not',''];
-        [...tr.cells].forEach((cell,i)=>{cell.dataset.label=labels[i];const field=cell.querySelector('input,select');if(field)field.setAttribute('aria-label',labels[i]);});
+        [...tr.cells].forEach((cell,i)=>{cell.dataset.label=labels[i];const field=cell.querySelector('input,select,textarea');if(field)field.setAttribute('aria-label',labels[i]);});
         $('passengerTable').querySelector('tbody').appendChild(tr);
         const priceInput = tr.querySelector('.p-custom-price');
         if (priceInput) priceInput.addEventListener('input', () => { tr.dataset.priceSource = 'custom'; });
@@ -4154,7 +4153,7 @@
     }
     function installBackupTargets(){
         if(!IS_APP_MODE)return;
-        window.TurizmBackupDestinations?.install({ready:()=>adminLoggedIn&&isAppOwner(),cloud:cloudBackupRequest,toast,
+        window.TurizmBackupDestinations?.install({ready:()=>adminLoggedIn&&canManageRecovery(),setupAllowed:isAppOwner,cloud:cloudBackupRequest,toast,
             fetchBackup:async()=>{const res=await fetch(`/api/recovery?company=${encodeURIComponent(currentCompanyId)}&action=export`,{cache:'no-store',headers:authorizedHeaders()});const data=await res.json();if(!res.ok)throw Error(data.error||'Sunucu yedeği alınamadı.');if(state?._meta?.pendingSync)data.deviceDraft={company:currentCompanyId,state};return data;}});
     }
     let recoveryCheckPending = false;
@@ -4169,11 +4168,12 @@
         }catch(e){toast(e.message);}finally{recoveryCheckPending=false;}
     }
     window.addEventListener('focus',checkpointOnLogin);
+    function canManageRecovery(){return isAppOwner() || (IS_APP_MODE && currentAppUser?.permissions?.manageRecovery===true);}
     function openRecovery(){
-        if(!isAppOwner())return;
+        if(!canManageRecovery())return;
         recoveryUI ||= window.TurizmRecoveryUI.create({headers:authorizedHeaders,company:()=>currentCompanyId,cloud:cloudBackupRequest,
-            state:()=>state,owner:isAppOwner,canLeave:()=>!workspaceUI||workspaceUI.canLeave(),toast,
-            reload:async()=>{ const remote=await fetchRemoteData({admin:true});if(!remote)throw Error('Geri yükleme kaydedildi; güncel ekran için Senkronize Et düğmesini kullanın.');state=mergeDefaults(remote);await cacheDataLocally(state);busWorkspace?.reset();renderAdmin();workspaceUI?.checkpoint(); },
+            state:()=>state,owner:canManageRecovery,admin:isAppOwner,canLeave:()=>!workspaceUI||workspaceUI.canLeave(),toast,
+            reload:async()=>{ await window.TurizmCompanyManager.load();const remote=await fetchRemoteData({admin:true});if(!remote)throw Error('Geri yükleme kaydedildi; güncel ekran için Senkronize Et düğmesini kullanın.');state=mergeDefaults(remote);await cacheDataLocally(state);busWorkspace?.reset();renderAdmin();workspaceUI?.checkpoint(); },
             restoreTour:async id=>{const before=structuredClone(state);state=window.TurizmTourTrash.restore(state,id);const ok=await saveData({keepLocalAccounting:true});if(!ok){state=before;await cacheDataLocally(state);}renderAdmin();workspaceUI?.checkpoint();return ok;}});
         recoveryUI.open();
     }
@@ -4195,8 +4195,8 @@
     }
 
     function exportBackup() {
+        if (IS_APP_MODE && canManageRecovery()) { openRecovery(); return; }
         if (!requirePermission('exportBackup')) return;
-        if (IS_APP_MODE && isAppOwner()) { openRecovery(); return; }
         const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
@@ -4286,9 +4286,7 @@
             sessionStorage.removeItem('hazeynAdminPassword');
             renderAdmin();
         };
-        document.querySelectorAll('[data-company-choice]').forEach(button => {
-            button.onclick = () => switchCompanyAccount(button.dataset.companyChoice);
-        });
+        document.addEventListener('click',e=>{const b=e.target.closest('[data-company-choice]');if(b)switchCompanyAccount(b.dataset.companyChoice);});
         if ($('companySwitcher')) $('companySwitcher').addEventListener('change', event => switchCompanyAccount(event.target.value));
         document.querySelectorAll('.admin-tab').forEach(btn => btn.onclick = () => workspaceUI?.isModern() ? workspaceUI.navigate('', btn.dataset.tab) : switchTab(btn.dataset.tab));
         $('exportBtn').onclick = exportBackup;
@@ -4399,7 +4397,7 @@
         $('addPassengerRow').onclick = () => { if (requirePermission('managePassengers')) passengerRow(); };
         $('savePassengerList').onclick = savePassengerList;
         $('clearPassengerList').onclick = clearPassengerForm;
-        $('passengerTable').addEventListener('click', e => { if (e.target.classList.contains('remove-row') && requirePermission('managePassengers')) { e.target.closest('tr').remove(); ensurePassengerRows(); } });
+        $('passengerTable').addEventListener('click', async e => { if (e.target.classList.contains('remove-row') && requirePermission('managePassengers')) { const row=e.target.closest('tr'), name=row.querySelector('.p-name')?.value.trim()||'İsimsiz yolcu'; if(await askAppConfirmation(name+' listeden çıkarılsın mı? Değişiklik Listeyi Kaydet ile kaydedilir.')) { row.remove(); ensurePassengerRows(); $('passengerTable').dispatchEvent(new Event('input',{bubbles:true})); } } });
         $('passengerTable').addEventListener('change', e => { if (IS_APP_MODE && e.target.classList.contains('p-room-people')) syncPassengerRowPrice(e.target.closest('tr'), true); });
 
         document.addEventListener('dragstart', (e) => {
@@ -4566,7 +4564,11 @@
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
-        if (IS_APP_MODE) setupMobileAppInstall();
+        if (IS_APP_MODE) {
+            try { await window.TurizmCompanyManager.load(); currentCompanyId=normalizeCompanyId(requestedCompany||localStorage.getItem('turizmLastCompany')); } catch(e){ showAppError(e.message); }
+            window.TurizmCompanyManager.install({headers:authorizedHeaders,owner:isAppOwner,canLeave:()=>!workspaceUI||workspaceUI.canLeave(),toast,changed:()=>{updateCompanyBranding();renderAdmin();['tab-passengers','tab-tours','tab-costs','tab-accounting'].forEach(id=>workspaceUI?.checkpoint(id));}});
+            setupMobileAppInstall();
+        }
         // Admin girişini uzak veri yüklemesine bağlama. Supabase yavaşlasa veya
         // geçici olarak cevap vermese bile şifre alanı ve giriş düğmesi çalışsın.
         if (page === 'admin') {

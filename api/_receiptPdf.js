@@ -113,6 +113,7 @@ function createReceiptPdf(input){
   const programDate = tour.departureDate || list.date || '';
   const regularFont = RECEIPT_ASSETS.regularFont;
   const boldFont = RECEIPT_ASSETS.boldFont;
+  const customLogo=company.receiptLogo?.startsWith('data:image/')?Buffer.from(company.receiptLogo.split(',')[1],'base64'):null;
   const logoPath = companyId !== 'hazeyn' ? RECEIPT_ASSETS.hakikatLogo : RECEIPT_ASSETS.hazeynLogo;
 
   return new Promise((resolve, reject) => {
@@ -138,9 +139,9 @@ function createReceiptPdf(input){
     const contentW = pageW - contentX * 2;
     doc.rect(outerX, outerY, outerW, 790).lineWidth(1.3).strokeColor('#1b1812').stroke();
 
-    if(fs.existsSync(logoPath)){
+    if(customLogo || fs.existsSync(logoPath)){
       const logoWidth = companyId !== 'hazeyn' ? 172 : 155;
-      doc.image(logoPath, contentX, 48, { fit:[logoWidth, 62], align:'left', valign:'center' });
+      doc.image(customLogo || logoPath, contentX, 48, { fit:[logoWidth, 62], align:'left', valign:'center' });
     }
     doc.font('ReceiptBold').fontSize(20).fillColor('#111').text('TAHSİLAT MAKBUZU', 300, 58, { width:pageW - 352, align:'right' });
     doc.font('ReceiptBold').fontSize(10.5).fillColor('#756342').text('PAYMENT RECEIPT', 300, 84, { width:pageW - 352, align:'right' });

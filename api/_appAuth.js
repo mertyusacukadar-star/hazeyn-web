@@ -16,7 +16,7 @@ const PERMISSION_KEYS = [
   'viewPassengers', 'managePassengers', 'deletePassengerLists', 'exportPassengerLists',
   'viewAccounting', 'managePrices', 'recordPayments', 'voidPayments', 'printReceipts',
   'sendWelcomeWhatsApp', 'sendReceiptWhatsApp',
-  'viewCosts', 'manageCosts', 'exportBackup'
+  'viewCosts', 'manageCosts', 'exportBackup', 'manageRecovery'
 ];
 
 function secureEqual(left, right){
@@ -52,7 +52,7 @@ function normalizeCompanies(value){
 
 function normalizePermissions(value){
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : null;
-  return Object.fromEntries(PERMISSION_KEYS.map(key => [key, source ? source[key] === true : true]));
+  return Object.fromEntries(PERMISSION_KEYS.map(key => [key, source ? source[key] === true : key !== 'manageRecovery']));
 }
 
 function hasUserPermission(user, permission){
@@ -307,6 +307,7 @@ function ownerUser(){
 }
 
 async function login(username, password){
+  await require('./_companies').load(supabaseAdmin());
   const normalized = normalizeUsername(username || 'admin');
   if((normalized === 'admin' || normalized === 'yonetici') && verifyAdminCredential(password, 'hazeyn')){
     const user = ownerUser();
@@ -321,6 +322,7 @@ async function login(username, password){
 async function authenticateDesktopRequest(req){
   const payload = decodeToken(requestToken(req));
   if(!payload) return null;
+  await require('./_companies').load(supabaseAdmin());
   if(payload.role === 'owner') return { token: payload, user: publicUser(ownerUser()) };
   const store = await readUsers();
   const current = store.users.find(user => String(user.id) === String(payload.sub));

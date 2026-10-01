@@ -13,8 +13,12 @@ module.exports=async(req,res)=>{
    return res.status(ok?200:400).send(`<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Turizm Muhasebe · Yedek</title><style>body{background:#14272b;color:#eaf4ef;font:17px/1.7 system-ui;padding:10vh 8vw}main{max-width:620px;margin:auto}a{color:#a1e2c7}</style><main><h1>${ok?'Hesap bağlandı':'Hesap bağlanamadı'}</h1><p>${ok?'Muhasebe uygulamasına dönüp bu hedefi seçin ve yedek şifrenizi belirleyin. Bu pencereyi kapatabilirsiniz.':'Bağlantı izni verilmedi veya süresi doldu. Muhasebe uygulamasından yeniden deneyin.'}</p><a href="/admin.html?desktop=1">Muhasebe uygulamasına dön</a></main></html>`);
   }
   const auth=await authenticateDesktopRequest(req);
-  if(auth?.user?.role!=='owner')return res.status(403).json({ok:false,error:'Bulut yedekleri yalnızca baş yönetici tarafından yönetilebilir.'});
+  if(auth?.user?.role!=='owner'&&auth?.user?.permissions?.manageRecovery!==true)return res.status(403).json({ok:false,error:'Bulut yedekleri yalnızca baş yönetici tarafından yönetilebilir.'});
   const body=typeof req.body==='string'?JSON.parse(req.body):req.body||{},provider=req.query?.provider||body.provider;
+  if(action==='configure'&&req.method==='POST'){
+   if(auth.user.role!=='owner')return res.status(403).json({ok:false,error:'İlk bağlantı kurulumu yalnız baş yöneticiye açıktır.'});
+   return res.status(200).json(await Cloud.configure(client,provider,body));
+  }
   if(action==='status'&&req.method==='GET')return res.status(200).json({ok:true,providers:await Cloud.status(client)});
   if(action==='start'&&req.method==='POST')return res.status(200).json({ok:true,url:await Cloud.start(client,provider)});
   if(action==='upload'&&req.method==='POST')return res.status(200).json({ok:true,...await Cloud.upload(client,provider,body.backup)});

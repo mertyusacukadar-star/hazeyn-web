@@ -19,7 +19,10 @@ function cleanFileName(name){
 module.exports = async function handler(req, res){
   res.setHeader('Cache-Control', 'no-store');
   const action = String(req.query && req.query.action || '');
+  if(req.query?.scope==='admin'||req.method==='POST'||action==='upload-config'){try{await require('./_companies').load(supabaseAdmin());}catch(_){return res.status(503).json({ok:false,error:'Firma listesi yuklenemedi.'});}}
   const requestedCompanyId = requestCompanyId(req);
+  const explicitCompany=req.query?.company||req.headers?.['x-company-id'];
+  if(explicitCompany&&(req.query?.scope==='admin'||req.method==='POST')&&!require('../public/company-config').valid(String(explicitCompany)))return res.status(400).json({ok:false,error:'Firma bulunamadı. Firma listesini yenileyin.'});
 
   if(req.method === 'GET'){
     const wantsAdmin = String(req.query && req.query.scope || '') === 'admin';
