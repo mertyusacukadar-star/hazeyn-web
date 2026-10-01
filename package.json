@@ -9,7 +9,7 @@
     "start": "node server.js",
     "build": "node build-sites.mjs",
     "test:public": "node tests/public-first-paint.test.js && node tests/public-page-api.test.js && node tests/public-polish.test.js && node tests/tour-seo.test.js && node tests/tour-network-fallback.test.js && node tests/public-controls.test.js",
-    "test": "node tests/app-auth.test.js && node tests/app-permissions.test.js && node tests/site-separation.test.js && node tests/flight-age.test.js && node tests/mobile-pwa.test.js && node tests/tour-costs.test.js && node tests/whatsapp-integration.test.js && node tests/document-reader.test.js && node tests/mrz-camera.test.js && node tests/workspace-ui.test.js && node tests/workspace-collections.test.js && node tests/bus-plan.test.js && node tests/shared-buses.test.js && node tests/shared-buses-api.test.js && node tests/afyon-company.test.js"
+    "test": "node tests/app-auth.test.js && node tests/app-permissions.test.js && node tests/site-separation.test.js && node tests/flight-age.test.js && node tests/mobile-pwa.test.js && node tests/tour-costs.test.js && node tests/whatsapp-integration.test.js && node tests/document-reader.test.js && node tests/mrz-camera.test.js && node tests/workspace-ui.test.js && node tests/workspace-collections.test.js && node tests/bus-plan.test.js && node tests/shared-buses.test.js && node tests/shared-buses-api.test.js && node tests/afyon-company.test.js && node tests/recovery.test.js && node tests/backup-cloud.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

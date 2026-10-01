@@ -1,20 +1,6 @@
 const assert = require('assert');
 
-const rows = new Map();
-const supabaseStub = {
-  from(){
-    return {
-      select(){
-        return {
-          eq(_column, id){
-            return { maybeSingle: async () => ({data:rows.has(id) ? {data:rows.get(id)} : null, error:null}) };
-          }
-        };
-      },
-      async upsert(record){ rows.set(record.id, record.data); return {error:null}; }
-    };
-  }
-};
+const supabaseStub = require('./memory-db')();
 
 const supabasePath = require.resolve('../api/_supabase');
 require.cache[supabasePath] = {

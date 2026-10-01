@@ -33,7 +33,8 @@ async function request(method,body,company='hazeyn'){let status;const headers={}
  const restricted=await request('GET');assert.equal(restricted.status,200);assert(restricted.body.restricted);assert.equal(restricted.body.record,null);assert.deepEqual(reads,['turizm-shared-bus-plans-v1']);
  assert.equal((await request('GET',null,'hakikat')).status,403);assert.equal((await request('POST',{action:'create',sources})).status,403);
  auth={user:{role:'employee',companies,permissions:{viewPassengers:true}}};assert.equal((await request('GET')).status,200);assert.equal((await request('POST',{action:'save'})).status,403);
- assert(writes.every(id=>id==='turizm-shared-bus-plans-v1'));
+ assert(writes.every(id=>id==='turizm-shared-bus-plans-v1'||id.startsWith('recovery-v1:')));
+ assert(writes.some(id=>id.startsWith('recovery-v1:')), 'Shared plans are backed up before changes');
  assert.equal(JSON.stringify(Object.fromEntries(companies.map(c=>[c,rows[c]]))),original);
  auth={user:{role:'employee',companies:['hazeyn','hakikat'],permissions:{viewPassengers:true,managePassengers:true}}};reads.length=0;
  const oldPair=await request('GET');assert.equal(oldPair.status,200);assert(!oldPair.body.catalog.afyon);assert(!reads.includes('afyon'));

@@ -38,8 +38,7 @@
     const dateLabel = value => value ? new Date(value + 'T12:00:00').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Tarih belirtilmedi';
 
     api.create = function (hooks) {
-        let modern = true;
-        try { modern = localStorage.getItem('turizmWorkspaceAppearanceV1') !== 'classic'; } catch (_) {}
+        const modern = true;
         let selectedId = '', view = 'home', company = '', currentModel, query = '', filter = 'current', homePage = 1, mounted = false;
         const baseline = new Map();
         const $ = id => document.getElementById(id);
@@ -56,20 +55,20 @@
         document.addEventListener('input', updateDraftButtons);
         document.addEventListener('change', updateDraftButtons);
         const home = document.createElement('section'); home.id = 'workspaceHome'; home.className = 'workspace-home'; home.hidden = true;
-        home.innerHTML = `<div class="workspace-heading"><div><span class="workspace-kicker">TURİZM MUHASEBE</span><h2>Turlarınız, bir arada.</h2><p>Bir tur seçin; yolcular, tahsilatlar ve giderler aynı yerde.</p></div><button type="button" class="btn btn-gold" data-workspace-new>${icon('plus')} Yeni tur</button></div><div class="workspace-summary"></div><div class="workspace-toolbar"><label class="workspace-search">${icon('search')}<input type="search" placeholder="Tur adı veya tarih ara…" aria-label="Tur ara" autocomplete="off"></label><div class="workspace-filters" role="group" aria-label="Tur durumu">${Object.entries({current:'Güncel',past:'Geçmiş',draft:'Taslak',all:'Tümü'}).map(([key,label])=>`<button type="button" data-filter="${key}" aria-pressed="${key==='all'}">${label}</button>`).join('')}</div></div><p class="workspace-results-count" aria-live="polite"></p><div class="workspace-tour-grid"></div><p class="workspace-rollback-note">Görünümü istediğiniz zaman değiştirebilirsiniz. Kayıtlarınız aynı kalır.</p>`;
+        home.innerHTML = `<div class="workspace-heading"><div><span class="workspace-kicker">TURİZM MUHASEBE</span><h2>Turlarınız, bir arada.</h2><p>Bir tur seçin; yolcular, tahsilatlar ve giderler aynı yerde.</p></div><button type="button" class="btn btn-gold" data-workspace-new>${icon('plus')} Yeni tur</button></div><div class="workspace-summary"></div><div class="workspace-toolbar"><label class="workspace-search">${icon('search')}<input type="search" placeholder="Tur adı veya tarih ara…" aria-label="Tur ara" autocomplete="off"></label><div class="workspace-filters" role="group" aria-label="Tur durumu">${Object.entries({current:'Güncel',past:'Geçmiş',draft:'Taslak',all:'Tümü'}).map(([key,label])=>`<button type="button" data-filter="${key}" aria-pressed="${key==='all'}">${label}</button>`).join('')}</div></div><p class="workspace-results-count" aria-live="polite"></p><div class="workspace-tour-grid"></div><p class="workspace-rollback-note">Silinen turları Yedek ve kurtarma bölümünden geri alabilirsiniz.</p>`;
         const header = document.createElement('section'); header.className = 'workspace-tour-header'; header.hidden = true;
         const detail = document.createElement('section'); detail.className = 'workspace-detail-summary'; detail.hidden = true;
-        const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'workspace-toolbar-toggle btn btn-outline dark'; toggle.id = 'workspaceAppearanceToggle';
         const nav = document.createElement('button'); nav.type = 'button'; nav.className = 'workspace-nav-button'; nav.innerHTML = icon('grid') + '<span>Tur çalışma alanı</span>';
         document.querySelector('.admin-main').insertBefore(home, $('tab-dashboard'));
         home.after(header, detail);
-        document.querySelector('.admin-topbar-actions').prepend(toggle);
         document.querySelector('.admin-sidebar .admin-tab').before(nav);
         nav.onclick = () => navigate('', 'home');
         home.querySelector('input').addEventListener('input', event => { query = event.target.value; homePage=1; drawCards(); });
         home.addEventListener('click', event => {
             const status = event.target.closest('[data-filter]');
             if (status) { filter = status.dataset.filter; homePage=1; drawCards(); }
+            const remove = event.target.closest('[data-workspace-delete]');
+            if(remove && canLeave()) hooks.deleteTour(remove.dataset.workspaceDelete);
             const open = event.target.closest('[data-workspace-open]');
             if (open) navigate(open.dataset.workspaceOpen, 'overview');
             if (event.target.closest('[data-workspace-new]') && canLeave()) { selectedId = ''; hooks.setTour(''); showLegacy('tours'); hooks.newTour(); checkpoint('tab-tours'); }
@@ -82,28 +81,6 @@
             const tab = event.target.closest('[data-workspace-tab]'); if (tab) navigate(selectedId, tab.dataset.workspaceTab);
             if (event.target.closest('[data-workspace-edit]') && canLeave()) { const id = selectedId; selectedId = ''; hooks.setTour(''); showLegacy('tours'); hooks.editTour(id); checkpoint('tab-tours'); }
         });
-        toggle.onclick = () => {
-            if (hooks.hasExtraChanges?.()) { hooks.toast('Otobüs planını kaydedin veya Vazgeç ile geri alın.'); return; }
-            // Appearance changes preserve the existing form DOM and never save business data.
-            modern = !modern;
-            if (!modern) { selectedId = ''; hooks.setTour(''); }
-            try { localStorage.setItem('turizmWorkspaceAppearanceV1', modern ? 'modern' : 'classic'); } catch (_) {}
-            body.classList.toggle('workspace-modern', modern);
-            hooks.appearanceChanged(modern);
-            if (title) title.textContent = modern ? 'Turizm Muhasebe' : classicTitle;
-            updateDraftButtons();
-            toggle.textContent = modern ? 'Klasik görünüme dön' : 'Yeni görünümü dene';
-            nav.hidden = !modern;
-            if (!modern) {
-                home.hidden = header.hidden = detail.hidden = true;
-                if (!document.querySelector('.admin-panel.active')) hooks.showPanel('dashboard', true);
-                body.classList.remove('workspace-tour-open');
-                history.replaceState({}, '', location.pathname + location.search);
-            } else if (hasChanges()) {
-                view = document.querySelector('.admin-panel.active')?.id.replace('tab-', '') || 'dashboard';
-                paint();
-            } else navigate(selectedId, selectedId ? 'overview' : 'home', true);
-        };
         function fingerprint(panelId) {
             if (panelId === 'tab-buses') return '';
             const panel = $(({ 'tab-passengers': 'passengerEditorCard', 'tab-tours': 'tourForm', 'tab-costs': 'tourCostForm', 'tab-accounting': 'accountingSearchResults' })[panelId] || panelId);
@@ -122,8 +99,8 @@
             const filtered = window.TurizmWorkspaceCollections.filterTours(currentModel.cards,{query,status:filter});
             const page = window.TurizmWorkspaceCollections.paginate(filtered,homePage,6); homePage=page.page; const cards=page.items;
             home.querySelectorAll('[data-filter]').forEach(button => { button.setAttribute('aria-pressed', String(button.dataset.filter===filter)); button.classList.toggle('active', button.dataset.filter===filter); });
-            home.querySelector('.workspace-results-count').textContent = `${page.start}–${page.end} / ${page.total} tur · Geçmiş turlar silinmez, Geçmiş sekmesinden açılır.`;
-            home.querySelector('.workspace-tour-grid').innerHTML = cards.length ? cards.map(card => `<article class="workspace-tour-card" data-status="${escape(card.status)}"><div class="workspace-tour-top"><span class="workspace-tour-type">${escape(({umre:'Umre',hac:'Hac',yurtici:'Yurt içi',legacy:'Eski kayıtlar'})[card.type] || 'Tur')}</span><span class="workspace-tour-status" data-status="${escape(card.status)}">${escape(labels[card.status] || card.status)}</span></div><h3>${escape(card.title)}</h3><p class="workspace-tour-date">${icon('calendar')}${escape(dateLabel(card.departureDate))}</p><div class="workspace-tour-metrics"><div><strong>${card.passengerCount}</strong><span>Yolcu</span></div><div><strong>${card.listCount}</strong><span>Kayıtlı liste</span></div></div><button type="button" class="workspace-tour-open" data-workspace-open="${escape(card.id)}" aria-label="${escape(card.title)} turunu aç">Turu aç ${icon('arrow')}</button></article>`).join('') : '<div class="workspace-empty"><h3>Tur bulunamadı</h3><p>Başka bir adla arayın veya tur durumu filtresini değiştirin.</p></div>';
+            home.querySelector('.workspace-results-count').textContent = `${page.start}–${page.end} / ${page.total} tur · Tamamlanan turlar Geçmiş sekmesinde.`;
+            home.querySelector('.workspace-tour-grid').innerHTML = cards.length ? cards.map(card => `<article class="workspace-tour-card" data-status="${escape(card.status)}"><div class="workspace-tour-top"><span class="workspace-tour-type">${escape(({umre:'Umre',hac:'Hac',yurtici:'Yurt içi',legacy:'Eski kayıtlar'})[card.type] || 'Tur')}</span><span class="workspace-tour-status" data-status="${escape(card.status)}">${escape(labels[card.status] || card.status)}</span></div><h3>${escape(card.title)}</h3><p class="workspace-tour-date">${icon('calendar')}${escape(dateLabel(card.departureDate))}</p><div class="workspace-tour-metrics"><div><strong>${card.passengerCount}</strong><span>Yolcu</span></div><div><strong>${card.listCount}</strong><span>Kayıtlı liste</span></div></div><button type="button" class="workspace-tour-open" data-workspace-open="${escape(card.id)}" aria-label="${escape(card.title)} turunu aç">Turu aç ${icon('arrow')}</button>${currentModel.permissions.manageTours&&!card.legacy?`<button type="button" class="workspace-tour-delete" data-workspace-delete="${escape(card.id)}" aria-label="${escape(card.title)} turunu sil">Turu sil</button>`:''}</article>`).join('') : '<div class="workspace-empty"><h3>Tur bulunamadı</h3><p>Başka bir adla arayın veya tur durumu filtresini değiştirin.</p></div>';
             let pager=home.querySelector('.collection-pagination');
             if(!pager){pager=document.createElement('nav');pager.className='collection-pagination';pager.setAttribute('aria-label','Tur sayfaları');home.querySelector('.workspace-tour-grid').after(pager);}
             pager.innerHTML='<button type="button" data-home-prev>← Önceki</button><span>'+page.page+' / '+page.pageCount+'</span><button type="button" data-home-next>Sonraki →</button>';
@@ -134,7 +111,7 @@
             if (!currentModel) return;
             body.classList.toggle('workspace-modern', modern);
             if (title) title.textContent = modern ? 'Turizm Muhasebe' : classicTitle;
-            toggle.textContent = modern ? 'Klasik görünüme dön' : 'Yeni görünümü dene'; nav.hidden = !modern;
+            nav.hidden = false;
             if (!modern || !currentModel.loggedIn) { home.hidden=header.hidden=detail.hidden=true; return; }
             const card=selectedCard();
             home.hidden = view !== 'home';

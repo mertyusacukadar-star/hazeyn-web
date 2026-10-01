@@ -1,3 +1,4 @@
+const Recovery = require('./_recovery');
 const Companies = require('../public/company-config');
 const crypto = require('crypto');
 const {
@@ -126,9 +127,10 @@ function filterStateByPermissions(nextState, previousState, auth){
   restore('siteTours');
   if(user.role === 'owner') return next;
   ['settings', 'reviews', 'gallery', 'staff', 'blogs', 'banners'].forEach(restore);
-  if(!hasUserPermission(user, 'manageTours')) restore('tours');
+  if(!hasUserPermission(user, 'manageTours')) { restore('tours'); restore('accountingTours'); }
   if(!hasUserPermission(user, 'manageCosts')) restore('tourCosts');
   if(!hasUserPermission(user, 'managePassengers')) restore('tourBusPlans');
+  if(!hasUserPermission(user, 'manageTours')) restore('deletedTours');
 
   if(!hasUserPermission(user, 'managePassengers')){
     const nextLists = new Map((Array.isArray(next.passengerLists) ? next.passengerLists : []).map(list => [String(list.id), list]));
@@ -157,6 +159,7 @@ function assertStateChangeAllowed(nextState, previousState, auth){
   const requirePermission = permission => { if(!hasUserPermission(user, permission)) throw permissionError(permission); };
 
   if(comparable(next.tours || []) !== comparable(previous.tours || [])) requirePermission('manageTours');
+  if(comparable(next.deletedTours || []) !== comparable(previous.deletedTours || [])) requirePermission('manageTours');
   if(comparable(next.tourBusPlans || {}) !== comparable(previous.tourBusPlans || {})) requirePermission('managePassengers');
   if(comparable(next.tourCosts || {}) !== comparable(previous.tourCosts || {})) requirePermission('manageCosts');
   if(comparable(passengerStructure(next.passengerLists)) !== comparable(passengerStructure(previous.passengerLists))) {
@@ -254,12 +257,13 @@ function requestToken(req){
 
 async function readUsers(){
   const client = supabaseAdmin();
-  const { data, error } = await client.from(TABLE).select('data').eq('id', USERS_ROW_ID).maybeSingle();
+  const { data, error } = await client.from(TABLE).select('data,updated_at').eq('id', USERS_ROW_ID).maybeSingle();
   if(error) throw error;
   const source = data && data.data && typeof data.data === 'object' ? data.data : {};
   return {
     users: Array.isArray(source.users) ? source.users : [],
-    updatedAt: Number(source.updatedAt || 0)
+    updatedAt: Number(source.updatedAt || 0),
+    serverRevision: data?.updated_at || ''
   };
 }
 
@@ -269,12 +273,9 @@ async function writeUsers(value){
     updatedAt: Date.now()
   };
   const client = supabaseAdmin();
-  const { error } = await client.from(TABLE).upsert({
-    id: USERS_ROW_ID,
-    data: payload,
-    updated_at: new Date().toISOString()
-  }, {onConflict:'id'});
-  if(error) throw error;
+  const row=await Recovery.read(client,USERS_ROW_ID);
+  Recovery.expected(row,value.serverRevision);
+  await Recovery.write(client,USERS_ROW_ID,row,payload,'before-user-save');
   return payload;
 }
 

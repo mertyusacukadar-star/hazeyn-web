@@ -1,4 +1,5 @@
 'use strict';
+const Recovery=require('./_recovery');
 const {TABLE,supabaseAdmin,companyRowId,companyDefaultData}=require('./_supabase');
 const {authenticateDesktopRequest}=require('./_appAuth');
 const R=require('./_sharedBuses');
@@ -31,6 +32,7 @@ module.exports=async function(req,res){
   const result=R.mutate(store,states,body,String(auth.user.displayName||auth.user.username));
   const touched=result.record.sources.some(s=>s.company===company&&s.tourId===tourId);
   if(!touched)return res.status(400).json({ok:false,error:'Ortak plan seçili programla eşleşmiyor.'});
+  await Recovery.snapshot(client,STORE_ID,row,'before-bus-save');
   const stamp=new Date(Math.max(Date.now(),Date.parse(row?.updated_at||0)+1||0)).toISOString();
   let write;
   if(row)write=await client.from(TABLE).update({data:result.store,updated_at:stamp}).eq('id',STORE_ID).eq('updated_at',row.updated_at).select('id');

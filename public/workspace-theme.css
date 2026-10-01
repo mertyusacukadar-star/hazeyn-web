@@ -1,0 +1,150 @@
+.workspace-theme-control{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);white-space:nowrap}
+.workspace-theme-control select{width:auto!important;min-height:36px!important;padding:6px 10px!important;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--ink)}
+.workspace-login-card>.workspace-theme-control{order:-1!important;align-self:flex-end;margin:0 0 20px}
+.workspace-tour-delete{align-self:flex-end;padding:6px 4px;background:transparent;border:0;color:#94514a;cursor:pointer;font-size:12px}
+.workspace-tour-delete:hover{text-decoration:underline}
+.recovery-dialog{box-sizing:border-box;width:min(740px,94vw);max-height:90dvh;overflow:auto;padding:28px;border:1px solid var(--line,#dce5e0);border-radius:20px;background:var(--paper,#fff);color:var(--ink,#203337);font:14px/1.6 'Segoe UI',sans-serif;box-shadow:0 24px 90px #0004}
+.recovery-dialog::backdrop{background:#07191eb3;backdrop-filter:blur(3px)}
+.recovery-dialog header{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:14px}
+.recovery-dialog h2{margin:0;font-size:22px;letter-spacing:-.5px}
+.recovery-dialog h3{overflow-wrap:anywhere}
+.recovery-dialog header button{width:36px;height:36px;border:1px solid var(--line);border-radius:50%;background:var(--soft);color:var(--ink);font-size:22px;cursor:pointer;flex-shrink:0}
+.recovery-dialog p{margin:12px 0}.recovery-intro,.recovery-dialog small,.recovery-dialog [data-last]{color:var(--muted)}
+.recovery-info{background:var(--soft,#f3f8f6);padding:18px;border:1px solid var(--line);border-radius:13px}
+.recovery-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:18px 0}
+.recovery-dialog details{border-top:1px solid var(--line);padding:16px 0}
+.recovery-dialog summary{font-weight:650;cursor:pointer;padding:4px 0}
+.recovery-row{display:flex;align-items:center;gap:16px;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}
+.recovery-row>div{min-width:0;overflow-wrap:anywhere}.recovery-row small{display:block;font-size:12px}.recovery-row button{flex-shrink:0}
+.recovery-dialog form{display:grid;gap:14px}.recovery-dialog label{display:grid;gap:5px}
+.backup-target-card{padding:18px;margin:12px 0;border:1px solid var(--line);border-radius:12px;background:var(--paper)}
+.backup-target-card.is-selected{border-color:var(--gold);box-shadow:inset 3px 0 var(--gold)}
+.recovery-dialog .backup-target-choice{display:flex;align-items:center;gap:10px;margin:0 0 8px;cursor:pointer}
+.backup-target-choice input{width:20px!important;height:20px;min-height:20px!important;margin:0;flex-shrink:0;accent-color:var(--gold)}
+.backup-target-card .recovery-actions{margin:10px 0}.backup-target-card p{font-size:12px}.backup-target-warning{color:#a43c32}
+.recovery-dialog input:not([type=checkbox]),.recovery-dialog select{box-sizing:border-box;max-width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font:inherit}
+.passport-expiring-count{color:#b72d2d;font-weight:700}
+.recovery-dialog [data-error]{color:#a43c32;white-space:pre-wrap}.recovery-dialog [data-error]:empty{display:none}
+.recovery-dialog button:disabled{opacity:.45;cursor:wait}.recovery-dialog [data-prev],.recovery-dialog [data-next],.recovery-dialog [data-trash-prev],.recovery-dialog [data-trash-next]{padding:8px 12px;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:8px}
+@media screen {
+html.accounting-app[data-theme=dark]{background:#10191c;color-scheme:dark}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app{--bg:#10191c;--paper:#192629;--ink:#e1ece8;--muted:#a7bbb4;--line:#334649;--gold:#6ac1a8;--gold2:#8bd6bd;--soft:#203438;--workspace-sidebar:#101f22;--workspace-accent-soft:#233e39;--workspace-shadow:0 3px 14px #0002;background:var(--bg);color:var(--ink)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.admin-main,.login-wrap){background:var(--bg)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .login-screen{background:radial-gradient(ellipse at 85% 10%,#1b3230,transparent 45%),var(--bg)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .stats-grid article{background:var(--paper);border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.workspace-summary article,.workspace-summary article:first-child,.workspace-mini-stats>div,.workspace-tour-actions button,.workspace-quick-links button){background:var(--paper);border-color:var(--line);color:var(--ink)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.workspace-summary article:first-child strong,.stats-grid strong){color:#93d9be}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .admin-topbar-actions .signed-user{background:var(--soft);border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .admin-topbar-actions .signed-user b{color:var(--ink)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.workspace-login-password-label,.workspace-login-card .desktop-login-field){color:var(--muted)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.workspace-tour-metrics,.workspace-tour-metrics>:first-child,.workspace-tour-tabs){border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.workspace-rollback-note,.workspace-empty,.accounting-guide,.accounting-empty,.accounting-totals,.accounting-editor-grid,.payment-history,.cost-item,.document-reader,.passenger-list-top,.passenger-tour-summary,.passenger-tour-group[open]>.passenger-tour-summary,.passenger-tour-count,.accounting-tour-type){background:var(--soft);color:var(--ink);border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.accounting-hero,.cost-hero,.accounting-card-head,.accounting-stats article,.cost-summary-grid article){background:var(--paper);color:var(--ink);border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.passenger-tour-name strong,.accounting-editor>summary,.passenger-details summary,.cost-item h4){color:#bce4d3}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.form,.cost-input-grid) label{color:var(--muted)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .passenger-tour-content{border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app #passengerTable tbody tr{background:var(--paper);border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app #passengerTable tbody td::before{color:var(--muted)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .passenger-list-top .hint-text{background:var(--soft);color:var(--muted)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.admin-topbar,.admin-card,.admin-item,.workspace-tour-card,.workspace-stat,.workspace-tour-header,.workspace-overview-card,.workspace-quick-card,.workspace-search,.program-balance-card,.passenger-tour-group,.bus-card,.bus-settings,.bus-passengers,.bus-shared-tools,.bus-stage,.bus-summary,.passenger-editor-card,.workspace-login-shell,.workspace-login-card,dialog){background:var(--paper);color:var(--ink);border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(input,select,textarea,.icon-btn,.btn-outline,.collection-pagination button,.workspace-pagination button){background:var(--paper);color:var(--ink);border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(input,textarea)::placeholder{color:#96a9a5}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(h1,h2,h3,h4,h5,label,.program-balance-values b,.bus-title,.bus-seat-number,.bus-passenger-name){color:var(--ink)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.workspace-tour-metrics span,.workspace-tour-date,.workspace-kicker,.workspace-tour-type,.hint-text,.company-account-note,.login-kicker,.workspace-tour-status,.bus-company-tag){color:var(--muted)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.program-balance-values>span,.workspace-tour-open,.workspace-stat-icon,.workspace-tour-tabs,.workspace-filters,.workspace-tour-status,.signed-user-badge,.bus-shell,.bus-front,.bus-rear,.bus-shared-panel,.bus-toolbar,.passenger-tour-group>summary){background:var(--soft);color:var(--ink);border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.workspace-filters button,.workspace-tour-tabs button){color:var(--muted)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.workspace-filters button.active,.workspace-filters button[aria-pressed=true],.workspace-tour-tabs button.active){background:var(--workspace-accent-soft);color:#adedd5}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .btn-gold{background:#6ac1a8;color:#0e2b25;border-color:#6ac1a8}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .company-login-picker>button{background:#1d3032!important;border-color:var(--line)!important;color:var(--ink)!important}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .company-login-picker>button.active{background:#29483f!important;border-color:#80baa6!important}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .company-choice-logo{background:#f7faf6;border-color:transparent}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .company-choice-logo.dark{background:#1c3235}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(table,td,th){border-color:var(--line);color:var(--ink)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(thead,th){background:#233638}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(tbody tr,td){background:var(--paper)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .bus-seat{background:var(--paper)!important;color:var(--ink)!important;border-color:var(--line)!important;box-shadow:0 3px 0 #30413d}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .bus-seat.occupied{background:#28463d!important;border-color:#699482!important}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .bus-seat.hazeyn.occupied{background:#4a3e26!important;border-color:#a18c5a!important}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .bus-seat.afyon.occupied{background:#254649!important;border-color:#669f9a!important}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .bus-seat.selected{outline:3px solid #92e2c5}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .bus-door{background:#3c3423;color:#e0c890;border-color:#90794c}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.bus-workspace,.bus-roster,.bus-map-panel,.bus-settings-fields,.bus-tabs button,.bus-automation){background:var(--paper);color:var(--ink);border-color:var(--line);--bus-line:var(--line);--bus-green:#8dd6bc}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .bus-cabin{background:linear-gradient(90deg,transparent 44%,#243939 44%,#243939 56%,transparent 56%);border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.bus-seat span,.bus-person small,.bus-map-caption span){color:var(--muted)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.workspace-confirm button,.recovery-dialog button.btn-outline){background:var(--soft);color:var(--ink);border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .workspace-confirm button:last-child{background:#6ac1a8;color:#0e2b25}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.workspace-tour-delete,.recovery-dialog [data-error]){color:#efa499}
+/* Every screen surface uses the same palette, including legacy nested cards. */
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.room-price-fields,.program-balance-section,.accounting-card,.accounting-form-block,.accounting-payment-table,.accounting-editor>summary,.accounting-totals>span,.passenger-facts>span,.passenger-list-card,.passenger-group,.passenger-room-area,.passenger-details,.rooming-preview,.rooming-preview-head,.room-group-block,.app-permission-fieldset,.owner-account-card,.desktop-user-card,.permission-grid label,.cost-result-strip>div){background:var(--paper);color:var(--ink);border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.user-permission-badges span,.room-group-title,.filter-expiring-label,.airport-picker-button,.airport-results button,.passenger-picker button,.document-preview button,.cost-item,.cost-result-strip>div:last-child){background:var(--soft);color:var(--ink);border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.accounting-stats strong,.cost-summary-grid article>strong,.rooming-preview-head strong,.rooming-preview-head span,.app-permission-fieldset legend,.company-permission-fieldset legend,.accounting-audit-line b,.workspace-rollback-note b,.workspace-login-card h1){color:var(--ink)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.workspace-login-card .company-account-note,.workspace-login-card .login-kicker,.signed-user small,label small,.program-balance-heading small,.bus-help,.bus-heading p,.bus-settings p,.bus-settings label,.bus-automation p,.bus-shared-panel p,.bus-shared-tools p,.bus-people-pages span,.bus-empty){color:var(--muted)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.workspace-tour-top>span,.workspace-tour-metrics small){color:var(--muted)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .workspace-tour-top>span:last-child{background:var(--soft);color:#b9dacc}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.workspace-tour-top>[data-status=completed],.workspace-tour-top>.completed){background:#293738;color:#b6c6c1}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.workspace-tour-top>[data-status=draft],.workspace-tour-top>.draft){background:#413923;color:#edd098}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.accounting-stats article:nth-child(2),.cost-summary-grid .cost-profit-card,.accounting-balance.paid,.cost-item-remaining.credit,.passport-status.ok,.whatsapp-status.ready){background:#203d32;color:#a8e7c1;border-color:#3f6553}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.accounting-stats article:nth-child(3),.cost-summary-grid .cost-expense-card,.cost-item-remaining,.cost-currency-warning,.accounting-balance.open,.program-balance-card header span,.passport-status.missing,.whatsapp-status.waiting){background:#3d3321;color:#f1d095;border-color:#705e39}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.cost-summary-grid .cost-payment-card,.accounting-balance.credit){background:#203747;color:#badcf9;border-color:#385a71}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.cost-summary-grid .cost-debt-card,.passport-status.danger,.whatsapp-status.error,.app-error-notice,.filter-expiring-cb:checked+.filter-expiring-label){background:#402a29;color:#ffb5ae;border-color:#744844}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.cost-summary-grid strong.positive,.cost-result-strip strong.positive){color:#a8e7c1}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.cost-summary-grid strong.negative,.cost-result-strip strong.negative,.accounting-payment-table td small,.picker-error){color:#ffb5ae}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.program-debtor-list>summary,.program-debtor-row>strong,.bus-exceptions){color:#f1d095}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.program-debtor-list,.bus-person){border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .program-debtor-row{background:transparent}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .user-permission-badges span{border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .permission-readonly::before{background:#3d3321;color:#f1d095;border-color:#705e39}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .permission-readonly input:disabled{background:var(--soft)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.whatsapp-integration-card,.whatsapp-action:hover){background:#203d32!important;border-color:#3f6553!important}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .whatsapp-action{color:#a8e7c1!important;border-color:#3f6553!important}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .whatsapp-integration-card p{color:var(--muted)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .whatsapp-status{background:var(--soft);color:var(--ink)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.btn-outline.dark,.icon-btn,.small-btn,.app-error-notice button){background:var(--paper);color:var(--ink);border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.btn-outline.dark,.icon-btn,.small-btn):hover{background:#29433f;color:#d7f6e9;border-color:#6c9887}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .icon-btn.danger{background:#402a29;color:#ffb5ae;border-color:#744844}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .icon-btn.danger:hover{background:#593632}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .btn-gold:hover{background:#8bd6bd;color:#0e2b25;border-color:#8bd6bd}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.excel-btn,.surname-toggle-btn.active){background:#203d32!important;color:#a8e7c1!important;border-color:#3f6553!important}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .flight-excel-btn{background:#203747!important;color:#badcf9!important;border-color:#385a71!important}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .workspace-back{color:var(--muted)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .bus-number-tools p{color:var(--muted)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app #passengerEditorCard input[data-mobile-date]{background:var(--soft);color:var(--ink)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app #passengerEditorCard .table-wrap{background:var(--paper)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .backup-target-warning{color:#ffb5ae}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .passport-missing td{background:#3d3321!important;color:#f1d095}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .passenger-picker .picker-primary{background:#6ac1a8;color:#0e2b25}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.table-wrap,.passenger-detail-wrap){scrollbar-color:#56766d #17272a}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .room-group-block{--room-accent:#b9c9c3;--room-surface:#2b3b39;border-color:var(--room-accent)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .room-color-2{--room-accent:#8bc7e4;--room-surface:#234050}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .room-color-3{--room-accent:#99cca9;--room-surface:#274532}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .room-color-4{--room-accent:#c6a5da;--room-surface:#42324e}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .room-group-title{background:var(--room-surface);color:var(--room-accent);border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .room-group-title span{background:#10191c66;color:var(--room-accent)}
+/* Existing room bands are !important because they also define exported print rows. */
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app tr.room-band-blue td{background:#203d4a!important;color:var(--ink)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app tr.room-band-gold td{background:#393522!important;color:var(--ink)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .rooming-shared{color:var(--ink)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .drag-handle{background:#3d3321;color:#f1d095}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .passenger-order-row.drag-over{outline-color:#9bd3bf;background:#284d41!important}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .passport-warning :is(td,input,select){color:#ffb5ae!important}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.passenger-age-label.infant,.passenger-age-count.infant){color:#f1d095}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.passenger-age-label.child,.passenger-age-count.child){color:#badcf9}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .passport-expiring-count{color:#ffb5ae}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app #workspaceLoginMessage{background:#402a29;color:#ffb5ae;border-color:#744844}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app #tab-buses{--bus-line:var(--line);--bus-green:#6ac1a8;color:var(--ink)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app #tab-buses button{background:var(--paper);color:var(--ink);border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app #tab-buses button:hover{background:#29433f;border-color:#6c9887}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app #tab-buses .primary{background:#6ac1a8;color:#0e2b25;border-color:#6ac1a8}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app #tab-buses .bus-tabs [aria-pressed=true]{background:#28473e!important;color:#c9f2dd;border-color:#6a9e86!important}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.bus-heading,.bus-map-foot,.bus-captain,.bus-custom-settings,.bus-notice,.bus-aisle){background:var(--soft);color:var(--ink);border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .bus-cabin{background:var(--paper)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.bus-number-cell,.bus-number-cell input,.bus-roster>input,.bus-roster>select){background:var(--paper);color:var(--ink);border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app #tab-buses .bus-number-cell{background:var(--paper);border-color:var(--line)}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.bus-side-door,.bus-seat.staff){background:#3d3321!important;color:#f1d095!important;border-color:#705e39!important}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .bus-seat.staff.occupied{background:#28463d!important;color:var(--ink)!important;border-color:#699482!important}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(.bus-tabs small,.bus-number-cell small,.bus-map-foot,.bus-company-tag,.bus-company-tag.hazeyn,.bus-company-tag.afyon){color:var(--muted);background:transparent}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app .bus-seat.selected{outline:3px solid #92e2c5!important}
+html.accounting-app[data-theme=dark] body.workspace-modern.desktop-app :is(button,a,summary,input,select,textarea):focus-visible{outline:3px solid #8bd6bd;outline-offset:3px}
+}
+@media(max-width:600px){.recovery-dialog{padding:20px}.recovery-actions .btn{flex:1 1 140px}.workspace-theme-control{font-size:11px}}
+@media(prefers-reduced-motion:reduce){html.accounting-app *,html.accounting-app *::before,html.accounting-app *::after{animation:none!important;scroll-behavior:auto!important;transition:none!important}}

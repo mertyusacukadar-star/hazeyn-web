@@ -6,3 +6,10 @@ tmp/
 .env
 .env.*
 !.env.example
+
+# Private business records and exported recovery files must never enter Git.
+backups/
+*.turizm.json
+*-yedek-*.json
+data/db-hakikat.json
+data/db-afyon.json

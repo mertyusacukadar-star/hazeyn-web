@@ -197,6 +197,7 @@
 
     function initWorkspaceUI() {
         if (!IS_APP_MODE || !window.TurizmWorkspaceUI) return;
+        document.body.classList.add('workspace-modern');
         window.TurizmWorkspaceLogin?.install();
         workspaceUI = window.TurizmWorkspaceUI.create({
             snapshot: () => ({
@@ -235,7 +236,7 @@
                 if (tab === 'tab-accounting') renderAccounting(accountingSearchQuery);
             },
             hasExtraChanges: panel => (!panel || panel === 'tab-buses') && Boolean(busWorkspace?.isDirty()),
-            showPanel: switchTab, newTour: resetTourForm, editTour, toast
+            showPanel: switchTab, newTour: resetTourForm, editTour, deleteTour: deleteAccountingTour, toast
         });
     }
     let tempTourImage = '';
@@ -1485,6 +1486,7 @@
                 ? (Array.isArray(data.blogs) ? data.blogs : d.blogs)
                 : mergeSeoDefaultBlogs(Array.isArray(data.blogs) ? data.blogs : d.blogs),
             passengerLists: normalizePassengerLists(Array.isArray(data.passengerLists) ? data.passengerLists : []),
+            deletedTours: Array.isArray(data.deletedTours) ? clone(data.deletedTours) : [],
             tourCosts: normalizeTourCosts(data.tourCosts),
             tourBusPlans: data.tourBusPlans && typeof data.tourBusPlans === 'object' && !Array.isArray(data.tourBusPlans) ? clone(data.tourBusPlans) : {}
         };
@@ -1525,9 +1527,21 @@
         if (location.protocol !== 'file:' && hasAdminCredential()) {
             const latest = await fetchRemoteData({ admin: true });
             if (latest) {
+                if(IS_APP_MODE && state?._meta?.serverRevision !== undefined && state._meta.serverRevision !== latest._meta?.serverRevision){
+                    state._meta={...state._meta,pendingSync:true};await cacheDataLocally(state);
+                    showAppError('Bu kayıt başka bir cihazda değişti. Ekrandaki değişiklikler korundu. Önce yedeğinizi indirin; ardından Senkronize Et ile güncel kaydı açın.');return false;
+                }
                 const remoteStamp = Number(latest?._meta?.updatedAt || 0);
                 const localStamp = Number(state?._meta?.updatedAt || 0);
+                if(IS_APP_MODE && state?._meta?.serverRevision === undefined){
+                    if(state?._meta?.pendingSync || remoteStamp!==localStamp){
+                        state._meta={...state._meta,pendingSync:true};await cacheDataLocally(state);
+                        showAppError('Bu cihazdaki kayıt eski sürümden kalmış. Önce yedeğini indirin; Senkronize Et ile güncel veriyi alın.');return false;
+                    }
+                    state._meta={...state._meta,serverRevision:latest._meta?.serverRevision||''};
+                }
                 if (remoteStamp > localStamp) {
+                    state._meta={...state._meta,pendingSync:true};await cacheDataLocally(state);
                     showAppError('Başka bir bilgisayarda daha yeni bir değişiklik yapıldı. Veri kaybını önlemek için bu kayıt gönderilmedi. “Senkronize Et” düğmesine basıp güncel veriyi aldıktan sonra işlemi tekrar yap.');
                     return false;
                 }
@@ -1546,12 +1560,15 @@
                     const details = await res.json().catch(() => ({}));
                     throw new Error(details.error || 'Sunucu kaydı başarısız');
                 }
+                const saved = await res.json();
+                syncedState._meta.serverRevision = saved.revision;
                 state = mergeDefaults(syncedState);
                 await cacheDataLocally(state);
+                if(IS_APP_MODE)window.dispatchEvent(new Event('turizm-data-saved'));
                 return true;
             } catch (e) {
                 console.warn('Sunucu kaydı yapılamadı; IndexedDB kaydı kullanıldı.', e);
-                showAppError('Kayıt bu cihazda korundu ancak merkezi sisteme aktarılamadı. Lütfen internet bağlantını kontrol edip tekrar kaydet.');
+                showAppError((e.message || 'Sunucu kaydı başarısız.') + ' Değişiklikler bu cihazda korundu.');
                 return false;
             }
         }
@@ -2510,7 +2527,7 @@
         const statusLabels = { active: 'Aktif', completed: 'Sona Ermiş', draft: 'Taslak' };
         list.innerHTML = state.tours.map(t => normalizeTour(t)).map(t => `<div class="admin-item">
         <div><h3>${escapeHtml(t.title)} <small>(${escapeHtml(t.type === 'umre' ? 'Umre' : t.type === 'hac' ? 'Hac' : 'Yurt İçi')} · ${escapeHtml(statusLabels[t.status] || t.status)})</small></h3><p>${t.departureDate ? 'Kalkış: ' + escapeHtml(formatDateTR(t.departureDate)) + '\n' : ''}${escapeHtml(durationLabel(t))}\n${escapeHtml(departureCityLabel(t))}\n/${escapeHtml(t.slug)}\n${escapeHtml(capacityLabel(t))}\n${escapeHtml(String(t.cardText || '').trim() || pricePreview(t))}</p></div>
-        ${hasPermission('manageTours') ? `<div class="admin-item-actions"><button class="icon-btn" data-edit-tour="${escapeHtml(t.id)}">Düzenle</button>${t.status === 'completed' ? '' : `<button class="icon-btn danger" data-delete-tour="${escapeHtml(t.id)}">${t.status === 'draft' ? 'Taslağı Sil' : 'Sona Erdir'}</button>`}</div>` : ''}
+        ${hasPermission('manageTours') ? `<div class="admin-item-actions"><button class="icon-btn" data-edit-tour="${escapeHtml(t.id)}">Düzenle</button>${t.status === 'completed' && !IS_APP_MODE ? '' : `<button class="icon-btn danger" data-delete-tour="${escapeHtml(t.id)}">${IS_APP_MODE ? 'Turu Sil' : t.status === 'draft' ? 'Taslağı Sil' : 'Sona Erdir'}</button>`}</div>` : ''}
     </div>`).join('');
         window.TurizmWorkspaceLists?.enhance(list, state.tours.map((t,i) => ({...t,node:list.children[i]})), {tours:true,label:'Kayıtlı turları ara',key:'tourDirectory'});
     }
@@ -3151,7 +3168,7 @@
             <div>
                 <h3>${escapeHtml(l.title)} <small>${escapeHtml(l.date || '')}</small></h3>
                 <p><b>Tur:</b> ${escapeHtml(tourTitle)} &nbsp; <b>Uçuş:</b> ${escapeHtml(formatDateTR(flightDate) || '-')} &nbsp; <b>Parkur:</b> ${escapeHtml(route)} &nbsp; <b>Rehber:</b> ${escapeHtml(l.leader || '-')}</p>
-                <p><b>Toplam Yolcu:</b> ${total} &nbsp; <b>Erkek:</b> ${males} &nbsp; <b>Kadın:</b> ${females}${ageSummary} &nbsp; <b style="color:#d32f2f">Pasaportu 6 Aydan Az Kalan:</b> <span style="color:#d32f2f; font-weight:bold">${expiringCount}</span></p>
+                <p><b>Toplam Yolcu:</b> ${total} &nbsp; <b>Erkek:</b> ${males} &nbsp; <b>Kadın:</b> ${females}${ageSummary} &nbsp; <b class="passport-expiring-count">Pasaportu 6 Aydan Az Kalan:</b> <span class="passport-expiring-count">${expiringCount}</span></p>
                 ${l.notes ? `<p><b>Liste Notu:</b> ${escapeHtml(l.notes)}</p>` : ''}
                 <p class="hint-text"><b>Manuel sıra korunur:</b> ☰ işaretinden yolcuyu taşıyabilirsin. İstersen soyad düğmesiyle geçici olarak aynı soyadları yan yana görebilirsin.</p>
             </div>
@@ -4130,8 +4147,56 @@
         }
     }
 
+    let recoveryUI;
+    async function cloudBackupRequest(action,provider,body){
+        const res=await fetch(`/api/backup-cloud?action=${encodeURIComponent(action)}${provider?'&provider='+encodeURIComponent(provider):''}`,{method:body?'POST':'GET',cache:'no-store',headers:authorizedHeaders({'Content-Type':'application/json'}),...(body?{body:JSON.stringify(body)}:{})});
+        const data=await res.json();if(!res.ok)throw Error(data.error||'Bulut yedek işlemi tamamlanamadı.');return data;
+    }
+    function installBackupTargets(){
+        if(!IS_APP_MODE)return;
+        window.TurizmBackupDestinations?.install({ready:()=>adminLoggedIn&&isAppOwner(),cloud:cloudBackupRequest,toast,
+            fetchBackup:async()=>{const res=await fetch(`/api/recovery?company=${encodeURIComponent(currentCompanyId)}&action=export`,{cache:'no-store',headers:authorizedHeaders()});const data=await res.json();if(!res.ok)throw Error(data.error||'Sunucu yedeği alınamadı.');if(state?._meta?.pendingSync)data.deviceDraft={company:currentCompanyId,state};return data;}});
+    }
+    let recoveryCheckPending = false;
+    async function checkpointOnLogin(){
+        if(!IS_APP_MODE || !adminLoggedIn || !isAppOwner() || recoveryCheckPending)return;
+        try{if(Date.now()-Number(localStorage.getItem('turizmRecoveryCheckedAtV1')||0)<86400000)return;}catch(_){}
+        recoveryCheckPending=true;
+        try{
+            const res=await fetch(`/api/recovery?company=${encodeURIComponent(currentCompanyId)}&action=checkpoint`,{method:'POST',headers:authorizedHeaders({'Content-Type':'application/json'}),body:'{}'});
+            if(!res.ok)throw Error('Kurtarma kontrolü tamamlanamadı. Yedek ve kurtarma bölümünden tekrar deneyin.');
+            try{localStorage.setItem('turizmRecoveryCheckedAtV1',String(Date.now()));}catch(_){}
+        }catch(e){toast(e.message);}finally{recoveryCheckPending=false;}
+    }
+    window.addEventListener('focus',checkpointOnLogin);
+    function openRecovery(){
+        if(!isAppOwner())return;
+        recoveryUI ||= window.TurizmRecoveryUI.create({headers:authorizedHeaders,company:()=>currentCompanyId,cloud:cloudBackupRequest,
+            state:()=>state,owner:isAppOwner,canLeave:()=>!workspaceUI||workspaceUI.canLeave(),toast,
+            reload:async()=>{ const remote=await fetchRemoteData({admin:true});if(!remote)throw Error('Geri yükleme kaydedildi; güncel ekran için Senkronize Et düğmesini kullanın.');state=mergeDefaults(remote);await cacheDataLocally(state);busWorkspace?.reset();renderAdmin();workspaceUI?.checkpoint(); },
+            restoreTour:async id=>{const before=structuredClone(state);state=window.TurizmTourTrash.restore(state,id);const ok=await saveData({keepLocalAccounting:true});if(!ok){state=before;await cacheDataLocally(state);}renderAdmin();workspaceUI?.checkpoint();return ok;}});
+        recoveryUI.open();
+    }
+    async function deleteAccountingTour(id){
+        if(!requirePermission('manageTours') || workspaceUI&&!workspaceUI.canLeave())return;
+        const info=window.TurizmTourTrash.inspect(state,id);
+        if(info.lists.length&&!requirePermission('deletePassengerLists'))return;
+        if(info.costs&&!requirePermission('manageCosts'))return;
+        if(info.bus&&!requirePermission('managePassengers'))return;
+        const decision=await window.TurizmRecoveryUI.confirmDelete(info);
+        if(!decision)return;
+        if(decision==='backup'){
+            try{await window.TurizmRecoveryUI.downloadTour(currentCompanyId,state,id);}catch(e){showAppError(e.message);return;}
+        }
+        const before=structuredClone(state);state=window.TurizmTourTrash.remove(state,id,currentActor());
+        const saved=await saveData({keepLocalAccounting:true});
+        if(!saved){state=before;await cacheDataLocally(state);toast('Sunucu onayı alınamadı; önceki kayıtlar ekranda korunuyor. Senkronize Et ile sonucu kontrol edin.');}
+        renderAdmin();workspaceUI?.checkpoint();if(saved)toast('Tur silindi. Yedek ve kurtarma → Silinen turlar bölümünden geri alınabilir.');
+    }
+
     function exportBackup() {
         if (!requirePermission('exportBackup')) return;
+        if (IS_APP_MODE && isAppOwner()) { openRecovery(); return; }
         const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
@@ -4205,7 +4270,7 @@
                 }
                 adminLoggedIn = true;
                 renderAdmin();
-                if (isAppOwner()) loadDesktopUsers();
+                if (isAppOwner()) { loadDesktopUsers(); checkpointOnLogin();window.dispatchEvent(new Event('turizm-authenticated')); }
             } else { $('adminPassword').value=''; showAppError(loginResult.error || 'Şifre hatalı.'); }
             } catch (_) { showAppError('Giriş yapılamadı. Bağlantınızı kontrol edip tekrar deneyin.'); } finally { $('loginBtn').disabled=false; }
         };
@@ -4444,6 +4509,7 @@
             if (delTour) {
                 if (!requirePermission('manageTours')) return;
                 const tourId = delTour.dataset.deleteTour;
+                if(IS_APP_MODE){ await deleteAccountingTour(tourId); return; }
                 const foundTour = state.tours.find(x => x.id === tourId);
                 if (foundTour && normalizedTourStatus(foundTour) === 'draft' && await askAppConfirmation('Taslak program silinsin mi?')) {
                     state.tours = state.tours.filter(x => x.id !== tourId);
@@ -4508,10 +4574,13 @@
             updateCompanyBranding();
             bindAdminEvents();
             initWorkspaceUI();
+            installBackupTargets();
+            window.TurizmTheme?.install();
+            window.TurizmTheme?.ready();
             if (IS_APP_MODE && await restoreDesktopSession()) {
                 adminLoggedIn = await loadAuthenticatedAdminData();
                 if (!adminLoggedIn) clearDesktopSession();
-                if (adminLoggedIn && isAppOwner()) loadDesktopUsers();
+                if (adminLoggedIn && isAppOwner()) { loadDesktopUsers(); checkpointOnLogin();window.dispatchEvent(new Event('turizm-authenticated')); }
             }
             renderAdmin();
         }

@@ -1,3 +1,6 @@
+const dataHandler = require('./api/data');
+const recoveryHandler = require('./api/recovery');
+const backupCloudHandler = require('./api/backup-cloud');
 const {validateBusPlans} = require('./api/_busPlans');
 const http = require('http');
 const fs = require('fs');
@@ -158,17 +161,18 @@ const server = http.createServer(async (req, res) => {
     try { return await publicPageHandler(req, adapter); }
     catch(error) { return send(res, 503, 'Sayfa hazırlanamadı. Lütfen tekrar deneyin.'); }
   }
-  if(pathname === '/api/whatsapp' || pathname === '/api/bus-shared'){
+  if(['/api/whatsapp','/api/bus-shared','/api/data','/api/recovery','/api/backup-cloud'].includes(pathname)){
     try {
       req.query = Object.fromEntries(requestUrl.searchParams.entries());
-      if(req.method === 'POST') req.body = await readJsonBody(req, 256 * 1024);
+      if(req.method === 'POST') req.body = await readJsonBody(req, ['/api/data','/api/recovery'].includes(pathname) ? 16 * 1024 * 1024 : pathname==='/api/backup-cloud' ? 4 * 1024 * 1024 : 256 * 1024);
       let statusCode = 200;
       const adapter = {
         setHeader(name, value){ res.setHeader(name, value); },
         status(code){ statusCode = Number(code) || 200; return adapter; },
+        send(body){res.statusCode=statusCode;res.end(body);return adapter;},
         json(payload){ return send(res, statusCode, JSON.stringify(payload), 'application/json; charset=utf-8'); }
       };
-      return await (pathname === '/api/bus-shared' ? sharedBusHandler : whatsappHandler)(req, adapter);
+      return await ({'/api/data':dataHandler,'/api/recovery':recoveryHandler,'/api/backup-cloud':backupCloudHandler,'/api/bus-shared':sharedBusHandler,'/api/whatsapp':whatsappHandler}[pathname])(req, adapter);
     } catch(error){
       return send(res, Number(error && error.statusCode) || 500, JSON.stringify({ok:false, error:error.message || 'WhatsApp işlemi tamamlanamadı.'}), 'application/json; charset=utf-8');
     }
@@ -232,29 +236,6 @@ const server = http.createServer(async (req, res) => {
     });
     return;
   }
-  if(pathname === '/api/data' && req.method === 'GET'){
-    const wantsAdmin = requestUrl.searchParams.get('scope') === 'admin';
-    const requestedCompanyId = companyFromRequest(req, requestUrl);
-    const companyId = wantsAdmin ? requestedCompanyId : 'hazeyn';
-    let authorization = wantsAdmin ? await authorizeDataRequest(req, companyId) : null;
-    if(wantsAdmin && !authorization){
-      return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
-    }
-    if(requestUrl.searchParams.get('action') === 'upload-config'){
-      authorization = authorization || await authorizeDataRequest(req, requestedCompanyId);
-      if(!authorization){
-        return send(res, 401, JSON.stringify({ok:false, error:'Yetkisiz.'}), 'application/json; charset=utf-8');
-      }
-      return send(res, 200, JSON.stringify({
-        url: process.env.SUPABASE_URL || '',
-        anonKey: process.env.SUPABASE_ANON_KEY || '',
-        bucket: BUCKET
-      }), 'application/json; charset=utf-8');
-    }
-    const rawState = await readCentralState(companyId);
-    const payload = wantsAdmin ? adminStateForClient(rawState, authorization.kind) : sanitizePublicState(rawState);
-    return send(res, 200, JSON.stringify(payload), 'application/json; charset=utf-8', {'X-Hazeyn-Data-Source':'supabase','X-Turizm-Company':companyId});
-  }
   if(pathname === '/api/media-upload' && req.method === 'POST'){
     const companyId = companyFromRequest(req, requestUrl);
     if(!await authorizeDataRequest(req, companyId)){
@@ -291,78 +272,6 @@ const server = http.createServer(async (req, res) => {
     });
     return;
   }
-  if(pathname === '/api/data' && req.method === 'POST'){
-    const companyId = companyFromRequest(req, requestUrl);
-    const authorization = await authorizeDataRequest(req, companyId);
-    if(!authorization){
-      return send(res, 401, JSON.stringify({ok:false, error:'Bu firma hesabı için yetkin yok veya oturumun sona ermiş.'}), 'application/json; charset=utf-8');
-    }
-    if(requestUrl.searchParams.get('action') === 'signed-upload'){
-      let uploadBody = '';
-      req.on('data', chunk => {
-        uploadBody += chunk;
-        if(uploadBody.length > 1024 * 1024) req.destroy();
-      });
-      req.on('end', async () => {
-        try {
-          const input = JSON.parse(uploadBody || '{}');
-          const requestedFolder = String(input.folder || 'uploads').replace(/[^a-z0-9-_\/]/gi, '').replace(/^\/+/, '').slice(0, 70) || 'uploads';
-          const folder = `${companyId}/${requestedFolder}`;
-          const objectPath = `${folder}/${cleanFileName(input.filename || 'image.jpg')}`;
-          const client = supabaseAdmin();
-          await ensureBucket(client);
-          const { data, error } = await client.storage.from(BUCKET).createSignedUploadUrl(objectPath);
-          if(error) throw error;
-          return send(res, 200, JSON.stringify({ok:true, bucket:BUCKET, path:objectPath, token:data.token, signedUrl:data.signedUrl}), 'application/json; charset=utf-8');
-        } catch(error) {
-          console.error('İmzalı görsel yükleme bağlantısı hatası:', error);
-          return send(res, 500, JSON.stringify({ok:false, error:'Yükleme bağlantısı oluşturulamadı.'}), 'application/json; charset=utf-8');
-        }
-      });
-      return;
-    }
-    let body = '';
-    req.on('data', chunk => {
-      body += chunk;
-      if(body.length > 700 * 1024 * 1024){ req.destroy(); }
-    });
-    req.on('end', async () => {
-      try {
-        let data = sanitizeAdminState(JSON.parse(body || '{}'));
-        const client = supabaseAdmin();
-        const { data: existing, error: readError } = await client.from(TABLE).select('data').eq('id', companyRowId(companyId)).maybeSingle();
-        if(readError) throw readError;
-        const previousState = existing && existing.data ? existing.data : companyDefaultData(companyId);
-        data = separateTourCollections(data, previousState, authorization.kind);
-        if(authorization.kind === 'desktop'){
-          data = filterStateByPermissions(data, previousState, authorization);
-          assertStateChangeAllowed(data, previousState, authorization);
-          data = applyDesktopAudit(data, previousState, authorization);
-          validateBusPlans(data);
-        }
-        const { error } = await client.from(TABLE).upsert({
-          id: companyRowId(companyId),
-          data,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'id' });
-        if(error) throw error;
-        try {
-          fs.writeFileSync(localDbPath(companyId), JSON.stringify(data, null, 2));
-        } catch(localBackupError) {
-          // Vercel çalışma dizini salt okunurdur; merkezi Supabase kaydı başarılıysa
-          // yerel yedek hatası kullanıcı kaydını başarısız göstermemelidir.
-          if(localBackupError && localBackupError.code !== 'EROFS') console.warn('Yerel veri yedeği yazılamadı:', localBackupError);
-        }
-        send(res, 200, JSON.stringify({ok:true, source:'supabase', company:companyId}), 'application/json; charset=utf-8');
-      } catch(e) {
-        console.error('Supabase veri kayıt hatası:', e);
-        const status = Number(e && e.statusCode) || 502;
-        send(res, status, JSON.stringify({ok:false, error:e && e.statusCode ? e.message : 'Merkezi veri kaydı yapılamadı.'}), 'application/json; charset=utf-8');
-      }
-    });
-    return;
-  }
-
   const origin = siteOrigin(req);
   if(pathname === '/' || pathname === '/tr' || pathname === '/tr/'){
     const state = siteState(await readCentralState());

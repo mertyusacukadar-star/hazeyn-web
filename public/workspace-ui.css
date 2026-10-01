@@ -1,4 +1,4 @@
-/* Optional presentation layer. Removing workspace-modern restores the original UI. */
+/* Accounting workspace presentation. */
 body.workspace-modern {
   --bg: #f4f6f4;
   --paper: #fff;

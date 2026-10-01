@@ -116,6 +116,10 @@ function separateTourCollections(input, previousInput, sourceKind){
     if(previous.tourBusPlans !== undefined) next.tourBusPlans = cloneJson(previous.tourBusPlans, {});
   }
 
+  // The site and older clients cannot erase accounting recovery records.
+  if(sourceKind !== 'desktop' || !Object.hasOwn(next,'deletedTours')){
+    if(previous.deletedTours !== undefined) next.deletedTours=cloneJson(previous.deletedTours,[]);
+  }
   if(sourceKind === 'desktop'){
     next.siteTours = cloneJson(previousSiteTours, []);
     next.accountingTours = cloneJson(

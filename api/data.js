@@ -1,3 +1,4 @@
+const Recovery = require('./_recovery');
 const {validateBusPlans} = require('./_busPlans');
 const path = require('path');
 const {
@@ -36,11 +37,13 @@ module.exports = async function handler(req, res){
     }
     try{
       const client = supabaseAdmin();
-      const { data, error } = await client.from(TABLE).select('data').eq('id', companyRowId(companyId)).maybeSingle();
+      const { data, error } = await client.from(TABLE).select('data,updated_at').eq('id', companyRowId(companyId)).maybeSingle();
       if(error) throw error;
       const rawState = data && data.data ? data.data : companyDefaultData(companyId);
       res.setHeader('X-Turizm-Company', companyId);
-      return res.status(200).json(wantsAdmin ? adminStateForClient(rawState, authorization.kind) : sanitizePublicState(rawState));
+      const payload = wantsAdmin ? adminStateForClient(rawState, authorization.kind) : sanitizePublicState(rawState);
+      if(wantsAdmin) payload._meta = {...payload._meta, serverRevision:data?.updated_at||''};
+      return res.status(200).json(payload);
     } catch(err){
       console.error(err);
       res.setHeader('Retry-After', '30');
@@ -73,9 +76,11 @@ module.exports = async function handler(req, res){
       const client = supabaseAdmin();
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       let dataToSave = sanitizeAdminState(body.data || body);
-      const { data: existing, error: readError } = await client.from(TABLE).select('data').eq('id', companyRowId(companyId)).maybeSingle();
+      const { data: existing, error: readError } = await client.from(TABLE).select('data,updated_at').eq('id', companyRowId(companyId)).maybeSingle();
       if(readError) throw readError;
       const previousState = existing && existing.data ? existing.data : companyDefaultData(companyId);
+      if(authorization.kind === 'desktop') Recovery.expected(existing,dataToSave._meta?.serverRevision);
+      if(dataToSave._meta) delete dataToSave._meta.serverRevision;
       dataToSave = separateTourCollections(dataToSave, previousState, authorization.kind);
       if(authorization.kind === 'desktop'){
         dataToSave = filterStateByPermissions(dataToSave, previousState, authorization);
@@ -83,10 +88,17 @@ module.exports = async function handler(req, res){
         dataToSave = applyDesktopAudit(dataToSave, previousState, authorization);
       }
       validateBusPlans(dataToSave);
-      const { error } = await client.from(TABLE).upsert({id: companyRowId(companyId), data: dataToSave, updated_at: new Date().toISOString()}, {onConflict:'id'});
-      if(error) throw error;
+      if(authorization.kind === 'desktop'){
+        const remaining = new Set((dataToSave.accountingTours||[]).map(t=>String(t.id)));
+        const removed = (previousState.accountingTours||previousState.tours||[]).filter(t=>!remaining.has(String(t.id)));
+        if(removed.length){
+          const shared=await Recovery.read(client,'turizm-shared-bus-plans-v1');
+          if((shared?.data?.plans||[]).some(p=>!p.archived&&p.sources.some(x=>x.company===companyId&&removed.some(t=>String(t.id)===x.tourId)))) Recovery.fail('Bu tur ortak otobüs planında. Önce Otobüs düzeni bölümünden ortak plan bağlantısını kaldırın.');
+        }
+      }
+      const revision = await Recovery.write(client,companyRowId(companyId),existing,dataToSave);
       res.setHeader('X-Turizm-Company', companyId);
-      return res.status(200).json({ok:true, company:companyId});
+      return res.status(200).json({ok:true, company:companyId, revision});
     } catch(err){
       console.error(err);
       return res.status(Number(err && err.statusCode) || 500).json({ok:false, error:err && err.statusCode ? err.message : 'Veri kaydı yapılamadı.'});
