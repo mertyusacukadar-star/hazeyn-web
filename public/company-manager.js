@@ -20,7 +20,7 @@
   form.elements.logo.onchange=async()=>{logo='';error.textContent='';const f=form.elements.logo.files[0];if(!f)return;if(!['image/png','image/jpeg'].includes(f.type)||f.size>290*1024){error.textContent='En fazla 290 KB PNG veya JPEG seçin.';form.elements.logo.value='';return;}logo=await new Promise(resolve=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.readAsDataURL(f);});preview(logo);};
   deleteButton.onclick=async()=>{
    const id=form.elements.company.value,company=C.config[id];if(!company||!hooks.canLeave())return;
-   if(!confirm('“'+company.name+'” firmasını silmek istediğinize emin misiniz?\n\nFirma giriş listesinden kaldırılır. Yolcu ve muhasebe kayıtları kalıcı olarak silinmez.'))return;
+   if(!await window.askWorkspaceConfirmation('“'+company.name+'” firmasını silmek istediğinize emin misiniz?\n\nFirma giriş listesinden kaldırılır. Yolcu ve muhasebe kayıtları kalıcı olarak silinmez.'))return;
    const save=form.querySelector('[type=submit]');deleteButton.disabled=save.disabled=true;error.textContent='';
    try{const result=await request({action:'delete',revision,companyId:id,confirmation:company.name});C.apply(result.companies);revision=result.revision;render();d.close();await hooks.changed({deleted:id});hooks.toast('Firma giriş listesinden kaldırıldı. Kayıtları kurtarma için korunuyor.');}catch(e){error.textContent=e.message;}finally{deleteButton.disabled=save.disabled=false;}
   };
