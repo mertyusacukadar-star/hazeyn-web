@@ -48,6 +48,7 @@
  html[data-theme=dark] body.workspace-modern.desktop-app .workspace-tour-tabs button.active{background:#193a34!important;border-color:#38665a;color:#b5edd9}
  body.workspace-modern.desktop-app .workspace-filters{background:transparent!important;border:0!important}
  body.workspace-modern.desktop-app .workspace-login-card .company-choice-logo img{content:normal!important}
+ html.accounting-app body.workspace-modern.desktop-app .workspace-login-card .company-choice-logo:is(.dark,.logo-on-dark){background:#1c3235!important}
  body.desktop-app .user-directory-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}.user-directory-toolbar h2{margin:6px 0}.user-directory-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
  body.desktop-app #tab-users .user-management-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:22px;align-items:start}
  body.desktop-app #tab-users #desktopUserForm{display:none!important;order:2}

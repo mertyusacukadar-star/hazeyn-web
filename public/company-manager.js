@@ -5,7 +5,7 @@
  function render(){
   const select=document.getElementById('companySwitcher'),picker=document.querySelector('.company-login-picker'),fields=document.querySelector('.company-permission-fieldset');
   const chosen=select.value;select.innerHTML=C.ids.map(id=>`<option value="${id}">${esc(C.config[id].name)}</option>`).join('');select.value=chosen;
-  picker.innerHTML=C.ids.map(id=>`<button type="button" data-company-choice="${id}"><span class="company-choice-logo"><img src="${esc(C.config[id].logo)}" alt="${esc(C.config[id].name)}"></span><b>${esc(C.config[id].name)}</b><small>Ayrı yolcu ve muhasebe hesabı</small></button>`).join('');
+  picker.innerHTML=C.ids.map(id=>`<button type="button" data-company-choice="${id}"><span class="company-choice-logo ${C.config[id].logo==='assets/logo.png'?'dark':C.config[id].logo==='assets/hakikat-logo-white.png'?'hakikat logo-on-dark':''}"><img src="${esc(C.config[id].logo)}" alt="${esc(C.config[id].name)}"></span><b>${esc(C.config[id].name)}</b><small>Ayrı yolcu ve muhasebe hesabı</small></button>`).join('');
   fields.innerHTML='<legend>Görebileceği Firma</legend>'+C.ids.map(id=>`<label><input type="checkbox" value="${id}" data-company-permission id="${({hazeyn:'desktopUserHazeyn',hakikat:'desktopUserHakikat',afyon:'desktopUserAfyon'})[id]||'permission-'+id}"> ${esc(C.config[id].name)}</label>`).join('');
  }
  async function open(){
