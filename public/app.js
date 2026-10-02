@@ -4618,7 +4618,7 @@
     document.addEventListener('DOMContentLoaded', async () => {
         if (IS_APP_MODE) {
             try { await window.TurizmCompanyManager.load(); currentCompanyId=normalizeCompanyId(requestedCompany||localStorage.getItem('turizmLastCompany')); } catch(e){ showAppError(e.message); }
-            window.TurizmCompanyManager.install({headers:authorizedHeaders,owner:isAppOwner,canLeave:()=>!workspaceUI||workspaceUI.canLeave(),toast,changed:()=>{updateCompanyBranding();renderAdmin();['tab-passengers','tab-tours','tab-costs','tab-accounting'].forEach(id=>workspaceUI?.checkpoint(id));}});
+            window.TurizmCompanyManager.install({headers:authorizedHeaders,owner:isAppOwner,canLeave:()=>!workspaceUI||workspaceUI.canLeave(),toast,changed:async change=>{if(change?.deleted===currentCompanyId){await switchCompanyAccount(window.TurizmCompanies.ids[0]);return;}updateCompanyBranding();renderAdmin();['tab-passengers','tab-tours','tab-costs','tab-accounting'].forEach(id=>workspaceUI?.checkpoint(id));}});
             setupMobileAppInstall();
         }
         // Admin girişini uzak veri yüklemesine bağlama. Supabase yavaşlasa veya

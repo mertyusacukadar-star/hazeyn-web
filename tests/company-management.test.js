@@ -37,5 +37,20 @@ async function call(fn,method,query={},body){let status=200,data;await fn({metho
  const publicCatalog=await call(handler,'GET');assert.ok(!JSON.stringify(publicCatalog).includes('test-secret'));
  user={role:'employee',permissions:{manageRecovery:false}};assert.equal((await call(recovery,'GET',{company:'hazeyn',action:'export'})).status,403);
  const pdf=await require('../api/_receiptPdf').createReceiptPdf({companyId:company.id,state:{settings:{}},passenger:{name:'Deneme'},payment:{amount:1},tour:{},list:{}});assert.ok(pdf.length>1000);
+ // Company removal is recoverable and must never delete its ledger row.
+ const ledgerId=S.companyRowId(company.id);db.rows[ledgerId]={id:ledgerId,data:{passengerLists:[{id:'keep-list',passengers:[{name:'Keep passenger'}]}]},updated_at:'2026-10-01T00:00:00.000Z'};
+ const ledgerBefore=JSON.stringify(db.rows[ledgerId]);user={role:'employee'};
+ let directory=await call(handler,'GET');const deleteBody={action:'delete',companyId:company.id,confirmation:company.name,revision:directory.data.revision};
+ assert.equal((await call(handler,'POST',{},deleteBody)).status,403);
+ user={role:'owner'};
+ assert.equal((await call(handler,'POST',{}, {...deleteBody,confirmation:''})).status,400);
+ assert.equal((await call(handler,'POST',{}, {...deleteBody,companyId:'hazeyn',confirmation:'Hazeyn Turizm'})).status,400);
+ db.rows['turizm-shared-bus-plans-v1']={id:'turizm-shared-bus-plans-v1',data:{plans:[{sources:[{company:company.id}],archived:false}]},updated_at:'2026-10-01T00:00:00.000Z'};
+ assert.equal((await call(handler,'POST',{},deleteBody)).status,409);
+ db.rows['turizm-shared-bus-plans-v1'].data.plans=[];
+ assert.equal((await call(handler,'POST',{}, {...deleteBody,revision:''})).status,409);
+ const deleted=await call(handler,'POST',{},deleteBody);assert.equal(deleted.status,200);assert.equal(deleted.data.deleted,company.id);assert(!C.valid(company.id));assert.equal(JSON.stringify(db.rows[ledgerId]),ledgerBefore);
+ const snapshots=Object.values(db.rows).filter(row=>row.data?.source===D.ID&&row.data.state.companies.some(c=>c.id===company.id));assert(snapshots.length,'Recoverable directory snapshot must retain company definition');
+ const restored=await call(recovery,'POST',{company:'hazeyn',resource:'companyDirectory',action:'restore'},{snapshotId:snapshots[0].id,revision:deleted.data.revision,confirm:true});assert.equal(restored.status,200);assert(C.valid(company.id));assert.equal(JSON.stringify(db.rows[ledgerId]),ledgerBefore);
  C.apply([]);console.log('Company management: isolated IDs, denied writes, conflicts, logos/PDF, dynamic bus sides, delegated/revoked recovery, encrypted provider settings and full export passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
