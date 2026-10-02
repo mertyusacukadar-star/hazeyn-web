@@ -74,6 +74,13 @@ function seats(bus){
   }
   return {rows,rear:Array.from({length:rear},()=>number++),leftPerRow:2,rightPerRow:2};
 }
+function numberedRows(bus){
+  let left=0,right=0;return seats(bus).rows.map(row=>({...row,leftRow:row.left.some(Boolean)?++left:null,rightRow:row.right.some(Boolean)?++right:null}));
+}
+function rowPosition(bus,seat){
+  for(const row of numberedRows(bus)){if(row.left.includes(Number(seat)))return 'Sol '+row.leftRow+'. sıra';if(row.right.includes(Number(seat)))return 'Sağ '+row.rightRow+'. sıra';}
+  return seats(bus).rear.includes(Number(seat))?'Arka sıra':'';
+}
 function placements(plan){return new Map(plan.buses.flatMap(b=>Object.entries(b.assignments).map(([seat,id])=>[id,{busId:b.id,seat:Number(seat)}])));}
 function reconcile(plan,people){const next=normalizePlan(plan),valid=new Set(people.map(p=>p.id));let removed=0;next.buses.forEach(b=>Object.entries(b.assignments).forEach(([s,p])=>{if(!valid.has(p)){delete b.assignments[s];removed++;}}));return {plan:next,removed};}
 function move(plan,ids,busId,startSeat){
@@ -100,7 +107,7 @@ function autoPlace(plan,people){
   }
   return {plan:next,warnings};
 }
-const api={key,fold,roster,makeBus,seatLabel,isStaff,passengerCapacity,customCapacity,validLayout,layoutSettings,renumber,normalizePlan,seats,placements,reconcile,move,autoPlace};
+const api={key,fold,roster,makeBus,seatLabel,isStaff,passengerCapacity,customCapacity,validLayout,layoutSettings,renumber,normalizePlan,seats,numberedRows,rowPosition,placements,reconcile,move,autoPlace};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 root.TurizmBusPlan=api;
 })(typeof window==='undefined'?globalThis:window);

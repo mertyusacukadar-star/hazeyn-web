@@ -5,7 +5,7 @@
  function render(){
   const select=document.getElementById('companySwitcher'),picker=document.querySelector('.company-login-picker'),fields=document.querySelector('.company-permission-fieldset');
   const chosen=select.value;select.innerHTML=C.ids.map(id=>`<option value="${id}">${esc(C.config[id].name)}</option>`).join('');select.value=chosen;
-  picker.innerHTML=C.ids.map(id=>`<button type="button" data-company-choice="${id}"><span class="company-choice-logo dark"><img src="${esc(C.config[id].logo)}" alt="${esc(C.config[id].name)}"></span><b>${esc(C.config[id].name)}</b><small>Ayrı yolcu ve muhasebe hesabı</small></button>`).join('');
+  picker.innerHTML=C.ids.map(id=>`<button type="button" data-company-choice="${id}"><span class="company-choice-logo"><img src="${esc(C.config[id].logo)}" alt="${esc(C.config[id].name)}"></span><b>${esc(C.config[id].name)}</b><small>Ayrı yolcu ve muhasebe hesabı</small></button>`).join('');
   fields.innerHTML='<legend>Görebileceği Firma</legend>'+C.ids.map(id=>`<label><input type="checkbox" value="${id}" data-company-permission id="${({hazeyn:'desktopUserHazeyn',hakikat:'desktopUserHakikat',afyon:'desktopUserAfyon'})[id]||'permission-'+id}"> ${esc(C.config[id].name)}</label>`).join('');
  }
  async function open(){
@@ -19,5 +19,5 @@
   form.elements.logo.onchange=async()=>{logo='';error.textContent='';const f=form.elements.logo.files[0];if(!f)return;if(!['image/png','image/jpeg'].includes(f.type)||f.size>290*1024){error.textContent='En fazla 290 KB PNG veya JPEG seçin.';form.elements.logo.value='';return;}logo=await new Promise(resolve=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.readAsDataURL(f);});preview(logo);};
   form.onsubmit=async e=>{e.preventDefault();if(!form.elements.company.value&&!logo){error.textContent='Yeni firma için logo yükleyin.';return;}const button=form.querySelector('[type=submit]');button.disabled=true;error.textContent='';try{const result=await request({revision,company:{id:form.elements.company.value||undefined,name:form.elements.brand.value,city:form.elements.city.value,...(logo?{logo}:{})}});C.apply(result.companies);revision=result.revision;render();hooks.changed();d.close();hooks.toast('Firma kaydedildi. Çalışan erişimini Kullanıcılar & Yetkiler bölümünden seçebilirsin.');}catch(e){error.textContent=e.message;}finally{button.disabled=false;}};
  }
- window.TurizmCompanyManager={async load(){const d=await request();C.apply(d.companies);revision=d.revision;render();},install(h){hooks=h;const b=document.createElement('button');b.type='button';b.className='btn btn-outline dark desktop-owner-only';b.textContent='Firmaları yönet';b.id='manageCompanies';b.onclick=open;document.getElementById('desktopUserForm')?.before(b);}};
+ window.TurizmCompanyManager={async load(){const d=await request();C.apply(d.companies);revision=d.revision;render();},install(h){hooks=h;const b=document.createElement('button');b.type='button';b.className='btn btn-outline dark desktop-owner-only';b.textContent='Firmaları yönet';b.id='manageCompanies';b.onclick=open;(document.getElementById('companyManagerAction')||document.getElementById('tab-users')).append(b);}};
 })();

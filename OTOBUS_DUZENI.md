@@ -45,6 +45,14 @@ Ortak plan öncesi kod etiketi: `backup/before-shared-buses-20260927`. Geri dön
 
 ## Veri ve yetki sınırları
 
+### Sol / sağ sıra bilgisi
+
+Koltuk haritasındaki **Sol / sağ sıra bilgisini göster** seçimi ve çıktı ön izlemesindeki **Sıra bilgisi** kutusu aynı görünüm tercihidir. Kapatınca önceki numaralı görünüme dönülür; koltuk numaraları ve kayıtlı yerleşimler değişmez. Tercih bu cihazda saklanır. Sol ve sağ sıralar ayrı sayılır; orta kapı boşluğu bulunduğu tarafta sıra sayılmaz. Örneğin standart planda sol 9. sırayla sağ 7. sıra yan yana gelir. Arka beşli ayrıca “Arka sıra” olarak gösterilir. Özel düzen ve kapının sol tarafta olduğu düzen de aynı hesabı kullanır.
+
+### Kaydetme sırasında başka cihazdan güncelleme
+
+Değişmemiş planı yeniden kaydetmek gereksiz sunucu yazması yapmaz ve son sürümü alır. Bağımsız firma kaydında başka bölümdeki değişiklikler son alınan temel sürümle karşılaştırılarak birleştirilir; örneğin başka cihazdan gelen ödeme, otobüs planı kaydında korunur. Sunucu sürüm kontrolü devam eder ve kayıt sırasında oluşan yarış sınırlı sayıda yeniden denenir. Aynı plan iki cihazda farklı düzenlenmişse veya aynı fiyat/alan farklı değiştirilmişse kayıt durur; taslak bu cihazda saklanır. Ortak planlarda ayrı plan revizyonu denetlenir; değişmemiş ortak plan yeniden açılır, farklı düzenlemeler sessizce ezilmez.
+
 Planlar şirket verisinde ayrı `tourBusPlans[tourId]` alanında tutulur. Koltuklar yolcu listesi ve yolcu kimliği çiftine bağlıdır; isim değişimi koltuğu kaybettirmez. Silinen yolcuların eski koltukları plan açıldığında temizlenir. `viewPassengers` görüntüleme, `managePassengers` düzenleme yetkisidir. Sunucu kapasite, hedef, koltuk ve tekrarlı yerleşim biçimini doğrular. Site kayıtları ve alanı tanımayan eski istemciler mevcut planları korur. Planlar herkese açık site verisine dahil edilmez.
 
 ## Doğrulama ve geri dönüş

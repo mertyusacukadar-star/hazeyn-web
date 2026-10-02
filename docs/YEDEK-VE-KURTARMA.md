@@ -1,5 +1,7 @@
 # Turizm Muhasebe — yedek ve kurtarma
 
+Google / Microsoft bağlantı kurulumundaki yönlendirme adresi, muhasebe uygulamasının OAuth dönüş adresidir. Aynı altyapıyı kullanan firmalar aynı adresi kullanır; bu, yedeğin Hazeyn'e ait bir Google / Microsoft hesabına gönderildiği anlamına gelmez. Bağlanacak hesabı kullanıcı sağlayıcının giriş ekranında seçer. Adres kurulum ekranında tam olarak görünür ve **Adresi kopyala** ile kopyalanabilir; sağlayıcıya adresin tamamı aynen kaydedilmelidir.
+
 ## Veriler nerede?
 
 - Asıl yolcu, ödeme, gider ve tur kayıtları Supabase `hazeyn_data` tablosundadır. Her firmanın satırı ayrıdır. Ortak otobüsler ve çalışan hesapları ayrıca saklanır.

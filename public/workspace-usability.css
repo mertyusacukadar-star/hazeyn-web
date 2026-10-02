@@ -15,9 +15,9 @@
  html[data-theme=dark] body.desktop-app #passengerEditorCard>.form-actions{background:#192b2e;border-color:#344b4f}
  body.desktop-app #passengerTable select{min-width:100px;padding-right:28px}
  body.desktop-app #passengerTable tr[hidden]{display:none!important}
- body.desktop-app #passengerTable th:first-child,body.desktop-app #passengerTable td:first-child{position:sticky;left:0;z-index:3;background:#fff;min-width:245px;width:245px;box-shadow:4px 0 8px #0000000d}
+ body.desktop-app #passengerTable th:first-child,body.desktop-app #passengerTable td:first-child{position:sticky;left:0;z-index:3;background:#fff;min-width:195px;width:195px;box-shadow:4px 0 8px #0000000d}
  body.desktop-app #passengerTable th:last-child,body.desktop-app #passengerTable td:last-child{position:sticky;right:0;z-index:3;background:#fff;min-width:65px;box-shadow:-4px 0 8px #0000000d}
- body.desktop-app #passengerTable .p-name{min-width:220px;width:100%;resize:vertical;min-height:48px;white-space:pre-wrap;line-height:1.45;font:inherit;padding:10px;border:1px solid #cbd9d3;border-radius:10px}
+ body.desktop-app #passengerTable .p-name{min-width:170px;width:100%;resize:none;min-height:36px;white-space:pre-wrap;line-height:1.45;font:inherit;padding:7px 9px;border:1px solid #cbd9d3;border-radius:10px}
  html[data-theme=dark] body.desktop-app #passengerTable td:first-child,html[data-theme=dark] body.desktop-app #passengerTable th:first-child,html[data-theme=dark] body.desktop-app #passengerTable td:last-child,html[data-theme=dark] body.desktop-app #passengerTable th:last-child{background:#192b2e}
  html[data-theme=dark] body.desktop-app #passengerTable .p-name{background:#192b2e;color:#e5efeb;border-color:#344b4f}
  body.desktop-app .recovery-dialog{padding:0!important;max-height:88dvh;overflow:auto;scroll-padding-top:88px}
@@ -30,4 +30,38 @@
  @keyframes workspace-pointer{50%{box-shadow:0 0 0 10px #e8ab3933}}
  @media(prefers-reduced-motion:reduce){.workspace-attention{animation:none}}
  @media(max-width:760px){body.desktop-app #passengerTable tbody tr::before{content:attr(data-position)}body.desktop-app #passengerTable td:first-child,body.desktop-app #passengerTable td:last-child{position:static;width:auto;min-width:0;box-shadow:none}body.desktop-app #passengerTable .p-name{min-width:0}.recovery-content{padding:16px}.recovery-dialog>header{padding:14px 16px}}
+}
+
+@media screen {
+ html.accounting-app{scrollbar-width:thin;scrollbar-color:#8da69e #eef3f1}
+ html.accounting-app[data-theme=dark]{scrollbar-color:#4c696b #111f22}
+ body.desktop-app *{scrollbar-width:thin;scrollbar-color:#91aaa2 transparent}
+ html[data-theme=dark] body.desktop-app *{scrollbar-color:#4c696b transparent}
+ body.desktop-app ::-webkit-scrollbar{width:8px;height:8px}body.desktop-app ::-webkit-scrollbar-track{background:transparent}body.desktop-app ::-webkit-scrollbar-thumb{background:#91aaa2;border:2px solid transparent;background-clip:padding-box;border-radius:20px}html[data-theme=dark] body.desktop-app ::-webkit-scrollbar-thumb{background-color:#4c696b}body.desktop-app ::-webkit-scrollbar-thumb:hover{background-color:#689c8e}
+ body.desktop-app #passengerTable td{padding:8px}
+ body.desktop-app #passengerTable :is(.p-tc,.p-phone,.p-passport){min-width:132px;font-variant-numeric:tabular-nums}
+ body.desktop-app #passengerTable :is(.p-birth,.p-pass-start,.p-pass-end){min-width:135px}
+ body.desktop-app #passengerTable :is(input,select){height:38px;padding-block:7px}
+ body.workspace-modern.desktop-app .workspace-tour-tabs{background:transparent!important;padding:10px 0 0;gap:8px;border:0!important}
+ body.workspace-modern.desktop-app .workspace-tour-tabs button{min-height:40px;padding:10px 14px;border:1px solid transparent;border-radius:10px;background:transparent!important;font-size:13px}
+ body.workspace-modern.desktop-app .workspace-tour-tabs button.active{background:#e7f2ed!important;border-color:#bad7cd;color:#205d49}
+ html[data-theme=dark] body.workspace-modern.desktop-app .workspace-tour-tabs button.active{background:#193a34!important;border-color:#38665a;color:#b5edd9}
+ body.workspace-modern.desktop-app .workspace-filters{background:transparent!important;border:0!important}
+ body.workspace-modern.desktop-app .workspace-login-card .company-choice-logo img{content:normal!important}
+ body.desktop-app .user-directory-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}.user-directory-toolbar h2{margin:6px 0}.user-directory-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+ body.desktop-app #tab-users .user-management-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:22px;align-items:start}
+ body.desktop-app #tab-users #desktopUserForm{display:none!important;order:2}
+ body.desktop-app #tab-users.user-editor-open .user-management-grid{grid-template-columns:minmax(0,1.1fr) minmax(380px,.9fr)}
+ body.desktop-app #tab-users.user-editor-open #desktopUserForm{display:flex!important;flex-direction:column}
+ .user-directory-card{order:1;min-width:0}.user-directory-tools{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:18px 0}.user-directory-tools label:first-child{flex:1 1 220px}.user-directory-tools>div{display:flex;gap:10px;align-items:center}.user-directory-tools button{background:transparent;color:inherit;border:1px solid #6a8781;border-radius:8px;padding:8px;cursor:pointer}.user-directory-tools button:disabled{opacity:.4}
+ body.desktop-app .desktop-user-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+ body.desktop-app .desktop-user-card{padding:16px;display:flex;flex-direction:column;align-items:stretch;text-align:left;gap:12px;min-width:0;margin:0}
+ .user-directory-tools label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:700}.user-directory-tools :is(input,select){width:100%;min-height:42px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);font:inherit}.desktop-user-card .user-company-badges{justify-content:flex-start}.desktop-user-card .admin-item-actions{justify-content:flex-end}.user-permission-details summary{color:var(--muted)!important}
+ body.desktop-app .desktop-user-card[hidden]{display:none!important}.desktop-user-card b{font-size:15px}.user-permission-details summary{font-size:12px;color:#6c877e;cursor:pointer}.user-permission-details[open] .user-permission-badges{margin-top:12px}.desktop-user-card .admin-item-actions{margin-top:auto}
+ body.desktop-app .owner-account-card{gap:16px;flex-wrap:wrap;margin-bottom:18px}.owner-account-card>span{white-space:normal}
+ body.desktop-app #desktopUserForm .company-permission-fieldset{display:flex;flex-wrap:wrap;gap:10px}.company-permission-fieldset label{flex:1 1 140px}
+ body.desktop-app #desktopUserForm .permission-actions-grid>p{grid-column:1/-1}
+ .cloud-redirect-note{display:block;margin:12px 0;padding:12px;border:1px solid #6a8781;border-radius:10px}.cloud-redirect-note textarea{width:100%;min-height:72px;resize:none;overflow-wrap:anywhere;font-size:12px;padding:10px}.cloud-redirect-note button{margin-top:8px}
+ @media(max-width:1100px){body.desktop-app #tab-users.user-editor-open .user-management-grid{grid-template-columns:minmax(0,1fr)}body.desktop-app #tab-users.user-editor-open #desktopUserForm{order:0}}
+ @media(max-width:760px){body.desktop-app .desktop-user-list{grid-template-columns:minmax(0,1fr)}body.desktop-app #passengerTable .p-name{min-width:0}}
 }

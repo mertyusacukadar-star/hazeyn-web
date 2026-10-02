@@ -11,14 +11,15 @@
   function render(){
    const all=[...body.rows],query=fold(search.value),rows=all.filter(row=>!query||['.p-name','.p-tc','.p-passport'].some(sel=>fold(row.querySelector(sel)?.value).includes(query)));
    page=Math.max(0,Math.min(page,Math.ceil(rows.length/size)-1));const visible=new Set(rows.slice(page*size,(page+1)*size));
-   all.forEach((row,i)=>{row.hidden=!visible.has(row);row.dataset.position=(i+1)+'. YOLCU';const name=row.querySelector('.p-name');if(name){name.title=name.value;row.querySelector('.remove-row')?.setAttribute('aria-label',(name.value||'Boş yolcu satırı')+' — sil');}});
+   all.forEach((row,i)=>{row.hidden=!visible.has(row);row.dataset.position=(i+1)+'. YOLCU';const name=row.querySelector('.p-name');if(name){name.rows=1;name.style.height='auto';if(visible.has(row))name.style.height=Math.max(36,name.scrollHeight+2)+'px';name.title=name.value;row.querySelector('.remove-row')?.setAttribute('aria-label',(name.value||'Boş yolcu satırı')+' — sil');}});
    bar.querySelector('[data-count]').textContent=rows.length?`${page*size+1}–${Math.min((page+1)*size,rows.length)} / ${rows.length} yolcu`:'Yolcu bulunamadı';
    bar.querySelector('[data-page]').textContent=`${page+1} / ${Math.max(1,Math.ceil(rows.length/size))}`;
    bar.querySelector('[data-prev]').disabled=page===0;bar.querySelector('[data-next]').disabled=(page+1)*size>=rows.length;
   }
   search.oninput=()=>{page=0;render();};bar.querySelector('[data-prev]').onclick=()=>{page--;render();};bar.querySelector('[data-next]').onclick=()=>{page++;render();};
   new MutationObserver(render).observe(body,{childList:true});
-  body.addEventListener('input',e=>{if(e.target.matches('.p-name'))e.target.title=e.target.value;});
+  let observedWidth=-1;new ResizeObserver(entries=>{const width=entries[0].contentRect.width;if(width!==observedWidth){observedWidth=width;render();}}).observe(table.parentElement);
+  body.addEventListener('input',e=>{if(e.target.matches('.p-name')){e.target.title=e.target.value;e.target.style.height='auto';e.target.style.height=Math.max(36,e.target.scrollHeight+2)+'px';e.target.closest('tr').querySelector('.remove-row')?.setAttribute('aria-label',(e.target.value||'Boş yolcu satırı')+' — sil');}});
   document.getElementById('addPassengerRow')?.addEventListener('click',()=>queueMicrotask(()=>{search.value='';page=Math.floor((body.rows.length-1)/size);render();const field=body.lastElementChild?.querySelector('.p-name');field?.scrollIntoView({block:'center'});field?.focus();}));
   render();
  }

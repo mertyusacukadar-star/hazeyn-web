@@ -1,0 +1,18 @@
+'use strict';
+const assert=require('node:assert/strict'),S=require('../public/state-sync'),P=require('../public/bus-plan');
+const base={_meta:{serverRevision:'1'},passengerLists:[{id:'l',passengers:[{id:'p',name:'Ali',tc:'12345678901',accounting:{agreedPrice:100,payments:[{id:'a',amount:10}]}}]}],tourBusPlans:{t:{version:1,buses:[P.makeBus()]}},siteTours:[{id:'public',title:'Site turu'}]};
+const local=structuredClone(base),remote=structuredClone(base);local.tourBusPlans.t.buses[0].assignments[5]='p';remote.passengerLists[0].passengers[0].accounting.payments.push({id:'b',amount:20});remote._meta.serverRevision='2';
+const result=S.merge(base,local,remote);assert.equal(result.ok,true);assert.equal(result.state.tourBusPlans.t.buses[0].assignments[5],'p');assert.equal(result.state.passengerLists[0].passengers[0].accounting.payments.length,2);assert.equal(result.state._meta.serverRevision,'2');
+const competing=structuredClone(remote);competing.tourBusPlans.t.buses[0].assignments[6]='p';assert.equal(S.merge(base,local,competing).ok,false);
+assert.equal(S.merge(base,base,remote).ok,true);assert.equal(S.sameData(base,{...base,_meta:{serverRevision:'9',pendingSync:true}}),true);
+const edit=structuredClone(base);edit.passengerLists[0].passengers[0].name='Yeni ad';assert.equal(S.merge(base,edit,remote).state.passengerLists[0].passengers[0].accounting.payments.length,2);
+const priceA=structuredClone(base),priceB=structuredClone(base);priceA.passengerLists[0].passengers[0].accounting.agreedPrice=200;priceB.passengerLists[0].passengers[0].accounting.agreedPrice=300;assert.equal(S.merge(base,priceA,priceB).ok,false);
+const removed=structuredClone(base);removed.passengerLists=[];assert.equal(S.merge(base,removed,remote).ok,false);
+const p1=structuredClone(base),p2=structuredClone(base);p1.passengerLists[0].passengers[0].accounting.payments.push({id:'c',amount:40});p2.passengerLists[0].passengers[0].accounting.payments.push({id:'d',amount:50});assert.equal(S.merge(base,p1,p2).state.passengerLists[0].passengers[0].accounting.payments.length,3);
+const site=structuredClone(remote);site.siteTours[0].title='Yayımlanan yeni başlık';assert.equal(S.merge(base,local,site).state.siteTours[0].title,'Yayımlanan yeni başlık');
+assert.equal(base.tourBusPlans.t.buses[0].assignments[5],undefined);assert.equal(remote.passengerLists[0].passengers[0].name,'Ali');
+const rows=P.numberedRows(P.makeBus());assert.equal(rows[8].leftRow,9);assert.equal(rows[8].rightRow,7);assert.equal(rows[6].rightRow,null);assert.equal(P.rowPosition(P.makeBus(),31),'Sağ 7. sıra');assert.equal(P.rowPosition(P.makeBus(),29),'Sol 9. sıra');
+const noDoor=P.makeBus();noDoor.doorAfter=0;assert.equal(P.numberedRows(noDoor)[6].rightRow,7);
+const leftDoor={...P.makeBus(),layout:{leftRows:10,leftPerRow:2,rightFrontRows:6,rightBackRows:6,rightPerRow:2,rear:5,doorEnabled:true,doorSide:'left',doorAfter:6,doorRows:2}};assert.equal(P.numberedRows(leftDoor)[8].leftRow,7);assert.equal(P.numberedRows(leftDoor)[8].rightRow,9);
+const print=require('../public/bus-print').buildPrintHtml;const html=print({model:{people:[],companyName:'Test',tourTitle:'Test'},buses:[P.makeBus()]});assert(html.includes('Sol 9. sıra'));assert(html.includes('Sağ 7. sıra'));assert(!print({model:{people:[]},buses:[P.makeBus()],showRows:false}).includes('Sol 9. sıra'));
+console.log('State sync: independent edits/payments/site updates merge, conflicting plans/prices/deletions stop, originals preserved; side row counts and reversible print verified.');

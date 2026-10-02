@@ -108,6 +108,8 @@
         ? 'hazeyn'
         : normalizeCompanyId(requestedCompany || localStorage.getItem('turizmLastCompany'));
     let state = null;
+    let serverBase = null;
+    async function rememberServerBase(data) { serverBase=clone(data); await idbSet(companyCacheKey()+':server-base',serverBase); }
     let adminLoggedIn = false;
     let workspaceUI = null;
     let busWorkspace = null;
@@ -162,8 +164,9 @@
                 if (!requirePermission('managePassengers')) return {ok:false};
                 if(sharedBusContext?.record){
                     const record=sharedBusContext.record;
+                    if(window.TurizmStateSync.equal(record.plan,plan)){const latest=await sharedBusRequest(currentCompanyId,id);if(latest.record?.id!==record.id)throw Error('Ortak plan bağlantısı değişti. Güncel planı açın.');sharedBusContext=latest;return {ok:true,plan:latest.record.plan,people:latest.people};}
                     sharedBusContext=await sharedBusRequest(currentCompanyId,id,{action:'save',id:record.id,revision:record.revision,plan});
-                    return {ok:true};
+                    return {ok:true,plan:sharedBusContext.record.plan,people:sharedBusContext.people};
                 }
                 const latestContext=await sharedBusRequest(currentCompanyId,id);
                 if(latestContext.record||latestContext.restricted)throw Error('Bu program başka bir cihazdan ortak otobüse bağlandı. Düzeniniz korunuyor; sayfayı yenileyip ortak planı açın.');
@@ -173,7 +176,7 @@
                 const ok = await saveData();
                 const storedLocally = !ok && state._meta?.pendingSync === true && state._meta.updatedAt !== previousStamp;
                 if (!ok && !storedLocally) state.tourBusPlans = previous;
-                return {ok, storedLocally};
+                return {ok, storedLocally,plan:ok?state.tourBusPlans?.[id]:undefined,people:ok?window.TurizmBusPlan.roster(state.passengerLists,id):undefined};
             }
         });
         const record=context.record;
@@ -1439,7 +1442,10 @@
         const local = parseJson(localStorage.getItem(key));
         const indexed = await idbGet(key);
         const bestLocal = chooseBestData([indexed, local]);
-        state = mergeDefaults(shouldPreserveUnsyncedLocal(remote, bestLocal) ? bestLocal : remote);
+        const preserve=shouldPreserveUnsyncedLocal(remote,bestLocal);
+        state = mergeDefaults(preserve ? bestLocal : remote);
+        serverBase=preserve ? await idbGet(key+':server-base') : null;
+        if(!preserve)await rememberServerBase(state);
         await cacheDataLocally(state);
         return true;
     }
@@ -1522,6 +1528,40 @@
     }
 
     async function saveData(options = {}) {
+        if(!IS_APP_MODE)return saveLegacyData(options);
+        delete state.settings.adminPassword;delete state.settings.password;
+        const intent=clone(state),base=serverBase&&serverBase._meta?.serverRevision===intent._meta?.serverRevision?clone(serverBase):null;
+        const company=currentCompanyId;
+        const preserve=async message=>{if(company!==currentCompanyId)return false;state=mergeDefaults(intent);state._meta={...state._meta,pendingSync:true,updatedAt:Math.max(Date.now(),Number(state._meta.updatedAt||0)+1)};await cacheDataLocally(state);toast(message,()=>{openRecovery();return '#exportBtn';});return false;};
+        for(let attempt=0;attempt<3;attempt++){
+            const raw=await fetchRemoteData({admin:true});
+            if(company!==currentCompanyId)return false;
+            if(!raw)return preserve('Sunucuya ulaşılamadı. Değişiklikler bu cihazda korundu; bağlantı gelince tekrar kaydedin.');
+            const latest=mergeDefaults(raw);let candidate=clone(intent);
+            if(base&&window.TurizmStateSync.sameData(intent,base)){state=latest;await rememberServerBase(state);await cacheDataLocally(state);return true;}
+            if(intent._meta?.serverRevision!==latest._meta?.serverRevision){
+                if(!base)return preserve('Bu cihazda güncel kayıtla karşılaştırılacak önceki sürüm yok. Değişiklikleriniz korundu; yedek ve kurtarma bölümünden cihaz taslağını yedekleyin.');
+                const merged=window.TurizmStateSync.merge(base,intent,latest);
+                if(!merged.ok)return preserve('Aynı kayıt üzerinde iki farklı düzenleme var. Değişiklikleriniz korundu; cihaz taslağını yedekleyip güncel kaydı inceleyin.');
+                candidate=merged.state;
+            }
+            candidate._meta={...latest._meta,updatedAt:Math.max(Date.now(),Number(latest._meta?.updatedAt||0)+1),pendingSync:false};
+            const payload=statePayloadForSave(candidate);
+            try{
+                const response=await fetch('/api/data?company='+encodeURIComponent(company),{method:'POST',headers:authorizedHeaders({'Content-Type':'application/json'}),body:JSON.stringify(payload)});
+                const saved=await response.json();
+                if(response.status===409&&attempt<2)continue;
+                if(!response.ok)throw Error(saved.error||'Sunucu kaydı başarısız.');
+                if(company!==currentCompanyId)return true;
+                payload._meta.serverRevision=saved.revision;state=mergeDefaults(payload);
+                await rememberServerBase(state);await cacheDataLocally(state);
+                window.dispatchEvent(new Event('turizm-data-saved'));return true;
+            }catch(error){return preserve((error.message||'Sunucu kaydı başarısız.')+' Değişiklikler bu cihazda korundu.');}
+        }
+        return preserve('Kayıt şu anda başka bir cihazda güncelleniyor. Değişiklikleriniz korundu; tekrar kaydedin.');
+    }
+
+    async function saveLegacyData(options = {}) {
         if (state && state.settings) {
             delete state.settings.adminPassword;
             delete state.settings.password;
@@ -2310,6 +2350,7 @@
         $('desktopUserForm').reset();
         $('desktopUserId').value = '';
         $('desktopUserActive').checked = true;
+        window.TurizmUserDirectory?.openEditor(false);
         document.querySelectorAll('[data-app-permission]').forEach(input => { input.checked = input.dataset.appPermission!=='manageRecovery'; });
     }
 
@@ -2334,9 +2375,10 @@
             <article class="desktop-user-card ${user.active === false ? 'inactive' : ''}" data-desktop-user-id="${escapeHtml(user.id)}">
                 <div><b>${escapeHtml(user.displayName)}</b><small>@${escapeHtml(user.username)} • ${user.active === false ? 'Pasif' : 'Aktif'}</small></div>
                 <div class="user-company-badges">${(user.companies || []).map(company => `<span class="${escapeHtml(company)}">${escapeHtml(COMPANY_CONFIG[company]?.shortName || company)}</span>`).join('')}</div>
-                <div class="user-permission-badges">${permissionBadges(user)}</div>
+                <details class="user-permission-details"><summary>${APP_PERMISSION_DEFINITIONS.filter(([key])=>normalizeAppPermissions(user.permissions)[key]).length} yetki · ayrıntıları göster</summary><div class="user-permission-badges">${permissionBadges(user)}</div></details>
                 <div class="admin-item-actions"><button class="icon-btn" type="button" data-edit-desktop-user="${escapeHtml(user.id)}">Düzenle</button><button class="icon-btn danger" type="button" data-delete-desktop-user="${escapeHtml(user.id)}">Sil</button></div>
             </article>`).join('') : '<div class="empty small">Henüz çalışan kullanıcısı oluşturulmadı.</div>';
+        window.TurizmUserDirectory?.refresh();
     }
 
     async function loadDesktopUsers() {
@@ -2361,6 +2403,7 @@
         $('desktopUserActive').checked = user.active !== false;
         const permissions = normalizeAppPermissions(user.permissions);
         document.querySelectorAll('[data-app-permission]').forEach(input => { input.checked = permissions[input.dataset.appPermission] === true; });
+        window.TurizmUserDirectory?.openEditor(true);
         $('desktopUserDisplayName').focus();
     }
 
@@ -3674,6 +3717,7 @@
         const remote = await fetchRemoteData({ admin: true });
         if (remote) {
             state = mergeDefaults(remote);
+            await rememberServerBase(state);
             await cacheDataLocally(state);
         }
         return getPassengerContext(listId, passengerId);
@@ -4173,7 +4217,7 @@
         if(!canManageRecovery())return;
         recoveryUI ||= window.TurizmRecoveryUI.create({headers:authorizedHeaders,company:()=>currentCompanyId,cloud:cloudBackupRequest,
             state:()=>state,owner:canManageRecovery,admin:isAppOwner,canLeave:()=>!workspaceUI||workspaceUI.canLeave(),toast,
-            reload:async()=>{ await window.TurizmCompanyManager.load();const remote=await fetchRemoteData({admin:true});if(!remote)throw Error('Geri yükleme kaydedildi; güncel ekran için Senkronize Et düğmesini kullanın.');state=mergeDefaults(remote);await cacheDataLocally(state);busWorkspace?.reset();renderAdmin();workspaceUI?.checkpoint(); },
+            reload:async()=>{ await window.TurizmCompanyManager.load();const remote=await fetchRemoteData({admin:true});if(!remote)throw Error('Geri yükleme kaydedildi; güncel ekran için Senkronize Et düğmesini kullanın.');state=mergeDefaults(remote);await rememberServerBase(state);await cacheDataLocally(state);busWorkspace?.reset();renderAdmin();workspaceUI?.checkpoint(); },
             restoreTour:async id=>{const before=structuredClone(state);state=window.TurizmTourTrash.restore(state,id);const ok=await saveData({keepLocalAccounting:true});if(!ok){state=before;await cacheDataLocally(state);}renderAdmin();workspaceUI?.checkpoint();return ok;}});
         recoveryUI.open();
     }
