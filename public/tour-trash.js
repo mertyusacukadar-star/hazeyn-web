@@ -31,6 +31,12 @@
   next.deletedTours=next.deletedTours.filter(x=>String(x.tour.id)!==String(id));
   return next;
  }
- const api={inspect,remove,restore};root.TurizmTourTrash=api;
+ function purge(state,id){
+  if(!(state.deletedTours||[]).some(x=>String(x.tour.id)===String(id)))throw Error('Silinen tur bulunamadı.');
+  const next=clone(state);
+  next.deletedTours=next.deletedTours.filter(x=>String(x.tour.id)!==String(id));
+  return next;
+ }
+ const api={inspect,remove,restore,purge};root.TurizmTourTrash=api;
  if(typeof module!=='undefined')module.exports=api;
 })(typeof window==='undefined'?globalThis:window);

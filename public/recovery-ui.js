@@ -46,15 +46,17 @@
   let dialog,page=0,trashPage=0,fileBackup=null,hasNext=false;
   const request=async(action,body,resource)=>{const res=await fetch(`/api/recovery?company=${encodeURIComponent(h.company())}&action=${action}${resource?'&resource='+encodeURIComponent(resource):''}`,{method:body?'POST':'GET',cache:'no-store',headers:h.headers({'Content-Type':'application/json'}),...(body?{body:JSON.stringify(body)}:{})});const result=await res.json();if(!res.ok)throw Error(result.error||'İşlem tamamlanamadı.');return result;};
   async function run(fn){
+   if(dialog?.getAttribute('aria-busy')==='true')return;
    const d=dialog,disabled=new Map();d.querySelector('[data-error]').textContent='';d.querySelectorAll('button:not([data-close]),input,select').forEach(b=>{disabled.set(b,b.disabled);b.disabled=true;});d.setAttribute('aria-busy','true');
    try{await fn();}catch(e){if(d.isConnected)d.querySelector('[data-error]').textContent=e.message;}
    finally{if(d.isConnected){disabled.forEach((v,b)=>{if(b.isConnected)b.disabled=v;});d.removeAttribute('aria-busy');renderTrash();d.querySelector('[data-prev]').disabled=page===0;d.querySelector('[data-next]').disabled=!hasNext;}}
   }
   function renderTrash(){
    const all=h.state().deletedTours||[],host=dialog.querySelector('[data-trash]');trashPage=Math.min(trashPage,Math.max(0,Math.ceil(all.length/8)-1));
-   host.innerHTML=all.length?all.slice(trashPage*8,trashPage*8+8).map(x=>`<div class="recovery-row"><div><strong>${esc(x.tour.title)}</strong><small>${stamp(x.deletedAt)} · ${x.passengers||0} yolcu</small></div><button class="btn btn-outline dark" data-restore-tour="${esc(x.tour.id)}">Geri al</button></div>`).join(''):'<p>Silinen tur yok.</p>';
+   host.innerHTML=all.length?all.slice(trashPage*8,trashPage*8+8).map(x=>`<div class="recovery-row"><div><strong>${esc(x.tour.title)}</strong><small>${stamp(x.deletedAt)} · ${x.passengers||0} yolcu</small></div><div class="recovery-actions recovery-row-actions"><button class="btn btn-outline dark" data-restore-tour="${esc(x.tour.id)}">Geri al</button><button class="btn btn-outline danger" data-purge-tour="${esc(x.tour.id)}">Kalıcı sil</button></div></div>`).join(''):'<p>Silinen tur yok.</p>';
    if(all.length>8)host.insertAdjacentHTML('beforeend',`<div class="recovery-actions"><button data-trash-prev ${trashPage===0?'disabled':''}>Önceki</button><span>${trashPage+1} / ${Math.ceil(all.length/8)}</span><button data-trash-next ${((trashPage+1)*8>=all.length)?'disabled':''}>Sonraki</button></div>`);
    host.querySelectorAll('[data-restore-tour]').forEach(b=>b.onclick=()=>run(async()=>{if(!h.canLeave())return;if(await root.askWorkspaceConfirmation('Bu tur, yolcuları ve ödemeleriyle geri alınsın mı?')){if(await h.restoreTour(b.dataset.restoreTour))h.toast('Tur geri alındı.');}}));
+   host.querySelectorAll('[data-purge-tour]').forEach(b=>b.onclick=()=>run(async()=>{if(!h.canLeave())return;const item=all.find(x=>String(x.tour.id)===b.dataset.purgeTour);if(await root.askWorkspaceConfirmation(`“${item.tour.title}” silinen turlardan kalıcı olarak kaldırılsın mı? Bu bölümden geri alınamaz. Önceden oluşturulmuş yedek dosyaları ve sunucu kurtarma kopyaları değişmez.`)){if(await h.purgeTour(b.dataset.purgeTour))h.toast('Tur silinen turlardan kaldırıldı.');}}));
    host.querySelector('[data-trash-prev]')?.addEventListener('click',()=>{trashPage--;renderTrash();});host.querySelector('[data-trash-next]')?.addEventListener('click',()=>{trashPage++;renderTrash();});
   }
   async function history(){
@@ -97,7 +99,7 @@
    root.TurizmBackupDestinations?.mount(targets.querySelector('[data-backup-targets]'),{browseCloud});
    page=0;trashPage=0;renderTrash();
    dialog.querySelector('[data-export]').onclick=()=>run(async()=>{
-    const data=await request('export');if(h.state()?._meta?.pendingSync)data.deviceDraft={company:h.company(),state:h.state()};
+    const data=await request('export');const draft=await h.deviceDraft?.();if(draft)data.deviceDraft=draft;else if(h.state()?._meta?.pendingSync)data.deviceDraft={company:h.company(),state:h.state()};
     if(await encryptedDownload(data,'turizm-tam-yedek-'+new Date().toISOString().slice(0,10))){const t=new Date().toISOString();try{localStorage.setItem('turizmLastBackupV1',t);}catch(_){}dialog.querySelector('[data-last]').textContent='İndirme başlatıldı: '+stamp(t)+' — dosyanın kaydedildiğini kontrol edin.';}
    });
    dialog.querySelector('[data-checkpoint]').onclick=()=>run(async()=>{await request('checkpoint',{});await history();h.toast('Tüm firmaların kurtarma noktası oluşturuldu.');});

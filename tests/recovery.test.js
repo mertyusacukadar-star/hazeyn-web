@@ -13,13 +13,14 @@ const R=require('../api/_recovery'),handler=require('../api/recovery'),dataHandl
 async function request(action,body,company='hazeyn',method=body?'POST':'GET',resource){
  let status=200,result;await handler({method,query:{company,action,resource},body},{setHeader(){},status(v){status=v;return this;},json(v){result=v;}});return {status,body:result};
 }
-async function dataRequest(method,body,scope='admin'){
- let status=200,result;await dataHandler({method,query:{company:'hazeyn',scope},body,headers:{}},{setHeader(){},status(v){status=v;return this;},json(v){result=v;}});return {status,body:result};
+async function dataRequest(method,body,scope='admin',extra={}){
+ let status=200,result;await dataHandler({method,query:{company:'hazeyn',scope,...extra},body,headers:{}},{setHeader(){},status(v){status=v;return this;},json(v){result=v;}});return {status,body:result};
 }
 (async()=>{
  const source=JSON.stringify(seed),removed=Trash.remove(seed,'t',{name:'QA'});
  assert.equal(JSON.stringify(seed),source);assert.equal(removed.tours.length,0);assert.equal(removed.passengerLists.length,0);assert.equal(removed.deletedTours[0].payments,1);
  const restored=Trash.restore(removed,'t');assert.deepEqual(restored.passengerLists,seed.passengerLists);assert.deepEqual(restored.tourCosts,seed.tourCosts);assert.deepEqual(restored.siteTours,seed.siteTours);
+ const purged=Trash.purge(removed,'t');assert.equal(purged.deletedTours.length,0);assert.deepEqual(purged.siteTours,seed.siteTours);assert.equal(removed.deletedTours.length,1);assert.throws(()=>Trash.restore(purged,'t'),/bulunamadı/);
  assert.throws(()=>Trash.restore({...removed,tours:seed.tours},'t'),/Aynı kimlik/);
  assert.equal(R.digest({b:1,a:2}),R.digest({a:2,b:1}),'JSONB ordering cannot invalidate checksums');
  const old=await R.read(db,'hazeyn');db.failSnapshot=true;
@@ -44,6 +45,16 @@ async function dataRequest(method,body,scope='admin'){
  const read=await dataRequest('GET');assert.equal(read.body._meta.serverRevision,db.rows.hazeyn.updated_at);
  assert.equal((await dataRequest('POST',{...read.body,_meta:{}})).status,409,'Old desktop clients cannot bypass concurrency');
  const save=await dataRequest('POST',read.body);assert.equal(save.status,200);assert(save.body.revision);assert(!Object.hasOwn(db.rows.hazeyn.data._meta,'serverRevision'));
+ assert.equal(save.body.state._meta.serverRevision,save.body.revision);assert.deepEqual(save.body.state.passengerLists,db.rows.hazeyn.data.passengerLists);
+ const baseline=await dataRequest('GET',null,'admin',{action:'baseline',revision:point.data.revision});assert.equal(baseline.status,200);assert.equal(baseline.body._meta.serverRevision,point.data.revision);assert.equal(baseline.body.passengerLists[0].passengers[0].accounting.payments[0].amount,20);
+ assert.equal((await dataRequest('GET',null,'admin',{action:'baseline',revision:point.data.revision,company:'afyon'})).status,404,'Baselines cannot cross company boundaries');
+ assert.equal((await dataRequest('GET',null,'admin',{action:'baseline'})).status,400);
+ const past=structuredClone(save.body.state);past.tours[0].status='completed';past.accountingTours=structuredClone(past.tours);
+ const pastSave=await dataRequest('POST',past);assert.equal(pastSave.status,200);
+ const pastRemoved=Trash.remove(pastSave.body.state,'t');const removedSave=await dataRequest('POST',pastRemoved);assert.equal(removedSave.status,200);assert.equal(removedSave.body.state.tours.length,0);
+ const purgeSave=await dataRequest('POST',Trash.purge(removedSave.body.state,'t'));assert.equal(purgeSave.status,200);assert.equal(purgeSave.body.state.deletedTours.length,0);
+ // Restore fixture for the independent shared-bus protection checks below.
+ await R.write(db,'hazeyn',await R.read(db,'hazeyn'),pastSave.body.state);
  const publicData=await dataRequest('GET',null,'public');assert(!Object.hasOwn(publicData.body,'deletedTours'));assert(!Object.hasOwn(publicData.body,'passengerLists'));assert.deepEqual(publicData.body.tours,seed.siteTours);
  db.rows['turizm-shared-bus-plans-v1']={id:'turizm-shared-bus-plans-v1',data:{plans:[{sources:[{company:'hazeyn',tourId:'t'}]}]},updated_at:rev};
  const latest=(await dataRequest('GET')).body;const withDeletion=Trash.remove(latest,'t');assert.equal((await dataRequest('POST',withDeletion)).status,409,'Shared plan references must be unlinked first');

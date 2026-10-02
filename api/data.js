@@ -43,6 +43,21 @@ module.exports = async function handler(req, res){
       const { data, error } = await client.from(TABLE).select('data,updated_at').eq('id', companyRowId(companyId)).maybeSingle();
       if(error) throw error;
       const rawState = data && data.data ? data.data : companyDefaultData(companyId);
+      if(wantsAdmin && action === 'baseline'){
+        const revision = String(req.query.revision || '');
+        if(!revision || revision.length > 40) return res.status(400).json({ok:false,error:'Geçerli kayıt sürümü gerekli.'});
+        let baseline = data?.updated_at === revision ? rawState : null;
+        if(!baseline){
+          const result = await client.from(TABLE).select('data').like('id',Recovery.prefix(companyRowId(companyId))+'%').eq('data->>revision',revision).range(0,0);
+          if(result.error) throw result.error;
+          const point = result.data?.[0]?.data;
+          if(point?.source === companyRowId(companyId) && point.sha256 === Recovery.digest(point.state)) baseline = point.state;
+        }
+        if(!baseline) return res.status(404).json({ok:false,error:'Bu sürümün karşılaştırma kopyası bulunamadı.'});
+        const payload = adminStateForClient(baseline,authorization.kind);
+        payload._meta = {...payload._meta,serverRevision:revision};
+        return res.status(200).json(payload);
+      }
       res.setHeader('X-Turizm-Company', companyId);
       const payload = wantsAdmin ? adminStateForClient(rawState, authorization.kind) : sanitizePublicState(rawState);
       if(wantsAdmin) payload._meta = {...payload._meta, serverRevision:data?.updated_at||''};
@@ -101,7 +116,9 @@ module.exports = async function handler(req, res){
       }
       const revision = await Recovery.write(client,companyRowId(companyId),existing,dataToSave);
       res.setHeader('X-Turizm-Company', companyId);
-      return res.status(200).json({ok:true, company:companyId, revision});
+      const state = adminStateForClient(dataToSave,authorization.kind);
+      state._meta = {...state._meta,serverRevision:revision,pendingSync:false};
+      return res.status(200).json({ok:true, company:companyId, revision, state});
     } catch(err){
       console.error(err);
       return res.status(Number(err && err.statusCode) || 500).json({ok:false, error:err && err.statusCode ? err.message : 'Veri kaydı yapılamadı.'});

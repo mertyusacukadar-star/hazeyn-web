@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="workspace-login.css?v=20261002-mobile3" />
     <link rel="stylesheet" href="bus-workspace.css?v=20261002-mobile3">
     <link rel="stylesheet" href="passenger-fields.css?v=20261002-mobile3">
-    <link rel="stylesheet" href="workspace-theme.css?v=20261002-mobile3">
+    <link rel="stylesheet" href="workspace-theme.css?v=20261002-tour-save1">
 <link rel="stylesheet" href="workspace-usability.css?v=20261002-mobile3">
 </head>
 <body data-page="admin" class="admin-body">
@@ -81,7 +81,7 @@
 
             <section class="admin-panel active" id="tab-dashboard">
                 <div class="stats-grid">
-                    <article><strong id="statTours">0</strong><span>Tur</span></article>
+                    <article><strong id="statTours">0</strong><span id="statTourLabel">Güncel tur</span><small id="statTourSummary"></small></article>
                     <article data-desktop-hide><strong id="statReviews">0</strong><span>Yorum</span></article>
                     <article data-desktop-hide><strong id="statGallery">0</strong><span>Galeri Görseli</span></article>
                     <article><strong id="statLists">0</strong><span>Yolcu Listesi</span></article>
@@ -111,7 +111,7 @@
                         <label>Sayfa Adresi (Slug) <small>Boş bırakırsan başlık ve tarihten otomatik oluşturulur</small><input id="tourSlug" placeholder="25-eylul-2026-umre-programi" /></label>
                         <div class="form-row two-col">
                             <label>Program Durumu<select id="tourStatus"><option value="active">Aktif</option><option value="completed">Sona Ermiş</option><option value="draft">Taslak</option></select></label>
-                            <label>Çıkış Şehri<select id="tourDepartureCities"><option value="istanbul">İstanbul</option><option value="konya">Konya</option><option value="istanbul,konya">İstanbul ve Konya</option></select></label>
+                            <label>Çıkış Şehri<input id="tourDepartureCities" list="turkeyDepartureCities" value="İstanbul" placeholder="İl seçin veya şehir yazın" autocomplete="off"><small>Birden fazla şehir için virgül kullanın.</small></label>
                         </div>
                         <div class="form-row two-col">
                             <label>Kontenjan Durumu<select id="tourCapacityStatus"><option value="available">Müsait</option><option value="limited">Sınırlı Kontenjan</option><option value="full">Dolu</option><option value="waitlist">Yedek Liste</option></select></label>
@@ -564,19 +564,19 @@
     <script src="bus-shared-picker.js?v=20261002-mobile3"></script>
     <script src="bus-print.js?v=20261002-mobile3"></script>
     <script src="bus-workspace.js?v=20261002-mobile3"></script>
-    <script src="workspace-ui.js?v=20261002-mobile3"></script>
+    <script src="workspace-ui.js?v=20261002-tour-save1"></script>
     <script src="passenger-fields.js?v=20261002-mobile3"></script>
     <script src="/umre-visuals.js?v=20260930-1"></script>
     <script src="/tour-card.js?v=20260930-1"></script>
-    <script src="tour-trash.js?v=20261002-mobile3"></script>
+    <script src="tour-trash.js?v=20261002-tour-save1"></script>
     <script src="backup-destinations.js?v=20261002-mobile3"></script>
-    <script src="recovery-ui.js?v=20261002-mobile3"></script>
+    <script src="recovery-ui.js?v=20261002-tour-save1"></script>
     <script src="workspace-usability.js?v=20261002-mobile3"></script>
     <script src="tour-picker.js?v=20261002-mobile3"></script>
     <script src="receipt-preview.js?v=20261002-mobile3"></script>
 <script src="company-manager.js?v=20261002-company-delete2"></script>
-<script src="state-sync.js?v=20261002-mobile3"></script>
+<script src="state-sync.js?v=20261002-tour-save1"></script>
 <script src="user-directory.js?v=20261002-mobile3"></script>
-<script src="app.js?v=20261002-company-delete2"></script>
+<script src="app.js?v=20261002-tour-save1"></script>
 </body>
 </html>

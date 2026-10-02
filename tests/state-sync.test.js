@@ -11,6 +11,10 @@ const removed=structuredClone(base);removed.passengerLists=[];assert.equal(S.mer
 const p1=structuredClone(base),p2=structuredClone(base);p1.passengerLists[0].passengers[0].accounting.payments.push({id:'c',amount:40});p2.passengerLists[0].passengers[0].accounting.payments.push({id:'d',amount:50});assert.equal(S.merge(base,p1,p2).state.passengerLists[0].passengers[0].accounting.payments.length,3);
 const site=structuredClone(remote);site.siteTours[0].title='Yayımlanan yeni başlık';assert.equal(S.merge(base,local,site).state.siteTours[0].title,'Yayımlanan yeni başlık');
 assert.equal(base.tourBusPlans.t.buses[0].assignments[5],undefined);assert.equal(remote.passengerLists[0].passengers[0].name,'Ali');
+const trashBase={deletedTours:[{tour:{id:'old'},lists:[]}]},trashLocal=structuredClone(trashBase),trashRemote=structuredClone(trashBase);
+trashLocal.deletedTours.unshift({tour:{id:'new-local'},lists:[]});trashRemote.deletedTours.unshift({tour:{id:'new-remote'},lists:[]});
+assert.equal(S.merge(trashBase,trashLocal,trashRemote).ok,true);assert.equal(S.merge(trashBase,trashLocal,trashRemote).state.deletedTours.length,3);
+const purgeLocal=structuredClone(trashBase);purgeLocal.deletedTours=[];assert.equal(S.merge(trashBase,purgeLocal,trashRemote).state.deletedTours.length,1,'Purging one item preserves another device\'s newly deleted tour');
 const rows=P.numberedRows(P.makeBus());assert.equal(rows[8].leftRow,9);assert.equal(rows[8].rightRow,7);assert.equal(rows[6].rightRow,null);assert.equal(P.rowPosition(P.makeBus(),31),'Sağ 7. sıra');assert.equal(P.rowPosition(P.makeBus(),29),'Sol 9. sıra');
 const noDoor=P.makeBus();noDoor.doorAfter=0;assert.equal(P.numberedRows(noDoor)[6].rightRow,7);
 const leftDoor={...P.makeBus(),layout:{leftRows:10,leftPerRow:2,rightFrontRows:6,rightBackRows:6,rightPerRow:2,rear:5,doorEnabled:true,doorSide:'left',doorAfter:6,doorRows:2}};assert.equal(P.numberedRows(leftDoor)[8].leftRow,7);assert.equal(P.numberedRows(leftDoor)[8].rightRow,9);

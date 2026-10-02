@@ -18,7 +18,7 @@ module.exports=function memoryDB(initial={}){
     rows[id]={...rows[id],...structuredClone(value),id};return {data:[{id}]};
    }).then(ok,bad);}
   };
-  function matches(row){return filters.every(([k,v,op])=>op==='like'?String(row[k]).startsWith(v.slice(0,-1)):row[k]===v);}
+  function matches(row){return filters.every(([k,v,op])=>{const parts=k.split('->>'),actual=parts.length===2?row[parts[0]]?.[parts[1]]:row[k];return op==='like'?String(actual).startsWith(v.slice(0,-1)):actual===v;});}
   return query;
  }};return db;
 };

@@ -16,6 +16,9 @@
 .recovery-dialog summary{font-weight:650;cursor:pointer;padding:4px 0}
 .recovery-row{display:flex;align-items:center;gap:16px;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}
 .recovery-row>div{min-width:0;overflow-wrap:anywhere}.recovery-row small{display:block;font-size:12px}.recovery-row button{flex-shrink:0}
+.recovery-row .recovery-row-actions{margin:0;gap:8px;flex-shrink:0}
+#statTourSummary{display:block;margin-top:8px;color:var(--muted);font-size:12px;line-height:1.5}
+@media(max-width:600px){.recovery-row .recovery-row-actions{flex-direction:column}.recovery-row .recovery-row-actions .btn{flex:none;padding:10px 12px}}
 .recovery-dialog form{display:grid;gap:14px}.recovery-dialog label{display:grid;gap:5px}
 .backup-target-card{padding:18px;margin:12px 0;border:1px solid var(--line);border-radius:12px;background:var(--paper)}
 .backup-target-card.is-selected{border-color:var(--gold);box-shadow:inset 3px 0 var(--gold)}

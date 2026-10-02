@@ -564,20 +564,25 @@
         return `${base}-${suffix}`;
     }
 
+    const TURKEY_PROVINCES = 'Adana|Adıyaman|Afyonkarahisar|Ağrı|Amasya|Ankara|Antalya|Artvin|Aydın|Balıkesir|Bilecik|Bingöl|Bitlis|Bolu|Burdur|Bursa|Çanakkale|Çankırı|Çorum|Denizli|Diyarbakır|Edirne|Elazığ|Erzincan|Erzurum|Eskişehir|Gaziantep|Giresun|Gümüşhane|Hakkâri|Hatay|Isparta|Mersin|İstanbul|İzmir|Kars|Kastamonu|Kayseri|Kırklareli|Kırşehir|Kocaeli|Konya|Kütahya|Malatya|Manisa|Kahramanmaraş|Mardin|Muğla|Muş|Nevşehir|Niğde|Ordu|Rize|Sakarya|Samsun|Siirt|Sinop|Sivas|Tekirdağ|Tokat|Trabzon|Tunceli|Şanlıurfa|Uşak|Van|Yozgat|Zonguldak|Aksaray|Bayburt|Karaman|Kırıkkale|Batman|Şırnak|Bartın|Ardahan|Iğdır|Yalova|Karabük|Kilis|Osmaniye|Düzce'.split('|');
     function normalizeDepartureCities(value) {
         const raw = Array.isArray(value) ? value : String(value || '').split(/[,/;+]/);
-        const result = [];
+        const result = [],seen=new Set();
         raw.forEach(item => {
-            const key = slugifyTR(item);
-            if ((key.includes('istanbul') || key === 'ist') && !result.includes('istanbul')) result.push('istanbul');
-            if ((key.includes('konya') || key === 'kny') && !result.includes('konya')) result.push('konya');
+            const text=String(item || '').trim().slice(0,60),key=slugifyTR(text);
+            const normalized=({ist:'istanbul',kny:'konya',afyon:'afyonkarahisar'})[key] || key;
+            const city=TURKEY_PROVINCES.some(name=>slugifyTR(name)===normalized)?normalized:text;
+            if(key&&!seen.has(normalized)){seen.add(normalized);result.push(city);}
         });
-        return result.length ? ['istanbul', 'konya'].filter(city => result.includes(city)) : ['istanbul'];
+        return result.length ? result.slice(0,10) : ['istanbul'];
     }
 
+    function departureCityName(city) {
+        return TURKEY_PROVINCES.find(name=>slugifyTR(name)===city) || String(city);
+    }
     function departureCityLabel(t) {
         const cities = normalizeDepartureCities(t && (t.departureCities || t.departureCity));
-        const labels = cities.map(city => city === 'konya' ? 'Konya' : 'İstanbul');
+        const labels = cities.map(departureCityName);
         return `${labels.join(' / ')} çıkışlı`;
     }
 
@@ -1527,19 +1532,46 @@
         });
     }
 
+    async function fetchSaveBaseline(company,revision) {
+        if(!revision)return null;
+        try{
+            const response=await fetch('/api/data?scope=admin&action=baseline&company='+encodeURIComponent(company)+'&revision='+encodeURIComponent(revision),{headers:authorizedHeaders(),cache:'no-store'});
+            if(!response.ok)return null;
+            const data=await response.json();
+            return data._meta?.serverRevision===revision?mergeDefaults(data):null;
+        }catch(_){return null;}
+    }
+    async function deviceDraftForBackup() {
+        if(state?._meta?.pendingSync)return {company:currentCompanyId,state:clone(state)};
+        return await idbGet(companyCacheKey()+':unbased-draft');
+    }
     async function saveData(options = {}) {
+        saveData.pending=(saveData.pending||0)+1;
+        try{return await persistData(options);}finally{saveData.pending--;}
+    }
+    async function persistData(options = {}) {
         if(!IS_APP_MODE)return saveLegacyData(options);
         delete state.settings.adminPassword;delete state.settings.password;
-        const intent=clone(state),base=serverBase&&serverBase._meta?.serverRevision===intent._meta?.serverRevision?clone(serverBase):null;
+        const intent=clone(state);
+        let base=serverBase&&serverBase._meta?.serverRevision===intent._meta?.serverRevision?clone(serverBase):null;
         const company=currentCompanyId;
+        let isolated=false;
         const preserve=async message=>{if(company!==currentCompanyId)return false;state=mergeDefaults(intent);state._meta={...state._meta,pendingSync:true,updatedAt:Math.max(Date.now(),Number(state._meta.updatedAt||0)+1)};await cacheDataLocally(state);toast(message,()=>{openRecovery();return '#exportBtn';});return false;};
         for(let attempt=0;attempt<3;attempt++){
             const raw=await fetchRemoteData({admin:true});
             if(company!==currentCompanyId)return false;
             if(!raw)return preserve('Sunucuya ulaşılamadı. Değişiklikler bu cihazda korundu; bağlantı gelince tekrar kaydedin.');
             const latest=mergeDefaults(raw);let candidate=clone(intent);
-            if(base&&window.TurizmStateSync.sameData(intent,base)){state=latest;await rememberServerBase(state);await cacheDataLocally(state);return true;}
+            if(window.TurizmStateSync.sameData(intent,latest)||(base&&!isolated&&window.TurizmStateSync.sameData(intent,base))){state=latest;await rememberServerBase(state);await cacheDataLocally(state);window.dispatchEvent(new Event('turizm-data-saved'));return true;}
             if(intent._meta?.serverRevision!==latest._meta?.serverRevision){
+                if(!base)base=await fetchSaveBaseline(company,intent._meta?.serverRevision);
+                if(company!==currentCompanyId)return false;
+                if(!base&&options.operationBase){
+                    // Only the confirmed operation is rebased. An old untracked draft
+                    // must never replace unrelated server records or restore old deletions.
+                    base=clone(options.operationBase);isolated=true;
+                    await idbSet(companyCacheKey()+':unbased-draft',{company,state:intent,createdAt:new Date().toISOString()});
+                }
                 if(!base)return preserve('Bu cihazda güncel kayıtla karşılaştırılacak önceki sürüm yok. Değişiklikleriniz korundu; yedek ve kurtarma bölümünden cihaz taslağını yedekleyin.');
                 const merged=window.TurizmStateSync.merge(base,intent,latest);
                 if(!merged.ok)return preserve('Aynı kayıt üzerinde iki farklı düzenleme var. Değişiklikleriniz korundu; cihaz taslağını yedekleyip güncel kaydı inceleyin.');
@@ -1553,7 +1585,8 @@
                 if(response.status===409&&attempt<2)continue;
                 if(!response.ok)throw Error(saved.error||'Sunucu kaydı başarısız.');
                 if(company!==currentCompanyId)return true;
-                payload._meta.serverRevision=saved.revision;state=mergeDefaults(payload);
+                if(!saved.revision)throw Error('Sunucu kayıt onayı doğrulanamadı.');
+                payload._meta.serverRevision=saved.revision;state=mergeDefaults(saved.state||payload);
                 await rememberServerBase(state);await cacheDataLocally(state);
                 window.dispatchEvent(new Event('turizm-data-saved'));return true;
             }catch(error){return preserve((error.message||'Sunucu kaydı başarısız.')+' Değişiklikler bu cihazda korundu.');}
@@ -2318,7 +2351,11 @@
     }
 
     function renderDashboard() {
-        $('statTours').textContent = state.tours.length;
+        const counts={current:0,past:0,draft:0};
+        state.tours.forEach(t=>counts[window.TurizmWorkspaceCollections.tourLifecycle(t)]++);
+        $('statTours').textContent = IS_APP_MODE ? counts.current : state.tours.length;
+        if($('statTourLabel'))$('statTourLabel').textContent=IS_APP_MODE?'Güncel tur':'Toplam tur';
+        if($('statTourSummary'))$('statTourSummary').textContent=IS_APP_MODE?`${counts.past} geçmiş · ${counts.draft} taslak · ${state.tours.length} toplam`:'';
         $('statReviews').textContent = state.reviews.length;
         $('statGallery').textContent = state.gallery.length;
         $('statLists').textContent = state.passengerLists.length;
@@ -2539,6 +2576,7 @@
     }
 
     function resetTourForm() {
+        delete $('tourForm')._saveBase;
         $('tourForm').reset();
         $('tourId').value = '';
         tempTourImage = '';
@@ -2551,7 +2589,7 @@
             delete $('tourSlug').dataset.manual;
         }
         if ($('tourStatus')) $('tourStatus').value = 'active';
-        if ($('tourDepartureCities')) $('tourDepartureCities').value = 'istanbul';
+        if ($('tourDepartureCities')) $('tourDepartureCities').value = 'İstanbul';
         if ($('tourCapacityStatus')) $('tourCapacityStatus').value = 'available';
         const coverPreview = $('tourPreview');
         if (coverPreview) coverPreview.removeAttribute('src');
@@ -2584,7 +2622,8 @@
         $('tourId').value = t.id; $('tourType').value = t.type; $('tourTitle').value = t.title || ''; $('tourTag').value = t.tag || '';
         $('tourSlug').value = t.slug || defaultTourSlug(t); $('tourSlug').dataset.manual = '1';
         $('tourStatus').value = t.status || 'active';
-        $('tourDepartureCities').value = normalizeDepartureCities(t.departureCities).join(',');
+        $('tourDepartureCities').value = normalizeDepartureCities(t.departureCities).map(departureCityName).join(', ');
+        delete $('tourForm')._saveBase;
         $('tourCapacityStatus').value = t.capacityStatus || 'available';
         $('tourCapacity').value = t.capacity || '';
         $('tourDurationDays').value = t.durationDays;
@@ -2631,8 +2670,18 @@
 
     async function saveTour(e) {
         e.preventDefault();
+        if(saveTour.pending)return;
         if (!requirePermission('manageTours')) return;
+        if(!$('tourTitle').value.trim()){toast('Tur başlığını yazın.');return;}
+        saveTour.pending=true;
+        const form=$('tourForm'),controls=new Map();
+        form.querySelectorAll('input,textarea,select,button').forEach(field=>{controls.set(field,field.disabled);field.disabled=true;});
+        const button=form.querySelector('[type="submit"]'),label=button.textContent;
+        button.textContent='Kaydediliyor…';form.setAttribute('aria-busy','true');
+        try{
         const id = $('tourId').value || uid('t');
+        form._saveBase ||= clone(state);
+        $('tourId').value=id;
         const existing = state.tours.find(x => x.id === id) || {};
         const image = tempTourImage || $('tourImage').value.trim() || ($('tourType').value === 'yurtici' ? 'assets/yurtici.svg' : 'assets/hotel.svg');
         const detailBannerImage = tempTourDetailBannerImage || $('tourDetailBannerImage').value.trim();
@@ -2689,7 +2738,8 @@
 
         const idx = state.tours.findIndex(x => x.id === id);
         if (idx > -1) state.tours[idx] = t; else state.tours.unshift(t);
-        if (!await saveData()) return; resetTourForm(); renderTourAdmin(); renderPassengerTourSelect(); renderDashboard(); toast('Tur kaydedildi.');
+        if (!await saveData({operationBase:form._saveBase})) return; resetTourForm(); renderTourAdmin(); renderPassengerTourSelect(); renderDashboard(); toast('Tur kaydedildi ve güncel kayıtlarla eşitlendi.');
+        }finally{controls.forEach((disabled,field)=>field.disabled=disabled);button.textContent=label;form.removeAttribute('aria-busy');saveTour.pending=false;}
     }
 
     function resetReviewForm() { $('reviewForm').reset(); $('reviewId').value = ''; }
@@ -3868,6 +3918,20 @@
         toast('Tüm bilgisayarlardaki güncel veriler alındı.');
     }
 
+    async function refreshIdleAdminData() {
+        const busy=()=>!IS_APP_MODE||!adminLoggedIn||document.hidden||saveData.pending||saveTour.pending||state?._meta?.pendingSync||workspaceUI?.hasChanges()||busWorkspace?.isDirty()||document.querySelector('dialog[open]')||document.querySelector('.admin-panel.active:not(#tab-dashboard)');
+        if(refreshIdleAdminData.pending||busy())return;
+        refreshIdleAdminData.pending=true;
+        const company=currentCompanyId,previous=clone(state);
+        try{
+            const remote=await fetchRemoteData({admin:true});
+            if(!remote||company!==currentCompanyId||busy()||!window.TurizmStateSync.equal(previous,state))return;
+            if(remote._meta?.serverRevision===state._meta?.serverRevision)return;
+            state=mergeDefaults(remote);await rememberServerBase(state);await cacheDataLocally(state);
+            renderAdmin();
+        }finally{refreshIdleAdminData.pending=false;}
+    }
+
     function safeFileName(value) {
         return String(value || 'oda-listesi').toLocaleLowerCase('tr-TR').replace(/[^a-z0-9çğıöşü]+/gi, '-').replace(/^-+|-+$/g, '');
     }
@@ -4206,7 +4270,7 @@
     function installBackupTargets(){
         if(!IS_APP_MODE)return;
         window.TurizmBackupDestinations?.install({ready:()=>adminLoggedIn&&canManageRecovery(),setupAllowed:isAppOwner,cloud:cloudBackupRequest,toast,
-            fetchBackup:async()=>{const res=await fetch(`/api/recovery?company=${encodeURIComponent(currentCompanyId)}&action=export`,{cache:'no-store',headers:authorizedHeaders()});const data=await res.json();if(!res.ok)throw Error(data.error||'Sunucu yedeği alınamadı.');if(state?._meta?.pendingSync)data.deviceDraft={company:currentCompanyId,state};return data;}});
+            fetchBackup:async()=>{const res=await fetch(`/api/recovery?company=${encodeURIComponent(currentCompanyId)}&action=export`,{cache:'no-store',headers:authorizedHeaders()});const data=await res.json();if(!res.ok)throw Error(data.error||'Sunucu yedeği alınamadı.');const draft=await deviceDraftForBackup();if(draft)data.deviceDraft=draft;return data;}});
     }
     let recoveryCheckPending = false;
     async function checkpointOnLogin(){
@@ -4224,13 +4288,17 @@
     function openRecovery(){
         if(!canManageRecovery())return;
         recoveryUI ||= window.TurizmRecoveryUI.create({headers:authorizedHeaders,company:()=>currentCompanyId,cloud:cloudBackupRequest,
-            state:()=>state,owner:canManageRecovery,admin:isAppOwner,canLeave:()=>!workspaceUI||workspaceUI.canLeave(),toast,
+            state:()=>state,deviceDraft:deviceDraftForBackup,owner:canManageRecovery,admin:isAppOwner,canLeave:()=>!workspaceUI||workspaceUI.canLeave(),toast,
             reload:async()=>{ await window.TurizmCompanyManager.load();const remote=await fetchRemoteData({admin:true});if(!remote)throw Error('Geri yükleme kaydedildi; güncel ekran için Senkronize Et düğmesini kullanın.');state=mergeDefaults(remote);await rememberServerBase(state);await cacheDataLocally(state);busWorkspace?.reset();renderAdmin();workspaceUI?.checkpoint(); },
-            restoreTour:async id=>{const before=structuredClone(state);state=window.TurizmTourTrash.restore(state,id);const ok=await saveData({keepLocalAccounting:true});if(!ok){state=before;await cacheDataLocally(state);}renderAdmin();workspaceUI?.checkpoint();return ok;}});
+            restoreTour:async id=>{const before=structuredClone(state);state=window.TurizmTourTrash.restore(state,id);const ok=await saveData({keepLocalAccounting:true,operationBase:before});if(!ok){state=before;await cacheDataLocally(state);}renderAdmin();workspaceUI?.checkpoint();return ok;},
+            purgeTour:async id=>{if(!requirePermission('manageTours'))return false;const before=clone(state);state=window.TurizmTourTrash.purge(state,id);const ok=await saveData({operationBase:before});if(!ok){state=before;await cacheDataLocally(state);}renderAdmin();workspaceUI?.checkpoint();return ok;}});
         recoveryUI.open();
     }
     async function deleteAccountingTour(id){
+        if(deleteAccountingTour.pending)return;
         if(!requirePermission('manageTours') || workspaceUI&&!workspaceUI.canLeave())return;
+        deleteAccountingTour.pending=true;
+        try{
         const info=window.TurizmTourTrash.inspect(state,id);
         if(info.lists.length&&!requirePermission('deletePassengerLists'))return;
         if(info.costs&&!requirePermission('manageCosts'))return;
@@ -4241,9 +4309,10 @@
             try{await window.TurizmRecoveryUI.downloadTour(currentCompanyId,state,id);}catch(e){showAppError(e.message);return;}
         }
         const before=structuredClone(state);state=window.TurizmTourTrash.remove(state,id,currentActor());
-        const saved=await saveData({keepLocalAccounting:true});
+        const saved=await saveData({keepLocalAccounting:true,operationBase:before});
         if(!saved){state=before;await cacheDataLocally(state);toast('Sunucu onayı alınamadı; önceki kayıtlar ekranda korunuyor. Senkronize Et ile sonucu kontrol edin.');}
         renderAdmin();workspaceUI?.checkpoint();if(saved)toast('Tur silindi. Yedek ve kurtarma → Silinen turlar bölümünden geri alınabilir.');
+        }catch(error){toast(error.message||'Tur silinemedi.');}finally{deleteAccountingTour.pending=false;}
     }
 
     function exportBackup() {
@@ -4258,6 +4327,12 @@
     }
 
     function bindAdminEvents() {
+        const cities=document.createElement('datalist');cities.id='turkeyDepartureCities';
+        cities.innerHTML=TURKEY_PROVINCES.map(city=>`<option value="${escapeHtml(city)}"></option>`).join('')+'<option value="İstanbul, Konya"></option>';
+        $('tourDepartureCities').after(cities);
+        window.addEventListener('focus',refreshIdleAdminData);
+        document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshIdleAdminData();});
+        setInterval(refreshIdleAdminData,30000);
         window.installDocumentReader?.({
             allowed: () => hasPermission('managePassengers'),
             context: () => ({
