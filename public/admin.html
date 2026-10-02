@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <script>if(new URLSearchParams(location.search).get('desktop')==='1'||new URLSearchParams(location.search).get('mobile')==='1')document.documentElement.classList.add('accounting-app','app-booting');</script>
-    <script src="workspace-theme.js?v=20261002-logos2"></script>
+    <script src="workspace-theme.js?v=20261002-mobile3"></script>
     <style>html.app-booting body>*:not(#appBoot){display:none!important}#appBoot{display:none}html.app-booting #appBoot{display:grid;place-content:center;min-height:100dvh;margin:0;text-align:center;font:16px/1.6 Segoe UI,sans-serif;background:#f4f6f4;color:#203337}html[data-theme=dark].app-booting #appBoot{background:#10191c;color:#e1ece8}#appBoot button{padding:12px;border:1px solid #7f9b90;border-radius:10px;cursor:pointer}#appBoot [hidden]{display:none!important}</style>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#090a0d" />
@@ -16,13 +16,13 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/assets/mobile-app-icon-192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/mobile-app-icon-180.png" />
     <link rel="stylesheet" href="style.css?v=20260917-livecamera2" />
-    <link rel="stylesheet" href="workspace-ui.css?v=20261002-logos2" />
-<link rel="stylesheet" href="workspace-lists.css?v=20261002-logos2" />
-    <link rel="stylesheet" href="workspace-login.css?v=20261002-logos2" />
-    <link rel="stylesheet" href="bus-workspace.css?v=20261002-logos2">
-    <link rel="stylesheet" href="passenger-fields.css?v=20261002-logos2">
-    <link rel="stylesheet" href="workspace-theme.css?v=20261002-logos2">
-<link rel="stylesheet" href="workspace-usability.css?v=20261002-logos2">
+    <link rel="stylesheet" href="workspace-ui.css?v=20261002-mobile3" />
+<link rel="stylesheet" href="workspace-lists.css?v=20261002-mobile3" />
+    <link rel="stylesheet" href="workspace-login.css?v=20261002-mobile3" />
+    <link rel="stylesheet" href="bus-workspace.css?v=20261002-mobile3">
+    <link rel="stylesheet" href="passenger-fields.css?v=20261002-mobile3">
+    <link rel="stylesheet" href="workspace-theme.css?v=20261002-mobile3">
+<link rel="stylesheet" href="workspace-usability.css?v=20261002-mobile3">
 </head>
 <body data-page="admin" class="admin-body">
     <div id="appBoot" role="status"><strong>Turizm Muhasebe</strong><p>Çalışma alanınız hazırlanıyor…</p><button type="button" hidden onclick="location.reload()">Yeniden dene</button></div>
@@ -357,7 +357,7 @@
                     <div class="form-row three">
                         <label>Tur Seç <select id="listTourSelect"><option value="">Önce tur ekleyin veya seçin</option></select></label>
                         <label>Liste Başlığı<input id="listTitle" placeholder="Şevval Umresi" /></label>
-                        <label>Uçuş Tarihi <small>Tur tarihinden otomatik gelir</small><input id="listDate" type="date" /></label>
+                        <label>Uçuş Tarihi<input id="listDate" type="date" /><small>Tur tarihinden otomatik gelir</small></label>
                     </div>
                     <div class="form-row two-col">
                         <label>Rehber<input id="listLeader" placeholder="Emrullah Hoca" /></label>
@@ -554,27 +554,29 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="mrz-camera.js?v=20260917-livecamera2"></script>
     <script src="document-reader.js?v=20260917-livecamera2"></script>
-    <script src="company-config.js?v=20261002-logos2"></script>
-    <script src="workspace-dialog.js?v=20261002-logos2"></script>
-    <script src="workspace-collections.js?v=20261002-logos2"></script>
-    <script src="workspace-lists.js?v=20261002-logos2"></script>
-    <script src="workspace-login.js?v=20261002-logos2"></script>
-    <script src="bus-plan.js?v=20261002-logos2"></script>
-    <script src="bus-companies.js?v=20261002-logos2"></script>
-    <script src="bus-shared-picker.js?v=20261002-logos2"></script>
-    <script src="bus-print.js?v=20261002-logos2"></script>
-    <script src="bus-workspace.js?v=20261002-logos2"></script>
-    <script src="workspace-ui.js?v=20261002-logos2"></script>
-    <script src="passenger-fields.js?v=20261002-logos2"></script>
+    <script src="company-config.js?v=20261002-mobile3"></script>
+    <script src="workspace-dialog.js?v=20261002-mobile3"></script>
+    <script src="workspace-collections.js?v=20261002-mobile3"></script>
+    <script src="workspace-lists.js?v=20261002-mobile3"></script>
+    <script src="workspace-login.js?v=20261002-mobile3"></script>
+    <script src="bus-plan.js?v=20261002-mobile3"></script>
+    <script src="bus-companies.js?v=20261002-mobile3"></script>
+    <script src="bus-shared-picker.js?v=20261002-mobile3"></script>
+    <script src="bus-print.js?v=20261002-mobile3"></script>
+    <script src="bus-workspace.js?v=20261002-mobile3"></script>
+    <script src="workspace-ui.js?v=20261002-mobile3"></script>
+    <script src="passenger-fields.js?v=20261002-mobile3"></script>
     <script src="/umre-visuals.js?v=20260930-1"></script>
     <script src="/tour-card.js?v=20260930-1"></script>
-    <script src="tour-trash.js?v=20261002-logos2"></script>
-    <script src="backup-destinations.js?v=20261002-logos2"></script>
-    <script src="recovery-ui.js?v=20261002-logos2"></script>
-    <script src="workspace-usability.js?v=20261002-logos2"></script>
-<script src="company-manager.js?v=20261002-logos2"></script>
-<script src="state-sync.js?v=20261002-logos2"></script>
-<script src="user-directory.js?v=20261002-logos2"></script>
-<script src="app.js?v=20261002-logos2"></script>
+    <script src="tour-trash.js?v=20261002-mobile3"></script>
+    <script src="backup-destinations.js?v=20261002-mobile3"></script>
+    <script src="recovery-ui.js?v=20261002-mobile3"></script>
+    <script src="workspace-usability.js?v=20261002-mobile3"></script>
+    <script src="tour-picker.js?v=20261002-mobile3"></script>
+    <script src="receipt-preview.js?v=20261002-mobile3"></script>
+<script src="company-manager.js?v=20261002-mobile3"></script>
+<script src="state-sync.js?v=20261002-mobile3"></script>
+<script src="user-directory.js?v=20261002-mobile3"></script>
+<script src="app.js?v=20261002-mobile3"></script>
 </body>
 </html>

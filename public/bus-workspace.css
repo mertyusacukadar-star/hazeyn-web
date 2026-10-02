@@ -57,3 +57,12 @@
 .shared-bus-picker legend {font-weight:700;padding:0 5px;}
 
 .bus-row-label{grid-column:1/-1;font-size:11px;line-height:1.2;text-align:center;color:#728a7e;padding:2px 0 4px}.bus-row-toggle{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:16px 0;font-size:12px}.bus-row-toggle input{width:17px;min-width:17px;height:17px;accent-color:#65bda9}.bus-row-toggle small{width:100%;padding-left:25px;color:#829b93}.bus-print-toolbar label{display:flex;align-items:center;gap:8px;font-size:13px}
+
+@media screen{
+ html.accounting-app body.workspace-modern.desktop-app #tab-buses .bus-heading{padding:20px;border:1px solid var(--line,#dce5df);border-radius:18px;background:var(--paper,#fff)!important;box-shadow:0 3px 14px #0000000a;margin-bottom:16px}
+ .bus-side.rows-left{grid-template-columns:30px repeat(var(--seat-columns),minmax(0,1fr))}.bus-side.rows-right{grid-template-columns:repeat(var(--seat-columns),minmax(0,1fr)) 30px}
+ .bus-rear.rows-left{grid-template-columns:30px repeat(var(--rear-count),minmax(0,1fr))}
+ .bus-side>.bus-row-label,.bus-rear.rows-left>.bus-row-label{grid-column:auto;align-self:center;padding:5px 0;font-size:11px;font-weight:700;line-height:1.5;color:#305748;overflow-wrap:normal}
+ html[data-theme=dark] .bus-side>.bus-row-label,html[data-theme=dark] .bus-rear.rows-left>.bus-row-label{color:#c0dfd1}
+ @media(max-width:760px){html.accounting-app body.workspace-modern.desktop-app #tab-buses .bus-heading{padding:16px;border-radius:16px}.bus-actions{gap:8px}.bus-layout{gap:16px}.bus-map-panel{padding:10px}.bus-cabin{padding-inline:4px}.bus-side.rows-left{grid-template-columns:24px repeat(var(--seat-columns),minmax(0,1fr))}.bus-side.rows-right{grid-template-columns:repeat(var(--seat-columns),minmax(0,1fr)) 24px}.bus-rear.rows-left{grid-template-columns:24px repeat(var(--rear-count),minmax(0,1fr))}.bus-side>.bus-row-label,.bus-rear.rows-left>.bus-row-label{font-size:10px}.bus-selection{align-items:flex-start;flex-wrap:wrap}.bus-selection-actions button{flex:1;min-height:44px!important}.bus-print-preview{width:calc(100% - 12px);height:94dvh;max-height:94dvh}.bus-print-toolbar{padding:10px;gap:8px}.bus-print-toolbar strong{width:100%}.bus-print-toolbar button{flex:1;font-size:12px}}
+}

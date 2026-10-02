@@ -1,6 +1,13 @@
 (function(){
  'use strict';
  if(!document.body.classList.contains('desktop-app')&&!/[?&](desktop|mobile)=1/.test(location.search))return;
+ const sidebar=document.querySelector('.admin-sidebar');
+ if(sidebar){
+  const mobileNav=matchMedia('(max-width:760px)'),toggle=document.createElement('button');toggle.type='button';toggle.className='mobile-nav-toggle';toggle.setAttribute('aria-expanded','false');toggle.setAttribute('aria-label','Uygulama menüsü');toggle.textContent='☰ Menü';sidebar.prepend(toggle);
+  function closeMenu(){sidebar.classList.remove('mobile-menu-open');toggle.setAttribute('aria-expanded','false');toggle.textContent='☰ Menü';}
+  toggle.onclick=()=>{const open=sidebar.classList.toggle('mobile-menu-open');toggle.setAttribute('aria-expanded',String(open));toggle.textContent=open?'× Menüyü kapat':'☰ Menü';};
+  sidebar.addEventListener('click',e=>{if(mobileNav.matches&&e.target.closest('button,a')!==toggle)closeMenu();});sidebar.addEventListener('keydown',e=>{if(e.key==='Escape'){closeMenu();toggle.focus();}});mobileNav.addEventListener('change',closeMenu);
+ }
  const table=document.getElementById('passengerTable');
  if(table){
   const body=table.tBodies[0],bar=document.createElement('div');bar.className='passenger-editor-tools';

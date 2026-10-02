@@ -2884,7 +2884,7 @@
     function renderPassengerTourSelect(selectedId = '') {
         const select = $('listTourSelect'); if (!select) return;
         const current = selectedId || $('listTourId')?.value || '';
-        const options = state.tours.map(t => `<option value="${escapeHtml(t.id)}" ${t.id === current ? 'selected' : ''}>${escapeHtml(t.title)} - ${escapeHtml(t.type === 'umre' ? 'Umre' : t.type === 'hac' ? 'Hac' : 'Yurt İçi')}</option>`).join('');
+        const options = state.tours.map(t => `<option value="${escapeHtml(t.id)}" data-search-date="${escapeHtml(t.departureDate||'')}" ${t.id === current ? 'selected' : ''}>${escapeHtml(t.title)} - ${escapeHtml(t.type === 'umre' ? 'Umre' : t.type === 'hac' ? 'Hac' : 'Yurt İçi')}${IS_APP_MODE&&t.departureDate?' · '+escapeHtml(formatDateTR(t.departureDate)):''}</option>`).join('');
         select.innerHTML = '<option value="">Tur seçin</option>' + options;
     }
 
@@ -3582,7 +3582,7 @@
         if (!IS_APP_MODE || !$('costTourSelect') || !state) return;
         const select = $('costTourSelect');
         const tours = [...(state.tours || [])].sort((a, b) => String(b.departureDate || '').localeCompare(String(a.departureDate || '')));
-        select.innerHTML = '<option value="">Tur seçin</option>' + tours.map(tour => `<option value="${escapeHtml(tour.id)}">${escapeHtml(tour.title || 'İsimsiz tur')} • ${escapeHtml(formatDateTR(tour.departureDate) || 'Tarih yok')}</option>`).join('');
+        select.innerHTML = '<option value="">Tur seçin</option>' + tours.map(tour => `<option value="${escapeHtml(tour.id)}" data-search-date="${escapeHtml(tour.departureDate||'')}">${escapeHtml(tour.title || 'İsimsiz tur')} • ${escapeHtml(formatDateTR(tour.departureDate) || 'Tarih yok')}</option>`).join('');
         const availableIds = new Set(tours.map(tour => String(tour.id)));
         if (!availableIds.has(String(selectedCostTourId))) {
             const withPassengers = tours.find(tour => tourContextsForCost(tour.id).length > 0);
@@ -3770,7 +3770,7 @@
         if (!Number.isFinite(amount) || amount <= 0) { toast('Ödeme tutarı 0’dan büyük olmalı.'); return; }
         const currentSnapshot = passengerAccountSnapshot(currentContext);
         if (!currentSnapshot.agreedPrice) { toast('Önce yolcunun program ücretini kaydet.'); return; }
-        const receiptWindow = hasPermission('printReceipts') ? window.open('', '_blank') : null;
+        const receiptWindow = hasPermission('printReceipts') && !useInlineReceiptPreview() ? window.open('', '_blank') : null;
         const context = await latestAccountingContext(listId, passengerId);
         if (!context) { if (receiptWindow) receiptWindow.close(); toast('Yolcu kaydı başka bir kullanıcı tarafından değiştirilmiş. Verileri senkronize et.'); return; }
         const snapshot = passengerAccountSnapshot(context);
@@ -3812,6 +3812,10 @@
         toast('Ödeme kaydı iptal edildi.');
     }
 
+    function useInlineReceiptPreview() {
+        return IS_APP_MODE && (IS_MOBILE_APP || matchMedia('(max-width:760px)').matches) && typeof window.showReceiptPreview === 'function';
+    }
+
     function printPaymentReceipt(listId, passengerId, paymentId, targetWindow) {
         if (!requirePermission('printReceipts')) { if (targetWindow) targetWindow.close(); return false; }
         const context = getPassengerContext(listId, passengerId);
@@ -3835,6 +3839,10 @@
         const receiptHtml = `<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>${escapeHtml(payment.receiptNo)} Tahsilat Makbuzu</title><style>
             @page{size:A4 portrait;margin:15mm}*{box-sizing:border-box}body{margin:0;background:#eee;color:#17130d;font-family:Arial,sans-serif}.receipt{width:180mm;min-height:125mm;margin:12mm auto;background:#fff;border:2px solid #1b1812;padding:12mm;position:relative}.head{display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:3px solid #b8892d;padding-bottom:9mm}.head img{${receiptLogoStyle}}.title{text-align:right}.title h1{margin:0;font-size:25px}.title p{margin:5px 0 0;color:#756342;font-weight:bold}.receipt-no{display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin:8mm 0}.box{border:1px solid #b8aa91;padding:4mm;border-radius:3px}.box small,.detail small{display:block;color:#756342;font-size:11px;text-transform:uppercase;font-weight:bold;margin-bottom:2mm}.box b{font-size:17px}.details{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #b8aa91}.detail{padding:4mm;border-bottom:1px solid #d6cdbd}.detail:nth-child(odd){border-right:1px solid #d6cdbd}.detail:nth-last-child(-n+2){border-bottom:0}.amount{margin:8mm 0;border:2px solid #b8892d;background:#fff9ec;padding:6mm;display:flex;align-items:center;justify-content:space-between}.amount span{font-size:16px;font-weight:bold}.amount strong{font-size:29px}.note{min-height:16mm;border-bottom:1px solid #b8aa91;padding:3mm 0}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:20mm;margin-top:11mm;text-align:center}.signature{border-top:1px solid #222;padding-top:3mm;font-weight:bold}.footer{position:static;margin-top:10mm;padding-top:3mm;border-top:1px solid #d6cdbd;text-align:center;color:#756342;font-size:9px;line-height:1.5;overflow-wrap:anywhere}.void{position:absolute;inset:42% 15%;transform:rotate(-12deg);border:6px solid #b40000;color:#b40000;font-size:48px;font-weight:bold;text-align:center;padding:8px;opacity:.75}@media print{body{background:#fff}.receipt{margin:0;box-shadow:none}}
         </style></head><body><main class="receipt"><div class="head"><img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(company.name)}"><div class="title"><h1>TAHSİLAT MAKBUZU</h1><p>PAYMENT RECEIPT</p></div></div><div class="receipt-no"><div class="box"><small>Makbuz No</small><b>${escapeHtml(payment.receiptNo)}</b></div><div class="box"><small>Ödeme Tarihi</small><b>${escapeHtml(formatDateDMY(payment.paidAt))}</b></div></div><div class="details"><div class="detail"><small>Yolcu</small><b>${escapeHtml(context.passenger.name)}</b></div><div class="detail"><small>Program</small><b>${escapeHtml(context.tour?.title || context.list.title || '-')}</b></div><div class="detail"><small>Program Tarihi</small><b>${escapeHtml(formatDateTR(programDate) || '-')}</b></div><div class="detail"><small>Oda Tipi</small><b>${escapeHtml(roomPeople ? `${roomPeople} Kişilik Oda` : '-')}</b></div><div class="detail"><small>Ödeme Yöntemi</small><b>${escapeHtml(payment.method || '-')}</b></div><div class="detail"><small>Kalan Bakiye</small><b>${escapeHtml(formatMoney(snapshot.balance, snapshot.currency))}</b></div>${receiptAuditDetails}</div><div class="amount"><span>Tahsil Edilen Tutar</span><strong>${escapeHtml(formatMoney(payment.amount, snapshot.currency))}</strong></div><div class="note"><b>Açıklama:</b> ${escapeHtml(payment.note || 'Program ödemesi')}</div><div class="signatures"><div class="signature">Ödeyen / Yolcu İmzası</div><div class="signature">Kaşe / Yetkili İmza</div></div><div class="footer">${escapeHtml(settings.brand || company.name)} • ${escapeHtml(settings.phone || '')} • ${escapeHtml(settings.address || '')}</div>${payment.voided ? '<div class="void">İPTAL</div>' : ''}</main><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`;
+        if (useInlineReceiptPreview()) {
+            if (targetWindow) targetWindow.close();
+            return window.showReceiptPreview(receiptHtml.replace(/<script>window.onload=[\s\S]*?<\/script>/, ''));
+        }
         const receiptWindow = targetWindow || window.open('', '_blank');
         if (!receiptWindow) {
             const blob = new Blob([receiptHtml], { type: 'text/html;charset=utf-8' });
