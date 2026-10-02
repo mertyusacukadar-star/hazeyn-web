@@ -1,4 +1,4 @@
-const CACHE_NAME = 'turizm-muhasebe-mobile-v38-responsive';
+const CACHE_NAME = 'turizm-muhasebe-mobile-v39-company-removal';
 const APP_SHELL = [
   '/receipt-preview.js?v=20261002-mobile3',
   '/tour-picker.js?v=20261002-mobile3',
@@ -6,7 +6,7 @@ const APP_SHELL = [
   '/user-directory.js?v=20261002-mobile3',
   '/workspace-usability.js?v=20261002-mobile3',
   '/workspace-usability.css?v=20261002-mobile3',
-  '/company-manager.js?v=20261002-mobile3',
+  '/company-manager.js?v=20261002-company-delete1',
   '/workspace-theme.js?v=20261002-mobile3',
   '/workspace-theme.css?v=20261002-mobile3',
   '/tour-trash.js?v=20261002-mobile3',
@@ -34,7 +34,7 @@ const APP_SHELL = [
   '/document-reader.js?v=20260917-livecamera2',
   '/workspace-ui.css?v=20261002-mobile3',
   '/workspace-ui.js?v=20261002-mobile3',
-  '/app.js?v=20261002-mobile3',
+  '/app.js?v=20261002-company-delete1',
   '/vendor/exceljs.min.js?v=4.4.0',
   '/assets/mobile-app-icon-192.png',
   '/assets/mobile-app-icon-512.png',
