@@ -2973,26 +2973,7 @@
     }
 
     function createRoomAssignments(passengers) {
-        let roomSequence = 0;
-        let passengerSequence = 0;
-        const rooms = [];
-        groupPassengersByRoom(passengers || []).forEach(group => {
-            const capacity = Math.max(1, parseInt(String(group.key || '1').replace('+', ''), 10) || 1);
-            for (let i = 0; i < group.items.length; i += capacity) {
-                const occupants = group.items.slice(i, i + capacity).map(p => ({ ...p, sheetNo: ++passengerSequence }));
-                roomSequence += 1;
-                rooms.push({
-                    roomSequence,
-                    roomIndexInType: Math.floor(i / capacity),
-                    roomPeople: group.key,
-                    roomingLabel: roomingTypeLabel(group.key),
-                    mekkeRoomNo: occupants.find(p => p.mekkeRoomNo || p.roomNo)?.mekkeRoomNo || occupants.find(p => p.roomNo)?.roomNo || '',
-                    medineRoomNo: occupants.find(p => p.medineRoomNo || p.roomNo)?.medineRoomNo || occupants.find(p => p.roomNo)?.roomNo || '',
-                    occupants
-                });
-            }
-        });
-        return rooms;
+        return window.TurizmPassengerRegistration.rooms(passengers);
     }
 
     function normalizeNameForSort(value) {
@@ -3018,7 +2999,7 @@
 
     function passengersForList(list) {
         const passengers = (list && Array.isArray(list.passengers)) ? list.passengers : [];
-        const indexed = passengers.map((passenger, index) => ({ ...passenger, _sourceIndex: index }));
+        const indexed = passengers.map((passenger, index) => ({ ...passenger, ...(IS_APP_MODE ? window.TurizmPassengerRegistration.currentSeat(state.tourBusPlans?.[list.tourId], list.id, passenger) : {}), _sourceIndex: index }));
         return list && surnameSortedLists.has(list.id) ? sortPassengersForRooms(indexed) : indexed;
     }
 
@@ -3042,13 +3023,17 @@
         <td><input class="p-pass-start" type="date" value="${escapeHtml(p.passportStart || '')}"></td>
         <td><input class="p-pass-end" type="date" value="${escapeHtml(p.passportEnd || '')}"></td>
         <td><select class="p-room-people"><option value="">Seç</option>${['1', '2', '3', '4', '5+'].map(v => `<option value="${v}" ${String(roomPeople) === v ? 'selected' : ''}>${v} Kişilik</option>`).join('')}</select></td>
+        <td><select class="p-relationship"><option value="">Seç</option>${window.TurizmPassengerRegistration.relationships.map(v => `<option value="${v}" ${v === (p.relationship ?? (p.id ? '' : 'Kendisi')) ? 'selected' : ''}>${v}</option>`).join('')}</select></td>
+        <td><select class="p-room-group"><option value="">Grup yok</option>${window.TurizmPassengerRegistration.letters.map(v => `<option value="${v}" ${v === p.roomGroup ? 'selected' : ''}>${v}</option>`).join('')}</select></td>
+        <td><input class="p-bus-no" type="number" min="1" max="20" step="1" inputmode="numeric" value="${escapeHtml(p.busNo || '')}" placeholder="Örn: 1"></td>
+        <td><input class="p-seat-no" type="number" min="1" max="999" step="1" inputmode="numeric" value="${escapeHtml(p.seatNo || '')}" placeholder="Örn: 5"></td>
         <td class="desktop-only"><input class="p-custom-price" type="number" min="0" step="0.01" value="${escapeHtml(accounting.agreedPrice)}" placeholder="Otomatik"></td>
         <td class="desktop-only"><select class="p-custom-currency">${['USD', 'EUR', 'TRY'].map(currency => `<option value="${currency}" ${currency === (accounting.currency || 'USD') ? 'selected' : ''}>${currency}</option>`).join('')}</select></td>
         <td><input class="p-mekke-room-no" value="${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}" placeholder="Örn: M-305"></td>
         <td><input class="p-medine-room-no" value="${escapeHtml(p.medineRoomNo || p.roomNo || '')}" placeholder="Örn: D-214"></td>
         <td><input class="p-note" value="${escapeHtml(p.note || '')}" placeholder="Not"></td>
         <td><button type="button" class="icon-btn danger remove-row">Sil</button></td>`;
-        const labels = ['Ad Soyad','Cinsiyet','TC No','Telefon Numarası','Pasaport Numarası','Doğum Tarihi','Pasaport Başlangıç','Pasaport Bitiş','Oda Kaç Kişilik','Kişiye Özel Fiyat','Para Birimi','Mekke Oda No','Medine Oda No','Not',''];
+        const labels = ['Ad Soyad','Cinsiyet','TC No','Telefon Numarası','Pasaport Numarası','Doğum Tarihi','Pasaport Başlangıç','Pasaport Bitiş','Oda Kaç Kişilik','Yolcunun Yakınlığı','Oda Yakınlığı (A–Z)','Otobüs No','Koltuk No','Kişiye Özel Fiyat','Para Birimi','Mekke Oda No','Medine Oda No','Not',''];
         [...tr.cells].forEach((cell,i)=>{cell.dataset.label=labels[i];const field=cell.querySelector('input,select,textarea');if(field)field.setAttribute('aria-label',labels[i]);});
         $('passengerTable').querySelector('tbody').appendChild(tr);
         const priceInput = tr.querySelector('.p-custom-price');
@@ -3121,16 +3106,28 @@
             passportStart: tr.querySelector('.p-pass-start').value,
             passportEnd: tr.querySelector('.p-pass-end').value,
             roomPeople,
+            relationship: tr.querySelector('.p-relationship').value,
+            roomGroup: tr.querySelector('.p-room-group').value,
+            busNo: tr.querySelector('.p-bus-no').value.trim(),
+            seatNo: tr.querySelector('.p-seat-no').value.trim(),
             mekkeRoomNo: tr.querySelector('.p-mekke-room-no')?.value.trim() || '',
             medineRoomNo: tr.querySelector('.p-medine-room-no')?.value.trim() || '',
             note: tr.querySelector('.p-note').value.trim(),
             createdBy: clone(tr._createdBy || currentActor()),
             accounting
             };
-        }).filter(p => p.name || p.gender || p.tc || p.phone || p.passportNo || p.birthDate || p.passportStart || p.passportEnd || p.roomPeople || p.mekkeRoomNo || p.medineRoomNo || p.note);
+        }).filter(p => p.name || p.gender || p.tc || p.phone || p.passportNo || p.birthDate || p.passportStart || p.passportEnd || p.roomPeople || p.mekkeRoomNo || p.medineRoomNo || p.note || p.roomGroup || p.busNo || p.seatNo);
     }
 
+    let passengerListSaving = false;
     async function savePassengerList() {
+        if (passengerListSaving) return;
+        passengerListSaving = true;
+        try { await savePassengerListOnce(); }
+        catch (error) { toast(error.message || 'Yolcu listesi kaydedilemedi.'); }
+        finally { passengerListSaving = false; }
+    }
+    async function savePassengerListOnce() {
         if (!requirePermission('managePassengers')) return;
         const passengers = readPassengers();
         const tourId = $('listTourSelect').value || $('listTourId').value || '';
@@ -3152,11 +3149,26 @@
             createdAt: existing?.createdAt || new Date().toISOString()
         };
 
-        const idx = state.passengerLists.findIndex(x => x.id === id);
-        if (idx > -1) state.passengerLists[idx] = item; else state.passengerLists.unshift(item);
+        const registration = window.TurizmPassengerRegistration;
+        registration.validate(passengers);
+        const nextLists = state.passengerLists.filter(x => x.id !== id);
+        nextLists.unshift(item);
+        const changedSeats = registration.changedSeats(existing, item);
+        if (IS_APP_MODE && tourId && changedSeats.length) {
+            const shared = await sharedBusRequest(currentCompanyId, tourId);
+            if ((shared.record || shared.restricted) && changedSeats.some(p => p.busNo)) {
+                toast('Bu tur ortak otobüs planına bağlı. Yolcu kaydındaki otobüs/koltuk alanını boş bırakın; ortak koltuğu Otobüs düzeninden seçin.');
+                return;
+            }
+        }
+        const nextPlans = IS_APP_MODE ? registration.syncPlans(state.tourBusPlans, nextLists, existing, item) : state.tourBusPlans;
+        state.passengerLists = nextLists;
+        if (IS_APP_MODE) state.tourBusPlans = nextPlans;
         if (IS_APP_MODE) selectedPassengerTourGroupId = tourId ? `tour:${tourId}` : 'legacy';
 
+        $('listId').value = id;
         if (!await saveData({ keepLocalAccounting: IS_APP_MODE })) return;
+        busWorkspace?.reset();
         clearPassengerForm(); renderPassengerAdmin(); renderDashboard(); toast('Yolcu listesi ve muhasebe fiyatları kaydedildi.');
         await sendNewPassengerWelcomeMessages(item, existing);
     }
@@ -3171,7 +3183,7 @@
         if ($('listOriginAirport')) $('listOriginAirport').value = l.originAirport || '';
         if ($('listDestinationAirport')) $('listDestinationAirport').value = l.destinationAirport || '';
         $('passengerTable').querySelector('tbody').innerHTML = '';
-        (l.passengers || []).forEach(passengerRow); ensurePassengerRows(); window.scrollTo({ top: 0, behavior: 'smooth' });
+        (l.passengers || []).forEach(p => passengerRow({ ...p, ...(IS_APP_MODE ? window.TurizmPassengerRegistration.currentSeat(state.tourBusPlans?.[l.tourId], l.id, p) : {}) })); ensurePassengerRows(); window.scrollTo({ top: 0, behavior: 'smooth' });
         workspaceUI?.checkpoint('tab-passengers');
     }
 
@@ -3197,7 +3209,7 @@
         <td><select class="inline-room-people" data-list-id="${escapeHtml(listId)}" data-room-people-index="${originalIndex}" ${canManagePassengers ? '' : 'disabled'}>${['', '1', '2', '3', '4', '5+'].map(v => `<option value="${v}" ${String(p.roomPeople || p.room || '') === v ? 'selected' : ''}>${v ? v + ' Kişilik' : 'Seç'}</option>`).join('')}</select></td>
         <td><input class="inline-room-no" data-list-id="${escapeHtml(listId)}" data-room-field="mekkeRoomNo" data-room-no-index="${originalIndex}" value="${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}" placeholder="Mekke" ${canManagePassengers ? '' : 'disabled'}></td>
         <td><input class="inline-room-no" data-list-id="${escapeHtml(listId)}" data-room-field="medineRoomNo" data-room-no-index="${originalIndex}" value="${escapeHtml(p.medineRoomNo || p.roomNo || '')}" placeholder="Medine" ${canManagePassengers ? '' : 'disabled'}></td>
-        <td>${escapeHtml(p.note)}</td>
+        <td>${escapeHtml(p.note)}</td><td>${escapeHtml(p.relationship || '—')}</td><td>${escapeHtml(p.roomGroup || '—')}</td><td>${escapeHtml(p.busNo || '—')}</td><td>${escapeHtml(p.seatNo || '—')}</td>
     </tr>`;
     }
 
@@ -3233,11 +3245,11 @@
             const shared = index === 0 ? `<td rowspan="${room.occupants.length}" class="rooming-shared">${room.roomSequence}</td><td rowspan="${room.occupants.length}" class="rooming-shared rooming-type">${escapeHtml(room.roomingLabel)}</td>` : '';
             const mekkeRoomNo = p.mekkeRoomNo || p.roomNo || room.mekkeRoomNo || '';
             const medineRoomNo = p.medineRoomNo || room.medineRoomNo || '';
-            return `<tr class="${rowClass}"><td>${p.sheetNo}</td><td>${escapeHtml(name.firstName)}</td><td>${escapeHtml(name.surname)}</td>${shared}<td>${escapeHtml(mekkeRoomNo)}</td><td>${escapeHtml(medineRoomNo)}</td><td><span class="passport-status ${status.level}">${escapeHtml(status.label)}</span><small>${escapeHtml(formatDateDMY(p.passportEnd) || '-')}</small></td></tr>`;
+            return `<tr class="${rowClass}"><td>${p.sheetNo}</td><td>${escapeHtml(name.firstName)}</td><td>${escapeHtml(name.surname)}</td>${shared}<td>${escapeHtml(mekkeRoomNo)}</td><td>${escapeHtml(medineRoomNo)}</td><td><span class="passport-status ${status.level}">${escapeHtml(status.label)}</span><small>${escapeHtml(formatDateDMY(p.passportEnd) || '-')}</small></td><td>${escapeHtml(p.roomGroup || '—')}</td><td>${escapeHtml(p.relationship || '—')}</td><td>${escapeHtml(p.busNo || '—')}</td><td>${escapeHtml(p.seatNo || '—')}</td></tr>`;
         }).join('')).join('');
         return `<div class="rooming-preview">
             <div class="rooming-preview-head"><div><span>${escapeHtml(currentCompany().shortName.toLocaleUpperCase('tr-TR'))}</span><strong>${escapeHtml(l.title)} ODALAMA YERLEŞKESİ</strong></div><small>Excel çıktısıyla aynı düzen</small></div>
-            <div class="passenger-detail-wrap"><table class="rooming-table"><thead><tr><th>NO</th><th>İSİM</th><th>SOY İSİM</th><th>SAYI</th><th>ODALAMA</th><th>MEKKE</th><th>MEDİNE</th><th>PASAPORT</th></tr></thead><tbody>${rows || '<tr><td colspan="8">Yolcu bulunamadı.</td></tr>'}</tbody></table></div>
+            <div class="passenger-detail-wrap"><table class="rooming-table"><thead><tr><th>NO</th><th>İSİM</th><th>SOY İSİM</th><th>SAYI</th><th>ODALAMA</th><th>MEKKE</th><th>MEDİNE</th><th>PASAPORT</th><th>ODA GRUBU</th><th>YAKINLIK</th><th>OTOBÜS</th><th>KOLTUK</th></tr></thead><tbody>${rows || '<tr><td colspan="12">Yolcu bulunamadı.</td></tr>'}</tbody></table></div>
         </div>`;
     }
 
@@ -3968,9 +3980,9 @@
         sheet.getCell('A1').value = currentCompany().shortName.toLocaleUpperCase('tr-TR');
         sheet.getCell('C1').value = title.toLocaleUpperCase('tr-TR');
         sheet.mergeCells('A1:B1');
-        sheet.mergeCells('C1:G1');
+        sheet.mergeCells('C1:K1');
         sheet.getRow(1).height = 30;
-        sheet.getRow(2).values = ['NO', 'İSİM', 'SOY İSİM', 'SAYI', 'ODALAMA', 'MEKKE', 'MEDİNE'];
+        sheet.getRow(2).values = ['NO', 'İSİM', 'SOY İSİM', 'SAYI', 'ODALAMA', 'MEKKE', 'MEDİNE', 'ODA GRUBU', 'YAKINLIK', 'OTOBÜS', 'KOLTUK'];
         sheet.getRow(2).height = 23;
 
         let rowNumber = 3;
@@ -3987,7 +3999,7 @@
                     index === 0 ? room.roomSequence : '',
                     index === 0 ? room.roomingLabel : '',
                     mekkeRoomNo,
-                    medineRoomNo
+                    medineRoomNo, passenger.roomGroup || '', passenger.relationship || '', passenger.busNo || '', passenger.seatNo || ''
                 ]);
                 sheet.getRow(rowNumber).height = 19;
                 rowNumber += 1;
@@ -4030,10 +4042,10 @@
             });
         });
 
-        [8, 24, 22, 9, 14, 16, 16].forEach((width, index) => {
+        [8, 24, 22, 9, 14, 16, 16, 12, 12, 10, 10].forEach((width, index) => {
             sheet.getColumn(index + 1).width = width;
         });
-        sheet.printArea = `A1:G${Math.max(2, rowNumber - 1)}`;
+        sheet.printArea = `A1:K${Math.max(2, rowNumber - 1)}`;
 
         try {
             const buffer = await workbook.xlsx.writeBuffer();
@@ -4240,7 +4252,7 @@
                 const warningClass = isPassportExpiring(p.passportEnd, flightDate) ? ' passport-print-warning' : '';
                 return `<tr class="${roomBand}${warningClass}"><td>${i + 1}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.gender)}</td><td>${escapeHtml(p.tc)}</td><td>${escapeHtml(p.phone)}</td><td>${escapeHtml(p.passportNo)}</td><td>${escapeHtml(formatDateDMY(p.birthDate))}</td><td>${escapeHtml(formatDateDMY(p.passportStart))}</td><td>${escapeHtml(formatDateDMY(p.passportEnd))}</td><td>${escapeHtml(p.roomPeople || p.room)}</td><td>${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}</td><td>${escapeHtml(p.medineRoomNo || p.roomNo || '')}</td><td>${escapeHtml(p.note)}</td></tr>`;
             }).join('');
-            return `<div class="room-group-block"><h2 class="print-room-title">${escapeHtml(group.title)} (${group.items.length} yolcu)</h2><table><thead><tr><th>No</th><th>Ad Soyad</th><th>Cinsiyet</th><th>TC No</th><th>Telefon</th><th>Pasaport No</th><th>Doğum Tarihi</th><th>Pasaport Başlangıç</th><th>Pasaport Bitiş</th><th>Oda Kişilik</th><th>Mekke</th><th>Medine</th><th>Not</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+            return `<div class="room-group-block"><h2 class="print-room-title">${escapeHtml(group.title)} (${group.items.length} yolcu)</h2><table><thead><tr><th>No</th><th>Ad Soyad</th><th>Cinsiyet</th><th>TC No</th><th>Telefon</th><th>Pasaport No</th><th>Doğum Tarihi</th><th>Pasaport Başlangıç</th><th>Pasaport Bitiş</th><th>Oda Kişilik</th><th>Mekke</th><th>Medine</th><th>Not</th><th>Yakınlık</th><th>Oda Grubu</th><th>Otobüs</th><th>Koltuk</th></tr></thead><tbody>${rows}</tbody></table></div>`;
         }).join('') || '<p>Bu listede yolcu bilgisi yok.</p>';
 
         const printCss = `

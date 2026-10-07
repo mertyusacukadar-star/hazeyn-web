@@ -96,3 +96,5 @@
   body.workspace-modern.desktop-app .workspace-tour-header{padding:18px 16px 16px}
  }
 }
+
+@media(min-width:761px){body.desktop-app #passengerTable{min-width:2700px}body.desktop-app #passengerTable .p-relationship{min-width:105px}body.desktop-app #passengerTable .p-room-group{min-width:100px}body.desktop-app #passengerTable :is(.p-bus-no,.p-seat-no){min-width:85px}}

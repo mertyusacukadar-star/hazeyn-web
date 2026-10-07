@@ -8,8 +8,8 @@ const fold = value => String(value || '').toLocaleUpperCase('tr-TR').normalize('
 function roster(lists,tourId){
   return (lists || []).filter(l=>String(l.tourId)===String(tourId)).flatMap(l=>(l.passengers || []).map(p=>{
     const parts=String(p.name || '').trim().split(/\s+/); const id=key(l.id,p.id);
-    return {id,name:String(p.name || 'İsimsiz yolcu'),listTitle:String(l.title || ''),surname:String(p.surname || p.lastName || (parts.length>1?parts.at(-1):'')),order:0};
-  })).map((p,i)=>({...p,order:i+1,group:p.surname?fold(p.surname):p.id}));
+    return {id,name:String(p.name || 'İsimsiz yolcu'),listTitle:String(l.title || ''),surname:String(p.surname || p.lastName || (parts.length>1?parts.at(-1):'')),roomGroup:/^[A-Z]$/.test(p.roomGroup||'')?p.roomGroup:'',relationship:String(p.relationship||''),order:0};
+  })).map((p,i)=>({...p,order:i+1,group:p.roomGroup?'room:'+p.roomGroup:p.surname?fold(p.surname):p.id}));
 }
 function makeBus(id='bus-1',name='Otobüs 1'){return {id,name,capacity:49,limit:49,doorAfter:6,rear:5,assignments:{}};}
 const seatLabel=(bus,n)=>String(bus.seatLabels?.[n] ?? n);
