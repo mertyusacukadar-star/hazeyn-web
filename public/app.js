@@ -2589,6 +2589,7 @@
             delete $('tourSlug').dataset.manual;
         }
         if ($('tourStatus')) $('tourStatus').value = 'active';
+        if ($('tourCurrency')) $('tourCurrency').value = 'USD';
         if ($('tourDepartureCities')) $('tourDepartureCities').value = 'İstanbul';
         if ($('tourCapacityStatus')) $('tourCapacityStatus').value = 'available';
         const coverPreview = $('tourPreview');
@@ -2644,6 +2645,7 @@
         $('tourHotelMedineImage').value = hotelImages.medine.filter(src => !src.startsWith('data:')).join('\n');
         $('tourGroupImage').value = groupImages.filter(src => !src.startsWith('data:')).join('\n');
         $('tourDepartureDate').value = t.departureDate || '';
+        if ($('tourCurrency')) $('tourCurrency').value = window.TurizmPassengerRegistration.tourCurrency(t, state.passengerLists);
         if ($('tourCardText')) $('tourCardText').value = t.cardText || '';
         const roomPrices = getRoomPrices(t);
         $('tourPrice1').value = roomPrices['1']; $('tourPrice2').value = roomPrices['2']; $('tourPrice3').value = roomPrices['3']; $('tourPrice4').value = roomPrices['4']; $('tourPrice5plus').value = roomPrices['5+'];
@@ -2689,6 +2691,8 @@
         const groupImages = uniqueList([...tempTourGroupImages, ...linesToList($('tourGroupImage')?.value)]);
         const roomPrices = cleanRoomPrices({ '1': $('tourPrice1').value, '2': $('tourPrice2').value, '3': $('tourPrice3').value, '4': $('tourPrice4').value, '5+': $('tourPrice5plus').value });
 
+        const priceCurrency = $('tourCurrency')?.value || window.TurizmPassengerRegistration.tourCurrency(existing, state.passengerLists);
+        Object.keys(roomPrices).forEach(key => roomPrices[key] = window.TurizmPassengerRegistration.priceText(roomPrices[key], priceCurrency));
         const draft = { type: $('tourType').value, title: $('tourTitle').value.trim(), departureDate: $('tourDepartureDate').value };
         const slug = uniqueTourSlug($('tourSlug').value.trim() || existing.slug || defaultTourSlug(draft), id);
         const previousSlug = slugifyTR(existing.slug || '');
@@ -2719,6 +2723,7 @@
             hotelImages,
             groupImages,
             roomPrices,
+            priceCurrency,
             nights: $('tourNights').value.trim(),
             hotels: $('tourHotels').value.trim(),
             mekkeHotelName: $('tourMekkeHotelName').value.trim(),
@@ -3003,11 +3008,34 @@
         return list && surnameSortedLists.has(list.id) ? sortPassengersForRooms(indexed) : indexed;
     }
 
+    let passengerRelationsTimer;
+    function schedulePassengerRelations() { clearTimeout(passengerRelationsTimer); passengerRelationsTimer = setTimeout(refreshPassengerRelations, 120); }
+    function refreshPassengerRelations() {
+        const rows = [...($('passengerTable')?.querySelectorAll('tbody tr') || [])];
+        const people = rows.map((row, index) => ({ id: row.dataset.passengerId, name: row.querySelector('.p-name').value.trim(), index }));
+        rows.forEach(row => {
+            const select = row.querySelector('.p-relative-person');
+            const relationship = row.querySelector('.p-relationship').value;
+            const active = Boolean(relationship && relationship !== 'Kendisi');
+            if (!active) select.dataset.selected = '';
+            const selected = select.dataset.selected || '';
+            const candidates = active ? people.filter(p => p.id !== row.dataset.passengerId && p.name) : [];
+            select.innerHTML = '<option value="">Kişi seçin</option>' + candidates.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)} (${p.index + 1}. yolcu)</option>`).join('');
+            if (selected && !candidates.some(p => p.id === selected)) select.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(selected)}">Kişi artık listede yok — yeniden seçin</option>`);
+            select.value = selected; select.disabled = !active;
+        });
+    }
+
     function passengerRow(p = {}) {
         const tr = document.createElement('tr');
         const gender = p.gender || '';
         const roomPeople = p.roomPeople || p.room || '';
         const accounting = clone(p.accounting || { agreedPrice: '', currency: '', priceSource: 'room', payments: [] });
+        const tourId = $('listTourSelect')?.value || $('listTourId')?.value || workspaceTourId();
+        const tour = state?.tours?.find(item => item.id === tourId);
+        const defaultCurrency = passengerTourPrice(tour, p).currency;
+        const lockedCurrency = window.TurizmPassengerRegistration.hasPayments(accounting);
+        const rowCurrency = (lockedCurrency || accounting.priceSource === 'custom') && accounting.currency ? accounting.currency : defaultCurrency;
         tr.dataset.passengerId = p.id || uid('p_');
         tr.dataset.priceSource = accounting.priceSource === 'custom' ? 'custom' : 'room';
         tr._accounting = accounting;
@@ -3023,28 +3051,32 @@
         <td><input class="p-pass-start" type="date" value="${escapeHtml(p.passportStart || '')}"></td>
         <td><input class="p-pass-end" type="date" value="${escapeHtml(p.passportEnd || '')}"></td>
         <td><select class="p-room-people"><option value="">Seç</option>${['1', '2', '3', '4', '5+'].map(v => `<option value="${v}" ${String(roomPeople) === v ? 'selected' : ''}>${v} Kişilik</option>`).join('')}</select></td>
-        <td><select class="p-relationship"><option value="">Seç</option>${window.TurizmPassengerRegistration.relationships.map(v => `<option value="${v}" ${v === (p.relationship ?? (p.id ? '' : 'Kendisi')) ? 'selected' : ''}>${v}</option>`).join('')}</select></td>
+        <td class="passenger-relationship-cell"><select class="p-relationship"><option value="">Seç</option>${window.TurizmPassengerRegistration.relationships.map(v => `<option value="${v}" ${v === (p.relationship ?? (p.id ? '' : 'Kendisi')) ? 'selected' : ''}>${v}</option>`).join('')}</select></td>
+        <td class="passenger-relative-cell"><select class="p-relative-person" data-selected="${escapeHtml(p.relativePassengerId || '')}"><option value="">Kişi seçin</option></select></td>
         <td><select class="p-room-group"><option value="">Grup yok</option>${window.TurizmPassengerRegistration.letters.map(v => `<option value="${v}" ${v === p.roomGroup ? 'selected' : ''}>${v}</option>`).join('')}</select></td>
         <td><input class="p-bus-no" type="number" min="1" max="20" step="1" inputmode="numeric" value="${escapeHtml(p.busNo || '')}" placeholder="Örn: 1"></td>
         <td><input class="p-seat-no" type="number" min="1" max="999" step="1" inputmode="numeric" value="${escapeHtml(p.seatNo || '')}" placeholder="Örn: 5"></td>
-        <td class="desktop-only"><input class="p-custom-price" type="number" min="0" step="0.01" value="${escapeHtml(accounting.agreedPrice)}" placeholder="Otomatik"></td>
-        <td class="desktop-only"><select class="p-custom-currency">${['USD', 'EUR', 'TRY'].map(currency => `<option value="${currency}" ${currency === (accounting.currency || 'USD') ? 'selected' : ''}>${currency}</option>`).join('')}</select></td>
+        <td class="desktop-only passenger-price-cell"><input class="p-custom-price" type="number" min="0" step="0.01" value="${escapeHtml(accounting.agreedPrice)}" placeholder="Otomatik"></td>
+        <td class="desktop-only"><select class="p-custom-currency" ${lockedCurrency ? 'disabled title="Tahsilatı bulunan kaydın para birimi korunur."' : ''}>${['USD', 'EUR', 'TRY'].map(currency => `<option value="${currency}" ${currency === rowCurrency ? 'selected' : ''}>${currency === 'TRY' ? 'TL' : currency}</option>`).join('')}</select></td>
         <td><input class="p-mekke-room-no" value="${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}" placeholder="Örn: M-305"></td>
         <td><input class="p-medine-room-no" value="${escapeHtml(p.medineRoomNo || p.roomNo || '')}" placeholder="Örn: D-214"></td>
         <td><input class="p-note" value="${escapeHtml(p.note || '')}" placeholder="Not"></td>
         <td><button type="button" class="icon-btn danger remove-row">Sil</button></td>`;
-        const labels = ['Ad Soyad','Cinsiyet','TC No','Telefon Numarası','Pasaport Numarası','Doğum Tarihi','Pasaport Başlangıç','Pasaport Bitiş','Oda Kaç Kişilik','Yolcunun Yakınlığı','Oda Yakınlığı (A–Z)','Otobüs No','Koltuk No','Kişiye Özel Fiyat','Para Birimi','Mekke Oda No','Medine Oda No','Not',''];
+        const labels = ['Ad Soyad','Cinsiyet','TC No','Telefon Numarası','Pasaport Numarası','Doğum Tarihi','Pasaport Başlangıç','Pasaport Bitiş','Oda Kaç Kişilik','Yolcunun Yakınlığı','Kimin Yakını?','Oda Yakınlığı (A–Z)','Otobüs No','Koltuk No','Kişiye Özel Fiyat','Para Birimi','Mekke Oda No','Medine Oda No','Not',''];
         [...tr.cells].forEach((cell,i)=>{cell.dataset.label=labels[i];const field=cell.querySelector('input,select,textarea');if(field)field.setAttribute('aria-label',labels[i]);});
         $('passengerTable').querySelector('tbody').appendChild(tr);
+        tr.querySelector('.p-name').addEventListener('input', schedulePassengerRelations);
+        tr.querySelector('.p-relationship').addEventListener('change', refreshPassengerRelations);
+        tr.querySelector('.p-relative-person').addEventListener('change', e => { e.target.dataset.selected = e.target.value; });
         const priceInput = tr.querySelector('.p-custom-price');
         if (priceInput) priceInput.addEventListener('input', () => { tr.dataset.priceSource = 'custom'; });
         const currencyInput = tr.querySelector('.p-custom-currency');
         if (currencyInput) currencyInput.addEventListener('change', () => { tr.dataset.priceSource = 'custom'; });
-        if (IS_APP_MODE && accounting.agreedPrice === '' && roomPeople) syncPassengerRowPrice(tr, true);
+        if (IS_APP_MODE && tr.dataset.priceSource !== 'custom' && roomPeople && !lockedCurrency) syncPassengerRowPrice(tr, true);
     }
 
     function syncPassengerRowPrice(tr, force = false) {
-        if (!tr || (!force && tr.dataset.priceSource === 'custom')) return;
+        if (!tr || (!force && tr.dataset.priceSource === 'custom') || window.TurizmPassengerRegistration.hasPayments(tr._accounting)) return;
         const tourId = $('listTourSelect')?.value || $('listTourId')?.value || '';
         const tour = state?.tours?.find(item => item.id === tourId);
         const roomPeople = tr.querySelector('.p-room-people')?.value || '';
@@ -3086,6 +3118,7 @@
             const typedAmount = Number(amountInput?.value);
             const hasTypedAmount = Boolean(amountInput && amountInput.value !== '' && Number.isFinite(typedAmount) && typedAmount >= 0);
             const priceSource = tr.dataset.priceSource === 'custom' ? 'custom' : 'room';
+            if (window.TurizmPassengerRegistration.hasPayments(tr._accounting) && tr._accounting.currency && currencyInput?.value !== tr._accounting.currency) throw Error('Tahsilatı bulunan yolcunun para birimi değiştirilemez. Önce ödeme kayıtlarını kontrol edin.');
             const desktopAccounting = {
                 ...(tr._accounting || {}),
                 agreedPrice: hasTypedAmount ? typedAmount : fallback.amount,
@@ -3107,6 +3140,7 @@
             passportEnd: tr.querySelector('.p-pass-end').value,
             roomPeople,
             relationship: tr.querySelector('.p-relationship').value,
+            relativePassengerId: tr.querySelector('.p-relationship').value && tr.querySelector('.p-relationship').value !== 'Kendisi' ? tr.querySelector('.p-relative-person').value : '',
             roomGroup: tr.querySelector('.p-room-group').value,
             busNo: tr.querySelector('.p-bus-no').value.trim(),
             seatNo: tr.querySelector('.p-seat-no').value.trim(),
@@ -3209,7 +3243,7 @@
         <td><select class="inline-room-people" data-list-id="${escapeHtml(listId)}" data-room-people-index="${originalIndex}" ${canManagePassengers ? '' : 'disabled'}>${['', '1', '2', '3', '4', '5+'].map(v => `<option value="${v}" ${String(p.roomPeople || p.room || '') === v ? 'selected' : ''}>${v ? v + ' Kişilik' : 'Seç'}</option>`).join('')}</select></td>
         <td><input class="inline-room-no" data-list-id="${escapeHtml(listId)}" data-room-field="mekkeRoomNo" data-room-no-index="${originalIndex}" value="${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}" placeholder="Mekke" ${canManagePassengers ? '' : 'disabled'}></td>
         <td><input class="inline-room-no" data-list-id="${escapeHtml(listId)}" data-room-field="medineRoomNo" data-room-no-index="${originalIndex}" value="${escapeHtml(p.medineRoomNo || p.roomNo || '')}" placeholder="Medine" ${canManagePassengers ? '' : 'disabled'}></td>
-        <td>${escapeHtml(p.note)}</td><td>${escapeHtml(p.relationship || '—')}</td><td>${escapeHtml(p.roomGroup || '—')}</td><td>${escapeHtml(p.busNo || '—')}</td><td>${escapeHtml(p.seatNo || '—')}</td>
+        <td>${escapeHtml(p.note)}</td><td>${escapeHtml(window.TurizmPassengerRegistration.relationshipText(p, list.passengers))}</td><td>${escapeHtml(p.roomGroup || '—')}</td><td>${escapeHtml(p.busNo || '—')}</td><td>${escapeHtml(p.seatNo || '—')}</td>
     </tr>`;
     }
 
@@ -3245,11 +3279,11 @@
             const shared = index === 0 ? `<td rowspan="${room.occupants.length}" class="rooming-shared">${room.roomSequence}</td><td rowspan="${room.occupants.length}" class="rooming-shared rooming-type">${escapeHtml(room.roomingLabel)}</td>` : '';
             const mekkeRoomNo = p.mekkeRoomNo || p.roomNo || room.mekkeRoomNo || '';
             const medineRoomNo = p.medineRoomNo || room.medineRoomNo || '';
-            return `<tr class="${rowClass}"><td>${p.sheetNo}</td><td>${escapeHtml(name.firstName)}</td><td>${escapeHtml(name.surname)}</td>${shared}<td>${escapeHtml(mekkeRoomNo)}</td><td>${escapeHtml(medineRoomNo)}</td><td><span class="passport-status ${status.level}">${escapeHtml(status.label)}</span><small>${escapeHtml(formatDateDMY(p.passportEnd) || '-')}</small></td><td>${escapeHtml(p.roomGroup || '—')}</td><td>${escapeHtml(p.relationship || '—')}</td><td>${escapeHtml(p.busNo || '—')}</td><td>${escapeHtml(p.seatNo || '—')}</td></tr>`;
+            return `<tr class="${rowClass}"><td>${p.sheetNo}</td><td>${escapeHtml(name.firstName)}</td><td>${escapeHtml(name.surname)}</td>${shared}<td>${escapeHtml(mekkeRoomNo)}</td><td>${escapeHtml(medineRoomNo)}</td><td>${escapeHtml(p.roomGroup || '—')}</td></tr>`;
         }).join('')).join('');
         return `<div class="rooming-preview">
             <div class="rooming-preview-head"><div><span>${escapeHtml(currentCompany().shortName.toLocaleUpperCase('tr-TR'))}</span><strong>${escapeHtml(l.title)} ODALAMA YERLEŞKESİ</strong></div><small>Excel çıktısıyla aynı düzen</small></div>
-            <div class="passenger-detail-wrap"><table class="rooming-table"><thead><tr><th>NO</th><th>İSİM</th><th>SOY İSİM</th><th>SAYI</th><th>ODALAMA</th><th>MEKKE</th><th>MEDİNE</th><th>PASAPORT</th><th>ODA GRUBU</th><th>YAKINLIK</th><th>OTOBÜS</th><th>KOLTUK</th></tr></thead><tbody>${rows || '<tr><td colspan="12">Yolcu bulunamadı.</td></tr>'}</tbody></table></div>
+            <div class="passenger-detail-wrap"><table class="rooming-table"><thead><tr><th>NO</th><th>İSİM</th><th>SOY İSİM</th><th>SAYI</th><th>ODALAMA</th><th>MEKKE</th><th>MEDİNE</th><th>ODA GRUBU</th></tr></thead><tbody>${rows || '<tr><td colspan="8">Yolcu bulunamadı.</td></tr>'}</tbody></table></div>
         </div>`;
     }
 
@@ -3306,7 +3340,7 @@
         if (!l || !l.passengers || !l.passengers[passengerIndex]) return;
         const passenger = l.passengers[passengerIndex];
         passenger[field] = value;
-        if (IS_APP_MODE && field === 'roomPeople' && passenger.accounting?.priceSource !== 'custom') {
+        if (IS_APP_MODE && field === 'roomPeople' && passenger.accounting?.priceSource !== 'custom' && !window.TurizmPassengerRegistration.hasPayments(passenger.accounting)) {
             const tour = state.tours.find(item => item.id === l.tourId);
             const fallback = passengerTourPrice(tour, passenger);
             passenger.accounting = { ...(passenger.accounting || {}), agreedPrice: fallback.amount, currency: fallback.currency, priceSource: 'room', payments: passenger.accounting?.payments || [] };
@@ -3361,7 +3395,7 @@
         const amount = parseMoneyAmount(raw);
         return {
             amount: Number.isFinite(amount) && amount >= 0 ? amount : 0,
-            currency: currencyFromText(raw)
+            currency: window.TurizmPassengerRegistration.tourCurrency(tour, state.passengerLists)
         };
     }
 
@@ -3525,7 +3559,7 @@
         const detected = Object.entries(totals).sort((a, b) => b[1] - a[1])[0];
         if (detected && detected[1] > 0) return detected[0];
         const tour = (state.tours || []).find(item => String(item.id) === String(tourId));
-        return currencyFromText(tour?.price || Object.values(tour?.roomPrices || {})[0] || '') || 'USD';
+        return window.TurizmPassengerRegistration.tourCurrency(tour, state.passengerLists);
     }
 
     function collectCostValues() {
@@ -3980,9 +4014,9 @@
         sheet.getCell('A1').value = currentCompany().shortName.toLocaleUpperCase('tr-TR');
         sheet.getCell('C1').value = title.toLocaleUpperCase('tr-TR');
         sheet.mergeCells('A1:B1');
-        sheet.mergeCells('C1:K1');
+        sheet.mergeCells('C1:H1');
         sheet.getRow(1).height = 30;
-        sheet.getRow(2).values = ['NO', 'İSİM', 'SOY İSİM', 'SAYI', 'ODALAMA', 'MEKKE', 'MEDİNE', 'ODA GRUBU', 'YAKINLIK', 'OTOBÜS', 'KOLTUK'];
+        sheet.getRow(2).values = ['NO', 'İSİM', 'SOY İSİM', 'SAYI', 'ODALAMA', 'MEKKE', 'MEDİNE', 'ODA GRUBU'];
         sheet.getRow(2).height = 23;
 
         let rowNumber = 3;
@@ -3999,7 +4033,7 @@
                     index === 0 ? room.roomSequence : '',
                     index === 0 ? room.roomingLabel : '',
                     mekkeRoomNo,
-                    medineRoomNo, passenger.roomGroup || '', passenger.relationship || '', passenger.busNo || '', passenger.seatNo || ''
+                    medineRoomNo, passenger.roomGroup || ''
                 ]);
                 sheet.getRow(rowNumber).height = 19;
                 rowNumber += 1;
@@ -4026,10 +4060,10 @@
         });
 
         sheet.getRow(2).eachCell({ includeEmpty: true }, cell => {
-            cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: cell.column === 6 ? 'FFFFFFFF' : 'FF111111' } };
+            cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF111111' } };
             cell.alignment = { vertical: 'middle', horizontal: 'center' };
             cell.border = thinBorder;
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: cell.column === 6 ? 'FF2F2F2F' : cell.column === 7 ? 'FF79D84E' : 'FFE2F0D9' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2F0D9' } };
         });
 
         sheet.eachRow({ includeEmpty: false }, (row, currentRow) => {
@@ -4042,10 +4076,10 @@
             });
         });
 
-        [8, 24, 22, 9, 14, 16, 16, 12, 12, 10, 10].forEach((width, index) => {
+        [8, 24, 22, 9, 14, 16, 16, 12].forEach((width, index) => {
             sheet.getColumn(index + 1).width = width;
         });
-        sheet.printArea = `A1:K${Math.max(2, rowNumber - 1)}`;
+        sheet.pageSetup.printArea = `A1:H${Math.max(2, rowNumber - 1)}`;
 
         try {
             const buffer = await workbook.xlsx.writeBuffer();
@@ -4493,6 +4527,7 @@
         if ($('saveHeroBanner')) $('saveHeroBanner').onclick = saveHeroBanner;
         if ($('resetHeroBanner')) $('resetHeroBanner').onclick = resetHeroBannerForm;
 
+        new MutationObserver(refreshPassengerRelations).observe($('passengerTable').querySelector('tbody'), { childList: true });
         $('listTourSelect').addEventListener('change', e => {
             if (workspaceUI && !workspaceUI.canLeave()) { e.target.value = $('listTourId').value; return; }
             const tourId = e.target.value;

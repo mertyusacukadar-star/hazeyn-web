@@ -4,11 +4,32 @@ const P=typeof module!=='undefined'&&module.exports?require('./bus-plan'):root.T
 const relationships=['Kendisi','Eşi','Babası','Oğlu','Kızı'];
 const letters=Array.from({length:26},(_,i)=>String.fromCharCode(65+i));
 const group=p=>letters.includes(String(p.roomGroup||'').toUpperCase())?String(p.roomGroup).toUpperCase():'';
+function hasPayments(accounting){return Array.isArray(accounting?.payments)&&accounting.payments.length>0;}
+function tourCurrency(tour,lists=[]){
+ if(['USD','EUR','TRY'].includes(tour?.priceCurrency))return tour.priceCurrency;
+ const raw=[...Object.values(tour?.roomPrices||{}),tour?.price||''].join(' ').toUpperCase();
+ if(/USD|\$/.test(raw))return 'USD';if(/EUR|€/.test(raw))return 'EUR';if(/TRY|\bTL\b|₺/.test(raw))return 'TRY';
+ const old=new Set(lists.filter(l=>l.tourId===tour?.id).flatMap(l=>l.passengers||[]).map(p=>p.accounting?.currency).filter(c=>['USD','EUR','TRY'].includes(c)));
+ return old.size===1?[...old][0]:tour?.type==='yurtici'?'TRY':'USD';
+}
+function priceText(value,currency){
+ const raw=String(value||'').trim(),number=raw.replace(/\b(?:USD|EUR|TRY|TL)\b|[$€₺]/gi,'').trim();
+ return number&&/^[\d.,\s]+$/.test(number)?number+' '+currency:raw;
+}
+function relationshipText(p,passengers){
+ if(!p.relationship)return '—';if(p.relationship==='Kendisi')return 'Kendisi';
+ const target=(passengers||[]).find(x=>x.id===p.relativePassengerId);
+ return target?target.name+' · '+p.relationship:p.relationship+' (kişi seçilmedi)';
+}
 const seating=p=>({busNo:String(p?.busNo||'').trim(),seatNo:String(p?.seatNo||'').trim()});
 function validate(passengers){
  for(const p of passengers){
   const who=p.name||'Yolcu';
   if(p.relationship&&!relationships.includes(p.relationship))throw Error(who+': yakınlık seçimini kontrol edin.');
+  if(p.relationship&&p.relationship!=='Kendisi'){
+   if(!p.relativePassengerId)throw Error(who+': kimin '+p.relationship.toLocaleLowerCase('tr-TR')+' olduğunu seçin.');
+   if(p.relativePassengerId===p.id||!passengers.some(x=>x.id===p.relativePassengerId&&String(x.name||'').trim()))throw Error(who+': yakınlık için listedeki başka bir yolcuyu seçin.');
+  }
   if(p.roomGroup&&!letters.includes(p.roomGroup))throw Error(who+': oda yakınlığı A–Z arasında olmalı.');
   const s=seating(p);if(!s.busNo&&!s.seatNo)continue;
   if(!/^(?:[1-9]|1\d|20)$/.test(s.busNo)||!/^([1-9]\d{0,2})$/.test(s.seatNo))throw Error(who+': otobüs no (1–20) ve koltuk no (1–999) birlikte girilmeli.');
@@ -72,7 +93,7 @@ function rooms(passengers){
  }
  return result;
 }
-const api={relationships,letters,group,seating,validate,changedSeats,syncPlans,currentSeat,rooms};
+const api={relationships,letters,group,seating,validate,changedSeats,syncPlans,currentSeat,rooms,hasPayments,tourCurrency,priceText,relationshipText};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 root.TurizmPassengerRegistration=api;
 })(typeof window==='undefined'?globalThis:window);

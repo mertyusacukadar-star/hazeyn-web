@@ -20,9 +20,9 @@
 <link rel="stylesheet" href="workspace-lists.css?v=20261002-mobile3" />
     <link rel="stylesheet" href="workspace-login.css?v=20261002-mobile3" />
     <link rel="stylesheet" href="bus-workspace.css?v=20261002-mobile3">
-    <link rel="stylesheet" href="passenger-fields.css?v=20261002-mobile3">
+    <link rel="stylesheet" href="passenger-fields.css?v=20261008-registration4">
     <link rel="stylesheet" href="workspace-theme.css?v=20261002-tour-save1">
-<link rel="stylesheet" href="workspace-usability.css?v=20261008-registration1">
+<link rel="stylesheet" href="workspace-usability.css?v=20261008-registration4">
 </head>
 <body data-page="admin" class="admin-body">
     <div id="appBoot" role="status"><strong>Turizm Muhasebe</strong><p>Çalışma alanınız hazırlanıyor…</p><button type="button" hidden onclick="location.reload()">Yeniden dene</button></div>
@@ -180,6 +180,8 @@
 
                         <div class="room-price-fields">
                             <h3>Oda Fiyatları <small>Her oda tipi ayrı fiyat</small></h3>
+                            <label>Turun Para Birimi<select id="tourCurrency"><option value="USD">Dolar (USD)</option><option value="TRY">Türk Lirası (TL)</option><option value="EUR">Euro (EUR)</option></select></label>
+                            <p class="hint-text">Yeni yolcuların fiyatı ve para birimi bu turdan gelir. Mevcut tahsilatların para birimi korunur.</p>
                             <div class="form-row price-grid">
                                 <label>1 Kişilik Oda<input id="tourPrice1" placeholder="Örn: 1.850 USD" /></label>
                                 <label>2 Kişilik Oda<input id="tourPrice2" placeholder="Örn: 1.450 USD" /></label>
@@ -371,7 +373,8 @@
                         <option value="IST">İstanbul Havalimanı</option><option value="SAW">İstanbul Sabiha Gökçen</option><option value="ESB">Ankara Esenboğa</option><option value="ADB">İzmir Adnan Menderes</option><option value="AYT">Antalya</option><option value="COV">Çukurova</option><option value="GZT">Gaziantep</option><option value="KYA">Konya</option><option value="ASR">Kayseri</option><option value="TZX">Trabzon</option><option value="RZV">Rize-Artvin</option><option value="ERZ">Erzurum</option><option value="DIY">Diyarbakır</option><option value="VAN">Van Ferit Melen</option><option value="SZF">Samsun Çarşamba</option><option value="MLX">Malatya</option><option value="EZS">Elazığ</option><option value="GNY">Şanlıurfa GAP</option><option value="HTY">Hatay</option><option value="DNZ">Denizli Çardak</option><option value="DLM">Dalaman</option><option value="BJV">Milas-Bodrum</option><option value="GZP">Gazipaşa-Alanya</option><option value="BAL">Batman</option><option value="MSR">Muş</option><option value="MQM">Mardin</option><option value="NKT">Şırnak Cizre</option><option value="AJI">Ağrı</option><option value="IGD">Iğdır</option><option value="KCM">Kahramanmaraş</option><option value="KSY">Kars Harakani</option><option value="EDO">Balıkesir Koca Seyit</option><option value="YEI">Bursa Yenişehir</option><option value="TEQ">Tekirdağ Çorlu</option><option value="AOE">Eskişehir Hasan Polatkan</option><option value="KZR">Kütahya Zafer</option><option value="ONQ">Zonguldak Çaycuma</option><option value="JED">Cidde Kral Abdülaziz</option><option value="MED">Medine Prens Muhammed</option><option value="RUH">Riyad Kral Halid</option><option value="DMM">Dammam Kral Fahd</option><option value="TIF">Taif</option><option value="AHB">Abha</option><option value="ELQ">Kasım</option><option value="TUU">Tebük</option><option value="GIZ">Cizan</option><option value="DXB">Dubai</option><option value="AUH">Abu Dabi</option><option value="DOH">Doha</option><option value="KWI">Kuveyt</option><option value="CAI">Kahire</option>
                     </datalist>
                     <div class="table-wrap">
-                        <table class="passenger-table wide" id="passengerTable">
+                        <p class="hint-text passenger-relation-help">Eşi, babası, oğlu veya kızı seçtiğinizde “Kimin yakını?” alanından listedeki kişiyi seçin. Aynı odada kalacaklara aynı oda harfini verin.</p>
+                                <table class="passenger-table wide" id="passengerTable">
                             <thead>
                                 <tr>
                                     <th>Ad Soyad</th>
@@ -382,7 +385,7 @@
                                     <th>Doğum Tarihi</th>
                                     <th>Pasaport Başlangıç</th>
                                     <th>Pasaport Bitiş</th>
-                                    <th>Oda Kaç Kişilik</th><th>Yolcunun Yakınlığı</th><th>Oda Yakınlığı (A–Z)</th><th>Otobüs No</th><th>Koltuk No</th>
+                                    <th>Oda Kaç Kişilik</th><th>Yolcunun Yakınlığı</th><th>Kimin Yakını?</th><th>Oda Yakınlığı (A–Z)</th><th>Otobüs No</th><th>Koltuk No</th>
                                     <th class="desktop-only">Kişiye Özel Fiyat</th>
                                     <th class="desktop-only">Para Birimi</th>
                                     <th>Mekke Oda No</th>
@@ -559,12 +562,12 @@
     <script src="workspace-collections.js?v=20261002-mobile3"></script>
     <script src="workspace-lists.js?v=20261002-mobile3"></script>
     <script src="workspace-login.js?v=20261002-mobile3"></script>
-    <script src="bus-plan.js?v=20261008-registration1"></script>
-    <script src="passenger-registration.js?v=20261008-registration1"></script>
+    <script src="bus-plan.js?v=20261008-registration4"></script>
+    <script src="passenger-registration.js?v=20261008-registration4"></script>
     <script src="bus-companies.js?v=20261002-mobile3"></script>
     <script src="bus-shared-picker.js?v=20261002-mobile3"></script>
     <script src="bus-print.js?v=20261002-mobile3"></script>
-    <script src="bus-workspace.js?v=20261008-registration1"></script>
+    <script src="bus-workspace.js?v=20261008-registration4"></script>
     <script src="workspace-ui.js?v=20261002-tour-save1"></script>
     <script src="passenger-fields.js?v=20261002-mobile3"></script>
     <script src="/umre-visuals.js?v=20260930-1"></script>
@@ -578,6 +581,6 @@
 <script src="company-manager.js?v=20261002-company-delete2"></script>
 <script src="state-sync.js?v=20261002-tour-save1"></script>
 <script src="user-directory.js?v=20261002-mobile3"></script>
-<script src="app.js?v=20261008-registration1"></script>
+<script src="app.js?v=20261008-registration4"></script>
 </body>
 </html>

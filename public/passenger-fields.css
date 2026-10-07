@@ -15,7 +15,7 @@
   body #passengerTable tbody tr::before{content:counter(passenger) ". YOLCU";grid-column:1/-1;color:#45775b;font-size:12px;font-weight:700;letter-spacing:.08em}
   body #passengerTable tbody td{display:block;width:auto!important;min-width:0!important;max-width:100%;padding:0;border:0;position:static;white-space:normal;background:none}
   body #passengerTable tbody td::before{content:attr(data-label);display:block;font-size:12px;color:#5d7267;line-height:1.4;margin-bottom:6px}
-  body #passengerTable tbody td:first-child,body #passengerTable tbody td:nth-child(14),body #passengerTable tbody td:last-child{grid-column:1/-1}
+  body #passengerTable tbody td:first-child,body #passengerTable tbody td.passenger-price-cell,body #passengerTable tbody td.passenger-relationship-cell,body #passengerTable tbody td.passenger-relative-cell,body #passengerTable tbody td:last-child{grid-column:1/-1}
   body #passengerEditorCard .form-actions{display:flex;flex-wrap:wrap;gap:8px}
   body #passengerEditorCard .form-actions button{flex:1 1 40%;min-height:44px;padding:10px}
 }

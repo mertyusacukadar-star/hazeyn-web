@@ -1,6 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const Sync=require('../public/state-sync'),Collections=require('../public/workspace-collections');
+const Registration=require('../public/passenger-registration');
 const source=fs.readFileSync(require.resolve('../public/app.js'),'utf8');
 const slice=(from,to)=>source.slice(source.indexOf(from),source.indexOf(to,source.indexOf(from)));
 const saveTourSource=slice('    async function saveTour(e)', '    function resetReviewForm');
@@ -11,11 +12,11 @@ function fixture(){
  for(const [,id] of saveTourSource.matchAll(/\$\('([^']+)'\)/g))$(id);
  const button={textContent:'Kaydet',disabled:false};
  const form=$('tourForm');form.querySelectorAll=()=>[...Object.values(fields).filter(f=>f!==form),button];form.querySelector=()=>button;form.setAttribute=()=>{};form.removeAttribute=()=>{};
- $('tourTitle').value='Afyon test turu';$('tourType').value='umre';$('tourDepartureCities').value='Ankara';
+ $('tourTitle').value='Afyon test turu';$('tourType').value='umre';$('tourDepartureCities').value='Ankara';$('tourCurrency').value='TRY';$('tourPrice2').value='15000';
  let ids=0;const warnings=[];
  const env={$ ,state:{tours:[],settings:{},_meta:{serverRevision:'1'}},IS_APP_MODE:true,serverBase:{tours:[],settings:{},_meta:{serverRevision:'1'}},currentCompanyId:'afyon',clone:structuredClone,mergeDefaults:structuredClone,
   tempTourImage:'',tempTourDetailBannerImage:'',tempHotelMekkeImages:[],tempHotelMedineImages:[],tempTourGroupImages:[],requirePermission:()=>true,uid:()=>`new-${++ids}`,uniqueList:a=>[...new Set(a)],linesToList:()=>[],cleanRoomPrices:x=>x,uniqueTourSlug:x=>x,defaultTourSlug:()=> 'test',slugifyTR:s=>String(s).toLocaleLowerCase('tr-TR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/ı/g,'i').replace(/\s+/g,'-'),positiveInteger:Number,normalizeTour:x=>x,seoTextsForTour:()=>({title:'',description:''}),toast:m=>warnings.push(m),renderTourAdmin(){},renderPassengerTourSelect(){},renderDashboard(){},
-  resetTourForm:()=>{$('tourId').value='';$('tourTitle').value='';delete form._saveBase;},window:{TurizmStateSync:Sync,dispatchEvent(){}},Event:class{},authorizedHeaders:h=>h,statePayloadForSave:structuredClone,cacheDataLocally:async()=>{},rememberServerBase:async s=>env.serverBase=structuredClone(s),fetchSaveBaseline:async()=>null,idbSet:async()=>{},companyCacheKey:()=>env.currentCompanyId
+  resetTourForm:()=>{$('tourId').value='';$('tourTitle').value='';delete form._saveBase;},window:{TurizmStateSync:Sync,TurizmPassengerRegistration:Registration,dispatchEvent(){}},Event:class{},authorizedHeaders:h=>h,statePayloadForSave:structuredClone,cacheDataLocally:async()=>{},rememberServerBase:async s=>env.serverBase=structuredClone(s),fetchSaveBaseline:async()=>null,idbSet:async()=>{},companyCacheKey:()=>env.currentCompanyId
  };
  const context=vm.createContext(env);vm.runInContext(citiesSource+saveTourSource,context);
  return {env,fields,context,button,warnings,ids:()=>ids};
@@ -25,7 +26,7 @@ function fixture(){
  f.env.saveData=async()=>{calls++;await new Promise(r=>release=r);return true;};
  const e={preventDefault(){}};
  const first=f.env.saveTour(e);await f.env.saveTour(e);assert.equal(calls,1);assert.equal(f.ids(),1);assert.equal(f.env.state.tours.length,1);assert.equal(f.button.disabled,true);assert.equal(f.button.textContent,'Kaydediliyor…');
- release();await first;assert.equal(f.button.disabled,false);assert.equal(f.fields.tourId.value,'');
+ release();await first;assert.equal(f.button.disabled,false);assert.equal(f.fields.tourId.value,'');assert.equal(f.env.state.tours[0].priceCurrency,'TRY');assert.equal(f.env.state.tours[0].roomPrices['2'],'15000 TRY');
  await f.env.saveTour(e);assert.equal(calls,1,'Delayed second click after reset cannot create a blank tour');
  const retry=fixture();let tries=0;
  retry.env.saveData=async options=>{assert.equal(options.operationBase.tours.length,0);return ++tries>1;};
