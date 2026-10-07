@@ -269,6 +269,14 @@
     let selectedCostTourId = '';
     let whatsappIntegrationStatus = null;
     const surnameSortedLists = new Set();
+    // Output preference only; never changes passenger records or company data.
+    const roomingRelationshipLists = new Set();
+    function roomingRelationshipKey(listId) {
+        return JSON.stringify([currentCompanyId, listId]);
+    }
+    function includeRoomingRelationships(listId) {
+        return roomingRelationshipLists.has(roomingRelationshipKey(listId));
+    }
     const APP_PERMISSION_DEFINITIONS = [
         ['viewDashboard', 'Genel Bakış'], ['viewTours', 'Turları Gör'], ['manageTours', 'Tur Yönet'],
         ['viewPassengers', 'Yolcu Listelerini Gör'], ['managePassengers', 'Yolcu Yönet'], ['deletePassengerLists', 'Yolcu Listesi Sil'], ['exportPassengerLists', 'PDF / Excel'],
@@ -3269,6 +3277,7 @@
     }
 
     function roomingSheetHtml(l) {
+        const includeRelationships = includeRoomingRelationships(l.id);
         const flightDate = getListFlightDate(l);
         const rooms = createRoomAssignments(passengersForList(l));
         const rows = rooms.map(room => room.occupants.map((p, index) => {
@@ -3279,11 +3288,11 @@
             const shared = index === 0 ? `<td rowspan="${room.occupants.length}" class="rooming-shared">${room.roomSequence}</td><td rowspan="${room.occupants.length}" class="rooming-shared rooming-type">${escapeHtml(room.roomingLabel)}</td>` : '';
             const mekkeRoomNo = p.mekkeRoomNo || p.roomNo || room.mekkeRoomNo || '';
             const medineRoomNo = p.medineRoomNo || room.medineRoomNo || '';
-            return `<tr class="${rowClass}"><td>${p.sheetNo}</td><td>${escapeHtml(name.firstName)}</td><td>${escapeHtml(name.surname)}</td>${shared}<td>${escapeHtml(mekkeRoomNo)}</td><td>${escapeHtml(medineRoomNo)}</td><td>${escapeHtml(p.roomGroup || '—')}</td></tr>`;
+            return `<tr class="${rowClass}"><td>${p.sheetNo}</td><td>${escapeHtml(name.firstName)}</td><td>${escapeHtml(name.surname)}</td>${shared}<td>${escapeHtml(mekkeRoomNo)}</td><td>${escapeHtml(medineRoomNo)}</td><td>${escapeHtml(p.roomGroup || '—')}</td>${includeRelationships ? `<td class="rooming-relationship">${escapeHtml(window.TurizmPassengerRegistration.relationshipText(p, l.passengers))}</td>` : ''}</tr>`;
         }).join('')).join('');
         return `<div class="rooming-preview">
             <div class="rooming-preview-head"><div><span>${escapeHtml(currentCompany().shortName.toLocaleUpperCase('tr-TR'))}</span><strong>${escapeHtml(l.title)} ODALAMA YERLEŞKESİ</strong></div><small>Excel çıktısıyla aynı düzen</small></div>
-            <div class="passenger-detail-wrap"><table class="rooming-table"><thead><tr><th>NO</th><th>İSİM</th><th>SOY İSİM</th><th>SAYI</th><th>ODALAMA</th><th>MEKKE</th><th>MEDİNE</th><th>ODA GRUBU</th></tr></thead><tbody>${rows || '<tr><td colspan="8">Yolcu bulunamadı.</td></tr>'}</tbody></table></div>
+            <div class="passenger-detail-wrap"><table class="rooming-table"><thead><tr><th>NO</th><th>İSİM</th><th>SOY İSİM</th><th>SAYI</th><th>ODALAMA</th><th>MEKKE</th><th>MEDİNE</th><th>ODA GRUBU</th>${includeRelationships ? '<th>YAKINLIK</th>' : ''}</tr></thead><tbody>${rows || `<tr><td colspan="${includeRelationships ? 9 : 8}">Yolcu bulunamadı.</td></tr>`}</tbody></table></div>
         </div>`;
     }
 
@@ -3317,6 +3326,7 @@
                 ${hasPermission('deletePassengerLists') ? `<button class="icon-btn danger" data-delete-list="${escapeHtml(l.id)}">Sil</button>` : ''}
             </div>
         </div>
+        <div class="rooming-export-options"><label><input type="checkbox" data-rooming-relationships="${escapeHtml(l.id)}" ${includeRoomingRelationships(l.id) ? 'checked' : ''}><span>Yakınlık bilgisini göster <small>Oda listesi önizlemesine ve Excel çıktısına eklenir.</small></span></label></div>
         <input type="checkbox" id="filter-expiring-${escapeHtml(l.id)}" class="filter-expiring-cb">
         <label for="filter-expiring-${escapeHtml(l.id)}" class="filter-expiring-label">Sadece Pasaport Süresi Yetersiz Olanları Göster</label>
         <div class="passenger-room-area">${roomingSheetHtml(l)}<details class="passenger-details" data-details-list-id="${escapeHtml(l.id)}"><summary>Tüm yolcu ve pasaport detaylarını göster</summary>${passengerRoomGroupsHtml(l)}</details></div>
@@ -3993,6 +4003,8 @@
 
         const tour = state.tours.find(item => item.id === list.tourId) || {};
         const rooms = createRoomAssignments(passengersForList(list));
+        const includeRelationships = includeRoomingRelationships(list.id);
+        const lastColumn = includeRelationships ? 'I' : 'H';
         const workbook = new window.ExcelJS.Workbook();
         workbook.creator = currentCompany().name;
         workbook.created = new Date();
@@ -4014,9 +4026,9 @@
         sheet.getCell('A1').value = currentCompany().shortName.toLocaleUpperCase('tr-TR');
         sheet.getCell('C1').value = title.toLocaleUpperCase('tr-TR');
         sheet.mergeCells('A1:B1');
-        sheet.mergeCells('C1:H1');
+        sheet.mergeCells(`C1:${lastColumn}1`);
         sheet.getRow(1).height = 30;
-        sheet.getRow(2).values = ['NO', 'İSİM', 'SOY İSİM', 'SAYI', 'ODALAMA', 'MEKKE', 'MEDİNE', 'ODA GRUBU'];
+        sheet.getRow(2).values = ['NO', 'İSİM', 'SOY İSİM', 'SAYI', 'ODALAMA', 'MEKKE', 'MEDİNE', 'ODA GRUBU', ...(includeRelationships ? ['YAKINLIK'] : [])];
         sheet.getRow(2).height = 23;
 
         let rowNumber = 3;
@@ -4033,9 +4045,10 @@
                     index === 0 ? room.roomSequence : '',
                     index === 0 ? room.roomingLabel : '',
                     mekkeRoomNo,
-                    medineRoomNo, passenger.roomGroup || ''
+                    medineRoomNo, passenger.roomGroup || '',
+                    ...(includeRelationships ? [window.TurizmPassengerRegistration.relationshipText(passenger, list.passengers)] : [])
                 ]);
-                sheet.getRow(rowNumber).height = 19;
+                sheet.getRow(rowNumber).height = includeRelationships ? 32 : 19;
                 rowNumber += 1;
             });
             const roomEnd = rowNumber - 1;
@@ -4053,8 +4066,8 @@
         };
 
         sheet.getRow(1).eachCell({ includeEmpty: true }, cell => {
-            cell.font = { name: 'Calibri', size: cell.column <= 2 ? 14 : 15, bold: true, color: { argb: 'FF111111' } };
-            cell.alignment = { vertical: 'middle', horizontal: cell.column <= 2 ? 'left' : 'center' };
+            cell.font = { name: 'Calibri', size: cell.col <= 2 ? 14 : 15, bold: true, color: { argb: 'FF111111' } };
+            cell.alignment = { vertical: 'middle', horizontal: cell.col <= 2 ? 'left' : 'center' };
             cell.border = thinBorder;
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
         });
@@ -4069,17 +4082,17 @@
         sheet.eachRow({ includeEmpty: false }, (row, currentRow) => {
             if (currentRow < 3) return;
             row.eachCell({ includeEmpty: true }, cell => {
-                const isRoomCell = cell.column === 4 || cell.column === 5;
+                const isRoomCell = cell.col === 4 || cell.col === 5;
                 cell.font = { name: 'Calibri', size: 11, color: { argb: isRoomCell ? 'FF8B0000' : 'FF111111' }, bold: true };
-                cell.alignment = { vertical: 'middle', horizontal: [1, 4, 5, 6, 7].includes(cell.column) ? 'center' : 'left' };
+                cell.alignment = { vertical: 'middle', horizontal: [1, 4, 5, 6, 7].includes(cell.col) ? 'center' : 'left', wrapText: includeRelationships && cell.col === 9 };
                 cell.border = thinBorder;
             });
         });
 
-        [8, 24, 22, 9, 14, 16, 16, 12].forEach((width, index) => {
+        [8, 24, 22, 9, 14, 16, 16, 12, ...(includeRelationships ? [36] : [])].forEach((width, index) => {
             sheet.getColumn(index + 1).width = width;
         });
-        sheet.pageSetup.printArea = `A1:H${Math.max(2, rowNumber - 1)}`;
+        sheet.pageSetup.printArea = `A1:${lastColumn}${Math.max(2, rowNumber - 1)}`;
 
         try {
             const buffer = await workbook.xlsx.writeBuffer();
@@ -4612,6 +4625,17 @@
         });
 
         document.addEventListener('change', async (e) => {
+            const relationshipOption = e.target.closest && e.target.closest('[data-rooming-relationships]');
+            if (relationshipOption) {
+                const listId = relationshipOption.dataset.roomingRelationships;
+                const key = roomingRelationshipKey(listId);
+                if (relationshipOption.checked) roomingRelationshipLists.add(key);
+                else roomingRelationshipLists.delete(key);
+                const list = state.passengerLists.find(item => item.id === listId);
+                const preview = relationshipOption.closest('[data-list-card]')?.querySelector('.rooming-preview');
+                if (list && preview) preview.outerHTML = roomingSheetHtml(list);
+                return;
+            }
             const roomNo = e.target.closest && e.target.closest('[data-room-no-index]');
             if (roomNo) { await updatePassengerRoomField(roomNo.dataset.listId, Number(roomNo.dataset.roomNoIndex), roomNo.dataset.roomField || 'roomNo', roomNo.value.trim()); return; }
             const roomPeople = e.target.closest && e.target.closest('[data-room-people-index]');
