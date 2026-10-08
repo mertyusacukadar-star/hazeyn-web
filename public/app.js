@@ -1152,12 +1152,12 @@
         target.textContent = 'Meta bağlantısı bekliyor • erişim anahtarı ve telefon kimliği gerekli';
     }
 
-    async function whatsappApi(action, body) {
+    async function whatsappApi(action, body, context) {
         const method = body ? 'POST' : 'GET';
-        const response = await fetch(`/api/whatsapp?action=${encodeURIComponent(action)}&company=${encodeURIComponent(currentCompanyId)}`, {
+        const response = await fetch(`/api/whatsapp?action=${encodeURIComponent(action)}&company=${encodeURIComponent(context?.company || currentCompanyId)}`, {
             method,
             cache: 'no-store',
-            headers: authorizedHeaders(body ? { 'Content-Type': 'application/json' } : {}),
+            headers: context ? { ...context.headers, ...(body ? { 'Content-Type': 'application/json' } : {}) } : authorizedHeaders(body ? { 'Content-Type': 'application/json' } : {}),
             ...(body ? { body: JSON.stringify(body) } : {})
         });
         const result = await response.json().catch(() => ({}));
@@ -1202,15 +1202,19 @@
         const previousIds = new Set((previousList?.passengers || []).map(passenger => String(passenger.id)));
         const recipients = (list.passengers || []).filter(passenger => passenger.phone && !previousIds.has(String(passenger.id)));
         if (!recipients.length) return;
-        const status = await loadWhatsAppIntegrationStatus();
+        // Sending after the confirmed save must not lock the passenger editor.
+        // Capture the company/session so switching accounts cannot reroute messages.
+        const context = { company: currentCompanyId, headers: authorizedHeaders() };
+        const notify = message => { if (currentCompanyId === context.company) toast(message); };
+        const status = whatsappIntegrationStatus || await whatsappApi('status', null, context).catch(() => null);
         if (!status?.connected) {
-            toast('Yolcular kaydedildi; kurumsal WhatsApp bağlantısı tamamlanmadığı için kayıt mesajları bekliyor.');
+            notify('Yolcular kaydedildi; kurumsal WhatsApp bağlantısı tamamlanmadığı için kayıt mesajları bekliyor.');
             return;
         }
-        const results = await Promise.allSettled(recipients.map(passenger => sendWhatsAppWelcome(list.id, passenger.id, { silent: true })));
+        const results = await Promise.allSettled(recipients.map(passenger => whatsappApi('welcome', { listId:list.id, passengerId:passenger.id }, context).then(() => true)));
         const sent = results.filter(result => result.status === 'fulfilled' && result.value === true).length;
         const failed = recipients.length - sent;
-        toast(failed ? `${sent} yolcuya WhatsApp kayıt mesajı gönderildi; ${failed} mesaj gönderilemedi.` : `${sent} yolcuya WhatsApp kayıt mesajı gönderildi.`);
+        notify(failed ? `${sent} yolcuya WhatsApp kayıt mesajı gönderildi; ${failed} mesaj gönderilemedi.` : `${sent} yolcuya WhatsApp kayıt mesajı gönderildi.`);
     }
 
     async function sendWhatsAppReceipt(listId, passengerId, paymentId, { silent = false } = {}) {
@@ -3229,7 +3233,10 @@
         busWorkspace?.reset();
         loadPassengerListForm(state.passengerLists.find(list => list.id === id) || item);
         renderPassengerAdmin(); renderDashboard(); toast('Liste kaydedildi. Yolcu ekleyip aynı listeye kaydetmeye devam edebilirsiniz.');
-        await sendNewPassengerWelcomeMessages(item, existing);
+        const savedCompany = currentCompanyId;
+        void sendNewPassengerWelcomeMessages(item, existing).catch(() => {
+            if (currentCompanyId === savedCompany) toast('Liste kaydedildi; WhatsApp kayıt mesajı gönderilemedi.');
+        });
     }
 
     function editPassengerList(id) {

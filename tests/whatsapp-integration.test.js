@@ -1,6 +1,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const vm = require('node:vm');
 const { createReceiptPdf } = require('../api/_receiptPdf');
 
 const app = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
@@ -20,6 +21,22 @@ assert(api.includes('public:false'), 'Makbuzlar özel depolama alanında tutulma
 assert(!app.includes('WHATSAPP_ACCESS_TOKEN'), 'WhatsApp erişim anahtarı istemciye yazılmamalı');
 
 (async () => {
+  // Slow post-save messages must stay on the original company/session even if
+  // the editor switches accounts while the status request is still pending.
+  let releaseStatus;
+  const requests=[],notices=[];
+  const env={IS_APP_MODE:true,hasPermission:()=>true,currentCompanyId:'hakikat',whatsappIntegrationStatus:null,authorizedHeaders:()=>({Authorization:'Bearer synthetic-original-session'}),toast:m=>notices.push(m),fetch:async(url,options)=>{
+    requests.push({url,headers:options.headers,body:options.body});
+    if(url.includes('action=status'))await new Promise(r=>releaseStatus=r);
+    return {ok:true,json:async()=>url.includes('action=status')?{connected:true}:{ok:true}};
+  }};
+  const apiFunction=app.slice(app.indexOf('    async function whatsappApi('),app.indexOf('    async function loadWhatsAppIntegrationStatus('));
+  const welcomeFunction=app.slice(app.indexOf('    async function sendNewPassengerWelcomeMessages('),app.indexOf('    async function sendWhatsAppReceipt('));
+  vm.runInNewContext(apiFunction+welcomeFunction,env);
+  const messages=env.sendNewPassengerWelcomeMessages({id:'list-qa',passengers:[{id:'new-qa',phone:'synthetic-phone'},{id:'old-qa',phone:'synthetic-phone'}]},{passengers:[{id:'old-qa'}]});
+  env.currentCompanyId='afyon';releaseStatus();await messages;
+  assert.equal(requests.length,2);assert(requests.every(r=>r.url.includes('company=hakikat')));assert(requests.every(r=>r.headers.Authorization==='Bearer synthetic-original-session'));
+  assert.equal(JSON.parse(requests[1].body).passengerId,'new-qa');assert.equal(notices.length,0,'Background status from the original company cannot notify the newly opened company');
   const payment = {
     id:'pay_test', receiptNo:'HK-20260825-TEST', amount:200, paidAt:'2026-08-25',
     method:'Nakit', note:'Kapora', receivedBy:{ name:'Baş Yönetici' }

@@ -181,10 +181,14 @@ function requiredEnv(name){
   return value;
 }
 
+let adminClient;
 function supabaseAdmin(){
   const url = requiredEnv('SUPABASE_URL');
   const serviceKey = requiredEnv('SUPABASE_SERVICE_ROLE_KEY');
-  return createClient(url, serviceKey, { auth: { persistSession: false } });
+  if(!adminClient || adminClient.url!==url || adminClient.key!==serviceKey){
+    adminClient={url,key:serviceKey,client:createClient(url, serviceKey, { auth: { persistSession: false } })};
+  }
+  return adminClient.client;
 }
 
 function supabaseAnon(){

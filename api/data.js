@@ -19,7 +19,13 @@ function cleanFileName(name){
 module.exports = async function handler(req, res){
   res.setHeader('Cache-Control', 'no-store');
   const action = String(req.query && req.query.action || '');
-  if(req.query?.scope==='admin'||req.method==='POST'||action==='upload-config'){try{await require('./_companies').load(supabaseAdmin());}catch(_){return res.status(503).json({ok:false,error:'Firma listesi yuklenemedi.'});}}
+  const timings=[],authContext={directoryLoaded:false};
+  const mark=(name,start)=>{timings.push(name+';dur='+Math.max(0,Date.now()-start));res.setHeader('Server-Timing',timings.join(', '));};
+  if(req.query?.scope==='admin'||req.method==='POST'||action==='upload-config'){
+    const start=Date.now();
+    try{await require('./_companies').load(supabaseAdmin());authContext.directoryLoaded=true;mark('directory',start);}
+    catch(_){return res.status(503).json({ok:false,error:'Firma listesi yuklenemedi.'});}
+  }
   const requestedCompanyId = requestCompanyId(req);
   const explicitCompany=req.query?.company||req.headers?.['x-company-id'];
   if(explicitCompany&&(req.query?.scope==='admin'||req.method==='POST')&&!require('../public/company-config').valid(String(explicitCompany)))return res.status(400).json({ok:false,error:'Firma bulunamadı. Firma listesini yenileyin.'});
@@ -27,10 +33,12 @@ module.exports = async function handler(req, res){
   if(req.method === 'GET'){
     const wantsAdmin = String(req.query && req.query.scope || '') === 'admin';
     const companyId = wantsAdmin ? requestedCompanyId : 'hazeyn';
-    let authorization = wantsAdmin ? await authorizeDataRequest(req, companyId) : null;
+    const authStart=Date.now();
+    let authorization = wantsAdmin ? await authorizeDataRequest(req, companyId, authContext) : null;
+    if(wantsAdmin)mark('auth',authStart);
     if(wantsAdmin && !authorization) return res.status(401).json({ok:false, error:'Yetkisiz.'});
     if(action === 'upload-config'){
-      authorization = authorization || await authorizeDataRequest(req, requestedCompanyId);
+      authorization = authorization || await authorizeDataRequest(req, requestedCompanyId, authContext);
       if(!authorization) return res.status(401).json({ok:false, error:'Yetkisiz.'});
       return res.status(200).json({
         url: process.env.SUPABASE_URL || '',
@@ -40,7 +48,9 @@ module.exports = async function handler(req, res){
     }
     try{
       const client = supabaseAdmin();
+      const readStart=Date.now();
       const { data, error } = await client.from(TABLE).select('data,updated_at').eq('id', companyRowId(companyId)).maybeSingle();
+      mark('read',readStart);
       if(error) throw error;
       const rawState = data && data.data ? data.data : companyDefaultData(companyId);
       if(wantsAdmin && action === 'baseline'){
@@ -71,7 +81,9 @@ module.exports = async function handler(req, res){
 
   if(req.method === 'POST'){
     const companyId = requestedCompanyId;
-    const authorization = await authorizeDataRequest(req, companyId);
+    const authStart=Date.now();
+    const authorization = await authorizeDataRequest(req, companyId, authContext);
+    mark('auth',authStart);
     if(!authorization) return res.status(401).json({ok:false, error:'Bu firma hesabı için yetkin yok veya oturumun sona ermiş.'});
     if(action === 'signed-upload'){
       try{
@@ -94,7 +106,9 @@ module.exports = async function handler(req, res){
       const client = supabaseAdmin();
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       let dataToSave = sanitizeAdminState(body.data || body);
+      const readStart=Date.now();
       const { data: existing, error: readError } = await client.from(TABLE).select('data,updated_at').eq('id', companyRowId(companyId)).maybeSingle();
+      mark('read',readStart);
       if(readError) throw readError;
       const previousState = existing && existing.data ? existing.data : companyDefaultData(companyId);
       if(authorization.kind === 'desktop') Recovery.expected(existing,dataToSave._meta?.serverRevision);
@@ -114,7 +128,9 @@ module.exports = async function handler(req, res){
           if((shared?.data?.plans||[]).some(p=>!p.archived&&p.sources.some(x=>x.company===companyId&&removed.some(t=>String(t.id)===x.tourId)))) Recovery.fail('Bu tur ortak otobüs planında. Önce Otobüs düzeni bölümünden ortak plan bağlantısını kaldırın.');
         }
       }
+      const saveStart=Date.now();
       const revision = await Recovery.write(client,companyRowId(companyId),existing,dataToSave);
+      mark('persist',saveStart);
       res.setHeader('X-Turizm-Company', companyId);
       const state = adminStateForClient(dataToSave,authorization.kind);
       state._meta = {...state._meta,serverRevision:revision,pendingSync:false};

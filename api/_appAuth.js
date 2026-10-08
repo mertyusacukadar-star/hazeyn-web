@@ -319,10 +319,10 @@ async function login(username, password){
   return { token: issueToken(user), user: publicUser(user) };
 }
 
-async function authenticateDesktopRequest(req){
+async function authenticateDesktopRequest(req, context = {}){
   const payload = decodeToken(requestToken(req));
   if(!payload) return null;
-  await require('./_companies').load(supabaseAdmin());
+  if(!context.directoryLoaded) await require('./_companies').load(supabaseAdmin());
   if(payload.role === 'owner') return { token: payload, user: publicUser(ownerUser()) };
   const store = await readUsers();
   const current = store.users.find(user => String(user.id) === String(payload.sub));
@@ -330,8 +330,8 @@ async function authenticateDesktopRequest(req){
   return { token: payload, user: publicUser(current) };
 }
 
-async function authorizeDataRequest(req, companyId){
-  const desktop = await authenticateDesktopRequest(req);
+async function authorizeDataRequest(req, companyId, context = {}){
+  const desktop = await authenticateDesktopRequest(req, context);
   if(desktop){
     const company = normalizeCompanyId(companyId);
     if(desktop.user.role !== 'owner' && !desktop.user.companies.includes(company)) return null;

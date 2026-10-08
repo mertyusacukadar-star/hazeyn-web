@@ -2,8 +2,24 @@
 const crypto=require('crypto');
 const C=require('../public/company-config');
 const ID='turizm-company-directory-v1';
+// The database revision is checked on every request. Only the unchanged, large
+// logo payload is reused; removals and permission-related company changes take
+// effect on the next request, including changes made by another server.
+const directories=new WeakMap();
 async function load(client){
- const R=require('./_recovery');const row=await R.read(client,ID);C.apply(row?.data?.companies||[]);return row;
+ const R=require('./_recovery'),cached=directories.get(client);
+ let row;
+ if(cached){
+  const {TABLE}=require('./_supabase');
+  const result=await client.from(TABLE).select('updated_at').eq('id',ID).maybeSingle();
+  if(result.error)throw result.error;
+  if(!result.data)row=null;
+  else if(result.data.updated_at&&result.data.updated_at===cached.updated_at)row=cached;
+  else row=await R.read(client,ID);
+ }else row=await R.read(client,ID);
+ if(row?.updated_at)directories.set(client,row);else directories.delete(client);
+ C.apply(row?.data?.companies||[]);
+ return row?structuredClone(row):null;
 }
 function validate(input,existing){
  const R=require('./_recovery');const name=String(input.name||'').trim(),city=String(input.city||'').trim();
