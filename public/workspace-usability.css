@@ -109,3 +109,9 @@
 .rooming-export-options input[type="checkbox"]{width:20px;height:20px;min-height:20px;flex:0 0 20px;margin:0;accent-color:#66bfa8}
 .rooming-export-options small{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:3px}
 .rooming-table .rooming-relationship{min-width:180px;white-space:normal;overflow-wrap:anywhere}
+
+.data-save-status[hidden]{display:none}
+.data-save-status{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:9000;display:flex;align-items:center;gap:10px;max-width:calc(100vw - 24px);padding:12px 18px;border:1px solid #66bfa8;border-radius:12px;background:#173c34;color:#ecfff9;font-size:14px;box-shadow:0 6px 24px #0003;pointer-events:none}
+.data-save-status span{width:16px;height:16px;border:2px solid #b8e8dc55;border-top-color:#b8e8dc;border-radius:50%;animation:save-progress-spin .8s linear infinite;flex-shrink:0}
+@keyframes save-progress-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.data-save-status span{animation:none}}

@@ -1555,7 +1555,12 @@
     }
     async function saveData(options = {}) {
         saveData.pending=(saveData.pending||0)+1;
-        try{return await persistData(options);}finally{saveData.pending--;}
+        const indicator = typeof document !== 'undefined' ? $('dataSaveStatus') : null;
+        if (indicator) indicator.hidden = false;
+        try{return await persistData(options);}finally{
+            saveData.pending--;
+            if (indicator && !saveData.pending) indicator.hidden = true;
+        }
     }
     async function persistData(options = {}) {
         if(!IS_APP_MODE)return saveLegacyData(options);
@@ -1566,7 +1571,12 @@
         let isolated=false;
         const preserve=async message=>{if(company!==currentCompanyId)return false;state=mergeDefaults(intent);state._meta={...state._meta,pendingSync:true,updatedAt:Math.max(Date.now(),Number(state._meta.updatedAt||0)+1)};await cacheDataLocally(state);toast(message,()=>{openRecovery();return '#exportBtn';});return false;};
         for(let attempt=0;attempt<3;attempt++){
-            const raw=await fetchRemoteData({admin:true});
+            // A confirmed baseline allows a revision-checked POST without a preceding GET.
+            // A 409 still fetches and merges current data before retrying; unbased drafts
+            // and unchanged saves retain the existing read/recovery path.
+            const fastWrite = attempt === 0 && base && intent._meta?.pendingSync !== true
+                && !window.TurizmStateSync.sameData(intent, base);
+            const raw = fastWrite ? base : await fetchRemoteData({admin:true});
             if(company!==currentCompanyId)return false;
             if(!raw)return preserve('Sunucuya ulaşılamadı. Değişiklikler bu cihazda korundu; bağlantı gelince tekrar kaydedin.');
             const latest=mergeDefaults(raw);let candidate=clone(intent);
@@ -3112,6 +3122,7 @@
             $('listTourSelect').value = workspaceTour.id; $('listTourId').value = workspaceTour.id;
             $('listTitle').value = workspaceTour.title || ''; $('listDate').value = workspaceTour.departureDate || '';
         }
+        updatePassengerEditorMode();
         workspaceUI?.checkpoint('tab-passengers');
     }
 
@@ -3165,9 +3176,14 @@
     async function savePassengerList() {
         if (passengerListSaving) return;
         passengerListSaving = true;
+        const button = $('savePassengerList');
+        if (button) { button.disabled = true; button.textContent = 'Kaydediliyor…'; }
         try { await savePassengerListOnce(); }
         catch (error) { toast(error.message || 'Yolcu listesi kaydedilemedi.'); }
-        finally { passengerListSaving = false; }
+        finally {
+            passengerListSaving = false;
+            if (button) { button.disabled = false; button.textContent = 'Listeyi Kaydet'; }
+        }
     }
     async function savePassengerListOnce() {
         if (!requirePermission('managePassengers')) return;
@@ -3211,7 +3227,8 @@
         $('listId').value = id;
         if (!await saveData({ keepLocalAccounting: IS_APP_MODE })) return;
         busWorkspace?.reset();
-        clearPassengerForm(); renderPassengerAdmin(); renderDashboard(); toast('Yolcu listesi ve muhasebe fiyatları kaydedildi.');
+        loadPassengerListForm(state.passengerLists.find(list => list.id === id) || item);
+        renderPassengerAdmin(); renderDashboard(); toast('Liste kaydedildi. Yolcu ekleyip aynı listeye kaydetmeye devam edebilirsiniz.');
         await sendNewPassengerWelcomeMessages(item, existing);
     }
 
@@ -3220,13 +3237,31 @@
         if (!requirePermission('managePassengers')) return;
         const l = state.passengerLists.find(x => x.id === id);
         if (!l) return; switchTab('passengers');
+        loadPassengerListForm(l);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function loadPassengerListForm(l) {
         renderPassengerTourSelect(l.tourId || '');
         $('listId').value = l.id; $('listTourId').value = l.tourId || ''; $('listTourSelect').value = l.tourId || ''; $('listTitle').value = l.title || ''; $('listDate').value = l.date || ''; $('listLeader').value = l.leader || ''; $('listNotes').value = l.notes || '';
         if ($('listOriginAirport')) $('listOriginAirport').value = l.originAirport || '';
         if ($('listDestinationAirport')) $('listDestinationAirport').value = l.destinationAirport || '';
         $('passengerTable').querySelector('tbody').innerHTML = '';
-        (l.passengers || []).forEach(p => passengerRow({ ...p, ...(IS_APP_MODE ? window.TurizmPassengerRegistration.currentSeat(state.tourBusPlans?.[l.tourId], l.id, p) : {}) })); ensurePassengerRows(); window.scrollTo({ top: 0, behavior: 'smooth' });
+        (l.passengers || []).forEach(p => passengerRow({ ...p, ...(IS_APP_MODE ? window.TurizmPassengerRegistration.currentSeat(state.tourBusPlans?.[l.tourId], l.id, p) : {}) }));
+        ensurePassengerRows();
+        refreshPassengerRelations();
+        updatePassengerEditorMode();
         workspaceUI?.checkpoint('tab-passengers');
+    }
+
+    function updatePassengerEditorMode() {
+        const editing = Boolean($('listId')?.value);
+        const heading = $('passengerEditorHeading');
+        const hint = $('passengerListSaveHint');
+        if (heading) heading.textContent = editing ? 'Yolcu Listesini Düzenle' : 'Yolcu Listesi Oluştur';
+        if (hint) hint.textContent = editing
+            ? 'Yeni yolcu ekleyip Listeyi Kaydet düğmesine basın; açık olan liste güncellenir.'
+            : 'Kaydettikten sonra aynı listede yolcu eklemeye devam edebilirsiniz.';
     }
 
     function passengerRowHtml(p, i, listId, roomBandClass = '') {
@@ -4240,6 +4275,7 @@
     }
 
     function renderPassengerAdmin() {
+        updatePassengerEditorMode();
         const list = $('passengerListAdmin');
         if (!list) return;
         window.TurizmWorkspaceLists?.clear(list);
@@ -4549,17 +4585,7 @@
             $('listTourId').value = tourId;
 
             if (savedList) {
-                $('listId').value = savedList.id;
-                $('listTitle').value = savedList.title || t?.title || '';
-                $('listDate').value = savedList.date || t?.departureDate || '';
-                $('listLeader').value = savedList.leader || '';
-                $('listNotes').value = savedList.notes || '';
-                if ($('listOriginAirport')) $('listOriginAirport').value = savedList.originAirport || '';
-                if ($('listDestinationAirport')) $('listDestinationAirport').value = savedList.destinationAirport || '';
-                $('passengerTable').querySelector('tbody').innerHTML = '';
-                (savedList.passengers || []).forEach(passengerRow);
-                ensurePassengerRows();
-                workspaceUI?.checkpoint('tab-passengers');
+                loadPassengerListForm(savedList);
                 toast('Bu programa ait kayıtlı yolcular açıldı.');
                 return;
             }
@@ -4755,8 +4781,21 @@
 
             const delList = e.target.closest('[data-delete-list]');
             if (delList) {
-                if (!requirePermission('deletePassengerLists')) return;
-                if (await askAppConfirmation('Yolcu listesi silinsin mi?')) { surnameSortedLists.delete(delList.dataset.deleteList); state.passengerLists = state.passengerLists.filter(x => x.id !== delList.dataset.deleteList); if (!await saveData()) return; renderPassengerAdmin(); renderDashboard(); toast('Liste silindi.'); }
+                if (delList.dataset.deleting || !requirePermission('deletePassengerLists')) return;
+                delList.dataset.deleting = '1';
+                try {
+                    if (!await askAppConfirmation('Yolcu listesi silinsin mi?')) return;
+                    delList.disabled = true; delList.textContent = 'Siliniyor…';
+                    const id = delList.dataset.deleteList;
+                    surnameSortedLists.delete(id);
+                    state.passengerLists = state.passengerLists.filter(x => x.id !== id);
+                    if (!await saveData()) return;
+                    if ($('listId').value === id) clearPassengerForm();
+                    renderPassengerAdmin(); renderDashboard(); toast('Liste silindi.');
+                } finally {
+                    delete delList.dataset.deleting;
+                    delList.disabled = false; delList.textContent = 'Sil';
+                }
             }
         });
     }

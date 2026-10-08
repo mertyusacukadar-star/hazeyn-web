@@ -20,9 +20,9 @@
 <link rel="stylesheet" href="workspace-lists.css?v=20261002-mobile3" />
     <link rel="stylesheet" href="workspace-login.css?v=20261002-mobile3" />
     <link rel="stylesheet" href="bus-workspace.css?v=20261002-mobile3">
-    <link rel="stylesheet" href="passenger-fields.css?v=20261008-rooming-relations2">
+    <link rel="stylesheet" href="passenger-fields.css?v=20261009-list-save1">
     <link rel="stylesheet" href="workspace-theme.css?v=20261002-tour-save1">
-<link rel="stylesheet" href="workspace-usability.css?v=20261008-rooming-relations2">
+<link rel="stylesheet" href="workspace-usability.css?v=20261009-list-save1">
 </head>
 <body data-page="admin" class="admin-body">
     <div id="appBoot" role="status"><strong>Turizm Muhasebe</strong><p>Çalışma alanınız hazırlanıyor…</p><button type="button" hidden onclick="location.reload()">Yeniden dene</button></div>
@@ -353,7 +353,8 @@
 
             <section class="admin-panel" id="tab-passengers">
                 <div class="admin-card form" id="passengerEditorCard" data-manage-permission="managePassengers">
-                    <h2>Yolcu Listesi Oluştur</h2>
+                    <h2 id="passengerEditorHeading">Yolcu Listesi Oluştur</h2>
+                    <p class="hint-text" id="passengerListSaveHint">Kaydettikten sonra aynı listede yolcu eklemeye devam edebilirsiniz.</p>
                     <input type="hidden" id="listId" />
                     <input type="hidden" id="listTourId" />
                     <div class="form-row three">
@@ -562,12 +563,12 @@
     <script src="workspace-collections.js?v=20261002-mobile3"></script>
     <script src="workspace-lists.js?v=20261002-mobile3"></script>
     <script src="workspace-login.js?v=20261002-mobile3"></script>
-    <script src="bus-plan.js?v=20261008-rooming-relations2"></script>
-    <script src="passenger-registration.js?v=20261008-rooming-relations2"></script>
+    <script src="bus-plan.js?v=20261009-list-save1"></script>
+    <script src="passenger-registration.js?v=20261009-list-save1"></script>
     <script src="bus-companies.js?v=20261002-mobile3"></script>
     <script src="bus-shared-picker.js?v=20261002-mobile3"></script>
     <script src="bus-print.js?v=20261002-mobile3"></script>
-    <script src="bus-workspace.js?v=20261008-rooming-relations2"></script>
+    <script src="bus-workspace.js?v=20261009-list-save1"></script>
     <script src="workspace-ui.js?v=20261002-tour-save1"></script>
     <script src="passenger-fields.js?v=20261002-mobile3"></script>
     <script src="/umre-visuals.js?v=20260930-1"></script>
@@ -581,6 +582,7 @@
 <script src="company-manager.js?v=20261002-company-delete2"></script>
 <script src="state-sync.js?v=20261002-tour-save1"></script>
 <script src="user-directory.js?v=20261002-mobile3"></script>
-<script src="app.js?v=20261008-rooming-relations2"></script>
+<script src="app.js?v=20261009-list-save1"></script>
+<div id="dataSaveStatus" class="data-save-status" role="status" aria-live="polite" hidden><span aria-hidden="true"></span> İşleminiz kaydediliyor…</div>
 </body>
 </html>
