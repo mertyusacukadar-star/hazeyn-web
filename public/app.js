@@ -3077,8 +3077,8 @@
         <td class="passenger-relative-cell"><select class="p-relative-person" data-selected="${escapeHtml(p.relativePassengerId || '')}"><option value="">Kişi seçin</option></select></td>
         <td><select class="p-room-group"><option value="">Grup yok</option>${window.TurizmPassengerRegistration.letters.map(v => `<option value="${v}" ${v === p.roomGroup ? 'selected' : ''}>${v}</option>`).join('')}</select></td>
         <td><input class="p-bus-no" type="number" min="1" max="20" step="1" inputmode="numeric" value="${escapeHtml(p.busNo || '')}" placeholder="Örn: 1"></td>
-        <td><input class="p-seat-no" type="number" min="1" max="999" step="1" inputmode="numeric" list="seat-options-${escapeHtml(tr.dataset.passengerId)}" value="${escapeHtml(p.seatNo || '')}" placeholder="Seç veya yaz"><datalist class="p-seat-options" id="seat-options-${escapeHtml(tr.dataset.passengerId)}"></datalist></td>
-        <td><select class="p-guide-bus">${guideBusOptions(String(p.guideBusNo || ''))}</select></td>
+        <td><input class="p-seat-no" type="number" min="1" max="999" step="1" inputmode="numeric" autocomplete="off" value="${escapeHtml(p.seatNo || '')}" placeholder="Seç veya yaz"></td>
+        <td><input class="p-guide-name" maxlength="80" autocomplete="off" value="${escapeHtml(p.guideName || (p.guideBusNo ? window.TurizmPassengerRegistration.guide(passengerFormPlan(), p).name : ''))}" placeholder="Yaz veya seç"></td>
         <td class="desktop-only passenger-price-cell"><input class="p-custom-price" type="number" min="0" step="0.01" value="${escapeHtml(accounting.agreedPrice)}" placeholder="Otomatik"></td>
         <td class="desktop-only"><select class="p-custom-currency" ${lockedCurrency ? 'disabled title="Tahsilatı bulunan kaydın para birimi korunur."' : ''}>${['USD', 'EUR', 'TRY'].map(currency => `<option value="${currency}" ${currency === rowCurrency ? 'selected' : ''}>${currency === 'TRY' ? 'TL' : currency}</option>`).join('')}</select></td>
         <td><input class="p-mekke-room-no" value="${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}" placeholder="Örn: M-305"></td>
@@ -3091,9 +3091,12 @@
         tr.querySelector('.p-name').addEventListener('input', schedulePassengerRelations);
         tr.querySelector('.p-relationship').addEventListener('change', refreshPassengerRelations);
         tr.querySelector('.p-relative-person').addEventListener('change', e => { e.target.dataset.selected = e.target.value; });
-        tr.querySelector('.p-bus-no').addEventListener('input', () => refreshSeatOptions(tr));
-        tr.querySelector('.p-seat-no').addEventListener('focus', () => refreshSeatOptions(tr));
-        tr.querySelector('.p-guide-bus').addEventListener('focus', e => { const value = e.target.value; e.target.innerHTML = guideBusOptions(value); e.target.value = value; });
+        const seatInput = tr.querySelector('.p-seat-no'), guideInput = tr.querySelector('.p-guide-name');
+        seatInput.addEventListener('focus', () => openSeatPicker(tr));
+        seatInput.addEventListener('click', () => openSeatPicker(tr));
+        guideInput.addEventListener('focus', () => openGuidePicker(tr));
+        guideInput.addEventListener('input', () => openGuidePicker(tr));
+        guideInput.addEventListener('change', () => applyGuideBus(tr, false));
         const priceInput = tr.querySelector('.p-custom-price');
         if (priceInput) priceInput.addEventListener('input', () => { tr.dataset.priceSource = 'custom'; });
         const currencyInput = tr.querySelector('.p-custom-currency');
@@ -3106,26 +3109,89 @@
         return state?.tourBusPlans?.[tourId];
     }
 
+    let rowPicker = null, rowPickerReady = false;
+    function closeRowPicker() { rowPicker?.remove(); rowPicker = null; }
+    // Small anchored chooser; the browser's datalist opens a full-height list of every seat.
+    function openRowPicker(input, items, onPick, className, markup) {
+        closeRowPicker();
+        if ((!items.length && !markup) || document.activeElement !== input) return;
+        if (!rowPickerReady) {
+            rowPickerReady = true;
+            const outside = e => { if (rowPicker && e.target !== rowPicker._input && !rowPicker.contains(e.target)) closeRowPicker(); };
+            document.addEventListener('focusin', outside);
+            document.addEventListener('mousedown', outside);
+            document.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Tab') closeRowPicker(); });
+            window.addEventListener('scroll', outside, true);
+            window.addEventListener('resize', closeRowPicker);
+        }
+        const box = document.createElement('div');
+        box.className = 'row-picker ' + className;
+        box.setAttribute('role', 'listbox');
+        box.innerHTML = markup || items.map((item, index) => `<button type="button" role="option" data-index="${index}" class="${item.muted ? 'muted' : ''}" title="${escapeHtml(item.title || item.text)}">${escapeHtml(item.text)}${item.hint ? `<small>${escapeHtml(item.hint)}</small>` : ''}</button>`).join('');
+        box.addEventListener('mousedown', e => e.preventDefault());
+        box.addEventListener('click', e => {
+            const button = e.target.closest('button');
+            if (!button || button.disabled || !button.dataset.index) return;
+            const item = items[Number(button.dataset.index)];
+            closeRowPicker(); onPick(item);
+        });
+        document.body.appendChild(box);
+        const rect = input.getBoundingClientRect();
+        const below = rect.bottom + 4 + box.offsetHeight <= window.innerHeight;
+        box.style.left = Math.max(4, Math.min(rect.left, window.innerWidth - box.offsetWidth - 4)) + 'px';
+        box.style.top = (below ? rect.bottom + 4 : Math.max(4, rect.top - 4 - box.offsetHeight)) + 'px';
+        rowPicker = box; rowPicker._input = input;
+    }
+
     // Free seats of the row's bus: seats held by other lists and by other rows of this form are left out.
-    function refreshSeatOptions(tr) {
-        const options = tr.querySelector('.p-seat-options');
-        if (!options) return;
-        const busNo = tr.querySelector('.p-bus-no').value.trim();
+    function openSeatPicker(tr) {
+        const input = tr.querySelector('.p-seat-no'), busNo = tr.querySelector('.p-bus-no').value.trim();
         const taken = [...$('passengerTable').querySelectorAll('tbody tr')].filter(row => row !== tr && row.querySelector('.p-bus-no').value.trim() === busNo).map(row => row.querySelector('.p-seat-no').value.trim()).filter(Boolean);
-        options.innerHTML = window.TurizmPassengerRegistration.seatOptions(passengerFormPlan(), $('listId')?.value || '', busNo, taken).map(o => `<option value="${escapeHtml(o.value)}"${o.label ? ` label="${escapeHtml(o.value + ' · ' + o.label)}"` : ''}></option>`).join('');
+        const map = window.TurizmPassengerRegistration.seatMap(passengerFormPlan(), $('listId')?.value || '', busNo, taken);
+        if (!map) { closeRowPicker(); return; }
+        const items = [];
+        const seat = cell => {
+            if (!cell) return '<span class="mini-seat-gap"></span>';
+            const index = items.push({ value: cell.label }) - 1;
+            const state = !cell.free ? 'Dolu' : cell.staff ? 'Görevli yeri · boş' : 'Boş';
+            return `<button type="button" role="option" data-index="${index}" class="mini-seat ${cell.free ? '' : 'taken'} ${cell.staff ? 'staff' : ''} ${cell.label === input.value.trim() ? 'current' : ''}" ${cell.free ? '' : 'disabled'} title="${escapeHtml(cell.label + ' · ' + state)}">${escapeHtml(cell.label)}</button>`;
+        };
+        const side = (cells, door) => door && cells.every(cell => !cell) ? `<span class="mini-door" style="grid-column: span ${cells.length}">kapı</span>` : cells.map(seat).join('');
+        const columns = `repeat(${map.leftPerRow}, 30px) 14px repeat(${map.rightPerRow}, 30px)`;
+        const markup = `<div class="mini-bus-head"><b>${escapeHtml(map.name)}</b><span>Ön · şoför</span></div>`
+            + map.rows.map(row => `<div class="mini-bus-row" style="grid-template-columns: ${columns}">${side(row.left, row.door && row.doorSide === 'left')}<span class="mini-aisle"></span>${side(row.right, row.door && row.doorSide === 'right')}</div>`).join('')
+            + (map.rear.length ? `<div class="mini-bus-rear">${map.rear.map(seat).join('')}</div>` : '')
+            + '<div class="mini-bus-legend"><span><i class="free"></i>Boş</span><span><i class="taken"></i>Dolu</span><span><i class="staff"></i>Görevli</span></div>';
+        openRowPicker(input, items, item => {
+            input.value = item.value;
+            input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true }));
+        }, 'seat-picker', markup);
+    }
+
+    function openGuidePicker(tr) {
+        const input = tr.querySelector('.p-guide-name'), query = window.TurizmBusPlan.fold(input.value.trim());
+        const items = window.TurizmPassengerRegistration.guideChoices(passengerFormPlan()).filter(g => !query || window.TurizmBusPlan.fold(g.name).includes(query)).map(g => ({ ...g, text: g.name, hint: `${g.busNo}. otobüs` }));
+        openRowPicker(input, items, item => {
+            input.value = item.name;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            applyGuideBus(tr, true);
+        }, 'guide-picker');
+    }
+
+    // Choosing a guide who leads a bus writes that bus number; a changed bus clears the old seat.
+    function applyGuideBus(tr, openSeats) {
+        const busNo = window.TurizmPassengerRegistration.guideBusFor(passengerFormPlan(), tr.querySelector('.p-guide-name').value);
+        if (!busNo) return;
+        const busInput = tr.querySelector('.p-bus-no'), seatInput = tr.querySelector('.p-seat-no');
+        if (busInput.value.trim() !== busNo) {
+            busInput.value = busNo; seatInput.value = '';
+            [busInput, seatInput].forEach(el => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); });
+        }
+        if (openSeats && !seatInput.value) seatInput.focus();
     }
 
     function passengerGuideText(tourId, p) {
-        const guide = window.TurizmPassengerRegistration.guide(state?.tourBusPlans?.[tourId], p);
-        const other = p.guideBusNo && p.guideBusNo !== String(p.busNo || '');
-        if (!guide.name) return other ? `${guide.busNo}. otobüsün hocası` : '—';
-        return guide.name + (other ? ` (${guide.busNo}. otobüs)` : '');
-    }
-
-    function guideBusOptions(selected) {
-        const options = window.TurizmBusPlan.normalizePlan(passengerFormPlan()).buses.map((bus, index) => [String(index + 1), `${index + 1}. otobüs · ${bus.guide || 'hoca girilmedi'}`]);
-        if (selected && !options.some(([value]) => value === selected)) options.push([selected, `${selected}. otobüs`]);
-        return '<option value="">Kendi otobüsünün hocası</option>' + options.map(([value, text]) => `<option value="${escapeHtml(value)}" ${value === selected ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('');
+        return window.TurizmPassengerRegistration.guideText(state?.tourBusPlans?.[tourId], p) || '—';
     }
 
     function syncPassengerRowPrice(tr, force = false) {
@@ -3198,7 +3264,7 @@
             roomGroup: tr.querySelector('.p-room-group').value,
             busNo: tr.querySelector('.p-bus-no').value.trim(),
             seatNo: tr.querySelector('.p-seat-no').value.trim(),
-            guideBusNo: tr.querySelector('.p-guide-bus')?.value || '',
+            guideName: tr.querySelector('.p-guide-name')?.value.trim() || '',
             mekkeRoomNo: tr.querySelector('.p-mekke-room-no')?.value.trim() || '',
             medineRoomNo: tr.querySelector('.p-medine-room-no')?.value.trim() || '',
             note: tr.querySelector('.p-note').value.trim(),

@@ -97,7 +97,7 @@
  }
 }
 
-@media(min-width:761px){body.desktop-app #passengerTable{min-width:3080px}body.desktop-app #passengerTable .p-relationship{min-width:105px}body.desktop-app #passengerTable .p-room-group{min-width:100px}body.desktop-app #passengerTable :is(.p-bus-no,.p-seat-no){min-width:85px}body.desktop-app #passengerTable .p-guide-bus{min-width:170px}}
+@media(min-width:761px){body.desktop-app #passengerTable{min-width:3080px}body.desktop-app #passengerTable .p-relationship{min-width:105px}body.desktop-app #passengerTable .p-room-group{min-width:100px}body.desktop-app #passengerTable :is(.p-bus-no,.p-seat-no){min-width:85px}body.desktop-app #passengerTable .p-guide-name{min-width:170px}}
 
 #passengerTable .p-relative-person{min-width:180px;width:190px} @media(max-width:760px){#passengerTable .p-relative-person{min-width:0;width:100%}}
 
@@ -115,3 +115,23 @@
 .data-save-status span{width:16px;height:16px;border:2px solid #b8e8dc55;border-top-color:#b8e8dc;border-radius:50%;animation:save-progress-spin .8s linear infinite;flex-shrink:0}
 @keyframes save-progress-spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.data-save-status span{animation:none}}
+.row-picker{position:fixed;z-index:1000;max-height:260px;overflow:auto;padding:6px;border:1px solid var(--line,#cfd8d4);border-radius:10px;background:var(--paper,#fff);color:var(--ink,#16231f);box-shadow:0 10px 28px #0000002e}
+.row-picker button{font:inherit;border:1px solid var(--line,#cfd8d4);border-radius:6px;background:transparent;color:inherit;cursor:pointer}
+.row-picker button:hover,.row-picker button:focus-visible{border-color:var(--gold,#2f7d5c);outline:none}
+.guide-picker{display:flex;flex-direction:column;gap:4px;min-width:200px}
+.guide-picker button{display:flex;justify-content:space-between;gap:12px;padding:7px 10px;text-align:left}
+.guide-picker small{color:var(--muted,#64756f)}
+.seat-picker{max-height:min(460px,70vh);padding:8px 10px}
+.mini-bus-head{display:flex;justify-content:space-between;gap:10px;margin:0 0 8px;padding:5px 8px;border-radius:8px 8px 3px 3px;background:#ffffff10;font-size:11px}
+.mini-bus-head span{color:var(--muted,#64756f)}
+.mini-bus-row{display:grid;gap:3px;margin-bottom:3px;justify-content:center}
+.mini-bus-rear{display:flex;gap:3px;justify-content:center;margin-top:5px;padding-top:5px;border-top:1px dashed var(--line,#cfd8d4)}
+.row-picker .mini-seat{width:30px;height:26px;padding:0;font-size:11px;font-weight:700;border-radius:5px 5px 3px 3px}
+.row-picker .mini-seat.staff{background:#3d3420;border-color:#7a6430;color:#f2c879}
+.row-picker .mini-seat.taken{background:#00000038;color:#ffffff40;border-color:transparent;cursor:not-allowed;font-weight:400}
+.row-picker .mini-seat.current{background:var(--gold,#2f7d5c);border-color:var(--gold,#2f7d5c);color:#0d1a17}
+.mini-seat-gap,.mini-aisle{display:block}
+.mini-door{display:flex;align-items:center;justify-content:center;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#64756f);border:1px dashed var(--line,#cfd8d4);border-radius:4px}
+.mini-bus-legend{display:flex;gap:10px;justify-content:center;margin-top:8px;font-size:10px;color:var(--muted,#64756f)}
+.mini-bus-legend i{display:inline-block;width:9px;height:9px;margin-right:4px;border:1px solid var(--line,#cfd8d4);border-radius:2px;vertical-align:-1px}
+.mini-bus-legend i.taken{background:#00000038;border-color:transparent}.mini-bus-legend i.staff{background:#3d3420;border-color:#7a6430}

@@ -31,7 +31,8 @@ function validate(passengers){
    if(p.relativePassengerId===p.id||!passengers.some(x=>x.id===p.relativePassengerId&&String(x.name||'').trim()))throw Error(who+': yakınlık için listedeki başka bir yolcuyu seçin.');
   }
   if(p.roomGroup&&!letters.includes(p.roomGroup))throw Error(who+': oda yakınlığı A–Z arasında olmalı.');
-  if(p.guideBusNo&&!/^(?:[1-9]|1d|20)$/.test(String(p.guideBusNo)))throw Error(who+': hoca için 1–20 arasında bir otobüs seçin.');
+  if(p.guideBusNo&&!/^(?:[1-9]|1\d|20)$/.test(String(p.guideBusNo)))throw Error(who+': hoca için 1–20 arasında bir otobüs seçin.');
+  if(String(p.guideName||'').length>80)throw Error(who+': hoca adı en çok 80 karakter olabilir.');
   const s=seating(p);if(!s.busNo&&!s.seatNo)continue;
   if(!/^(?:[1-9]|1\d|20)$/.test(s.busNo)||!/^([1-9]\d{0,2})$/.test(s.seatNo))throw Error(who+': otobüs no (1–20) ve koltuk no (1–999) birlikte girilmeli.');
  }
@@ -80,15 +81,26 @@ function currentSeat(plan,listId,p){
 // Seats a registration row may still take: other lists' seats in the saved plan are taken,
 // this list's own seats follow the rows currently on the form.
 function seatOptions(plan,listId,busNo,formTaken=[]){
- if(!/^(?:[1-9]|1d|20)$/.test(String(busNo||'').trim()))return [];
+ if(!/^(?:[1-9]|1\d|20)$/.test(String(busNo||'').trim()))return [];
  const bus=P.normalizePlan(plan).buses[Number(busNo)-1]||P.makeBus(),own=id=>{try{return JSON.parse(id)[0]===String(listId);}catch(_){return false;}};
  const taken=new Set(formTaken.map(String));
  return Array.from({length:bus.capacity},(_,i)=>i+1).filter(n=>!(bus.assignments[n]&&!own(bus.assignments[n]))&&!taken.has(P.seatLabel(bus,n))).map(n=>({value:P.seatLabel(bus,n),label:P.isStaff(bus,n)?'Görevli yeri':''}));
+}
+// Mini seating chart for the registration row: same geometry as the bus planner.
+function seatMap(plan,listId,busNo,formTaken=[]){
+ if(!/^(?:[1-9]|1\d|20)$/.test(String(busNo||'').trim()))return null;
+ const bus=P.normalizePlan(plan).buses[Number(busNo)-1]||P.makeBus(),free=new Set(seatOptions(plan,listId,busNo,formTaken).map(o=>o.value)),grid=P.seats(bus);
+ const cell=n=>n?{label:P.seatLabel(bus,n),free:free.has(P.seatLabel(bus,n)),staff:P.isStaff(bus,n)}:null;
+ return {name:bus.name,leftPerRow:grid.leftPerRow,rightPerRow:grid.rightPerRow,rows:grid.rows.map(r=>({left:r.left.map(cell),right:r.right.map(cell),door:Boolean(r.door),doorSide:r.doorSide})),rear:grid.rear.map(cell)};
 }
 function guide(plan,p){
  const busNo=String(p?.guideBusNo||p?.busNo||'').trim();if(!busNo)return {busNo:'',name:''};
  return {busNo,name:P.normalizePlan(plan).buses[Number(busNo)-1]?.guide||''};
 }
+function guideChoices(plan){return P.normalizePlan(plan).buses.map((b,i)=>({name:b.guide||'',busNo:String(i+1)})).filter(g=>g.name);}
+function guideBusFor(plan,name){const wanted=P.fold(String(name||'').trim());return wanted?guideChoices(plan).find(g=>P.fold(g.name)===wanted)?.busNo||'':'';}
+// A typed guide name wins; otherwise the guide of the passenger's (or chosen) bus is shown.
+function guideText(plan,p){return String(p?.guideName||'').trim()||guide(plan,p).name;}
 function rooms(passengers){
  const types=new Map();
  for(const p of passengers||[]){const type=String(p.roomPeople||p.room||'').trim()||'secilmedi';if(!types.has(type))types.set(type,[]);types.get(type).push(p);}
@@ -106,7 +118,7 @@ function rooms(passengers){
  }
  return result;
 }
-const api={relationships,letters,group,seating,validate,changedSeats,syncPlans,currentSeat,seatOptions,guide,rooms,hasPayments,tourCurrency,priceText,relationshipText};
+const api={relationships,letters,group,seating,validate,changedSeats,syncPlans,currentSeat,seatOptions,seatMap,guide,guideChoices,guideBusFor,guideText,rooms,hasPayments,tourCurrency,priceText,relationshipText};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 root.TurizmPassengerRegistration=api;
 })(typeof window==='undefined'?globalThis:window);
