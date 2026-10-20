@@ -4,6 +4,13 @@ const render=require('../public/api/_site-pages.cjs');
 const design=require('../public/umre-visuals');
 const {sanitizePublicState}=require('../public/api/_supabase');
 const snapshot=require('../public/api/_public-snapshot.json');
+// The fixture contains dated 2026 tours. Keep first-paint assertions independent
+// of the day the suite is run; production date-based archive filtering is unchanged.
+const RealDate=Date;
+global.Date=class extends RealDate {
+  constructor(...args){super(...(args.length?args:['2026-09-29T12:00:00Z']));}
+  static now(){return new RealDate('2026-09-29T12:00:00Z').getTime();}
+};
 const copy=()=>JSON.parse(JSON.stringify(snapshot));
 const state=copy();
 const tour=state.tours.find(t=>t.slug==='19-ekim-2026-umresi');
