@@ -3115,6 +3115,13 @@
         options.innerHTML = window.TurizmPassengerRegistration.seatOptions(passengerFormPlan(), $('listId')?.value || '', busNo, taken).map(o => `<option value="${escapeHtml(o.value)}"${o.label ? ` label="${escapeHtml(o.value + ' · ' + o.label)}"` : ''}></option>`).join('');
     }
 
+    function passengerGuideText(tourId, p) {
+        const guide = window.TurizmPassengerRegistration.guide(state?.tourBusPlans?.[tourId], p);
+        const other = p.guideBusNo && p.guideBusNo !== String(p.busNo || '');
+        if (!guide.name) return other ? `${guide.busNo}. otobüsün hocası` : '—';
+        return guide.name + (other ? ` (${guide.busNo}. otobüs)` : '');
+    }
+
     function guideBusOptions(selected) {
         const options = window.TurizmBusPlan.normalizePlan(passengerFormPlan()).buses.map((bus, index) => [String(index + 1), `${index + 1}. otobüs · ${bus.guide || 'hoca girilmedi'}`]);
         if (selected && !options.some(([value]) => value === selected)) options.push([selected, `${selected}. otobüs`]);
@@ -3318,7 +3325,7 @@
         <td><select class="inline-room-people" data-list-id="${escapeHtml(listId)}" data-room-people-index="${originalIndex}" ${canManagePassengers ? '' : 'disabled'}>${['', '1', '2', '3', '4', '5+'].map(v => `<option value="${v}" ${String(p.roomPeople || p.room || '') === v ? 'selected' : ''}>${v ? v + ' Kişilik' : 'Seç'}</option>`).join('')}</select></td>
         <td><input class="inline-room-no" data-list-id="${escapeHtml(listId)}" data-room-field="mekkeRoomNo" data-room-no-index="${originalIndex}" value="${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}" placeholder="Mekke" ${canManagePassengers ? '' : 'disabled'}></td>
         <td><input class="inline-room-no" data-list-id="${escapeHtml(listId)}" data-room-field="medineRoomNo" data-room-no-index="${originalIndex}" value="${escapeHtml(p.medineRoomNo || p.roomNo || '')}" placeholder="Medine" ${canManagePassengers ? '' : 'disabled'}></td>
-        <td>${escapeHtml(p.note)}</td><td>${escapeHtml(window.TurizmPassengerRegistration.relationshipText(p, list.passengers))}</td><td>${escapeHtml(p.roomGroup || '—')}</td><td>${escapeHtml(p.busNo || '—')}</td><td>${escapeHtml(p.seatNo || '—')}</td>
+        <td>${escapeHtml(p.note)}</td><td>${escapeHtml(window.TurizmPassengerRegistration.relationshipText(p, list.passengers))}</td><td>${escapeHtml(p.roomGroup || '—')}</td><td>${escapeHtml(p.busNo || '—')}</td><td>${escapeHtml(p.seatNo || '—')}</td><td>${escapeHtml(passengerGuideText(list.tourId, p))}</td>
     </tr>`;
     }
 
@@ -3331,7 +3338,7 @@
             <div class="room-group-title">${escapeHtml(group.title)} <span>${group.items.length} yolcu</span></div>
             <div class="passenger-detail-wrap">
                 <table class="passenger-detail-table room-table">
-                    <thead><tr><th>Sıra</th><th>Ad Soyad</th><th>Cinsiyet</th><th>TC No</th><th>Telefon</th><th>Pasaport No</th><th>Doğum Tarihi</th><th>Pasaport Başlangıç</th><th>Pasaport Bitiş</th><th>Oda Kaç Kişilik</th><th>Mekke Oda</th><th>Medine Oda</th><th>Not</th></tr></thead>
+                    <thead><tr><th>Sıra</th><th>Ad Soyad</th><th>Cinsiyet</th><th>TC No</th><th>Telefon</th><th>Pasaport No</th><th>Doğum Tarihi</th><th>Pasaport Başlangıç</th><th>Pasaport Bitiş</th><th>Oda Kaç Kişilik</th><th>Mekke Oda</th><th>Medine Oda</th><th>Not</th><th>Yakınlık</th><th>Oda Grubu</th><th>Otobüs</th><th>Koltuk</th><th>Hoca</th></tr></thead>
                     <tbody>${group.items.map((p, i) => {
                         const capacity = Math.max(1, parseInt(String(group.key || '1').replace('+', ''), 10) || 1);
                         const band = Math.floor(i / capacity) % 2 === 0 ? 'room-band-blue' : 'room-band-gold';
@@ -4365,9 +4372,9 @@
             const rows = group.items.map((p, i) => {
                 const roomBand = Math.floor(i / capacity) % 2 === 0 ? 'room-band-blue' : 'room-band-gold';
                 const warningClass = isPassportExpiring(p.passportEnd, flightDate) ? ' passport-print-warning' : '';
-                return `<tr class="${roomBand}${warningClass}"><td>${i + 1}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.gender)}</td><td>${escapeHtml(p.tc)}</td><td>${escapeHtml(p.phone)}</td><td>${escapeHtml(p.passportNo)}</td><td>${escapeHtml(formatDateDMY(p.birthDate))}</td><td>${escapeHtml(formatDateDMY(p.passportStart))}</td><td>${escapeHtml(formatDateDMY(p.passportEnd))}</td><td>${escapeHtml(p.roomPeople || p.room)}</td><td>${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}</td><td>${escapeHtml(p.medineRoomNo || p.roomNo || '')}</td><td>${escapeHtml(p.note)}</td></tr>`;
+                return `<tr class="${roomBand}${warningClass}"><td>${i + 1}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.gender)}</td><td>${escapeHtml(p.tc)}</td><td>${escapeHtml(p.phone)}</td><td>${escapeHtml(p.passportNo)}</td><td>${escapeHtml(formatDateDMY(p.birthDate))}</td><td>${escapeHtml(formatDateDMY(p.passportStart))}</td><td>${escapeHtml(formatDateDMY(p.passportEnd))}</td><td>${escapeHtml(p.roomPeople || p.room)}</td><td>${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}</td><td>${escapeHtml(p.medineRoomNo || p.roomNo || '')}</td><td>${escapeHtml(p.note)}</td><td>${escapeHtml(window.TurizmPassengerRegistration.relationshipText(p, l.passengers))}</td><td>${escapeHtml(p.roomGroup || '—')}</td><td>${escapeHtml(p.busNo || '—')}</td><td>${escapeHtml(p.seatNo || '—')}</td><td>${escapeHtml(passengerGuideText(l.tourId, p))}</td></tr>`;
             }).join('');
-            return `<div class="room-group-block"><h2 class="print-room-title">${escapeHtml(group.title)} (${group.items.length} yolcu)</h2><table><thead><tr><th>No</th><th>Ad Soyad</th><th>Cinsiyet</th><th>TC No</th><th>Telefon</th><th>Pasaport No</th><th>Doğum Tarihi</th><th>Pasaport Başlangıç</th><th>Pasaport Bitiş</th><th>Oda Kişilik</th><th>Mekke</th><th>Medine</th><th>Not</th><th>Yakınlık</th><th>Oda Grubu</th><th>Otobüs</th><th>Koltuk</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+            return `<div class="room-group-block"><h2 class="print-room-title">${escapeHtml(group.title)} (${group.items.length} yolcu)</h2><table><thead><tr><th>No</th><th>Ad Soyad</th><th>Cinsiyet</th><th>TC No</th><th>Telefon</th><th>Pasaport No</th><th>Doğum Tarihi</th><th>Pasaport Başlangıç</th><th>Pasaport Bitiş</th><th>Oda Kişilik</th><th>Mekke</th><th>Medine</th><th>Not</th><th>Yakınlık</th><th>Oda Grubu</th><th>Otobüs</th><th>Koltuk</th><th>Hoca</th></tr></thead><tbody>${rows}</tbody></table></div>`;
         }).join('') || '<p>Bu listede yolcu bilgisi yok.</p>';
 
         const printCss = `
