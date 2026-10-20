@@ -3077,24 +3077,48 @@
         <td class="passenger-relative-cell"><select class="p-relative-person" data-selected="${escapeHtml(p.relativePassengerId || '')}"><option value="">Kişi seçin</option></select></td>
         <td><select class="p-room-group"><option value="">Grup yok</option>${window.TurizmPassengerRegistration.letters.map(v => `<option value="${v}" ${v === p.roomGroup ? 'selected' : ''}>${v}</option>`).join('')}</select></td>
         <td><input class="p-bus-no" type="number" min="1" max="20" step="1" inputmode="numeric" value="${escapeHtml(p.busNo || '')}" placeholder="Örn: 1"></td>
-        <td><input class="p-seat-no" type="number" min="1" max="999" step="1" inputmode="numeric" value="${escapeHtml(p.seatNo || '')}" placeholder="Örn: 5"></td>
+        <td><input class="p-seat-no" type="number" min="1" max="999" step="1" inputmode="numeric" list="seat-options-${escapeHtml(tr.dataset.passengerId)}" value="${escapeHtml(p.seatNo || '')}" placeholder="Seç veya yaz"><datalist class="p-seat-options" id="seat-options-${escapeHtml(tr.dataset.passengerId)}"></datalist></td>
+        <td><select class="p-guide-bus">${guideBusOptions(String(p.guideBusNo || ''))}</select></td>
         <td class="desktop-only passenger-price-cell"><input class="p-custom-price" type="number" min="0" step="0.01" value="${escapeHtml(accounting.agreedPrice)}" placeholder="Otomatik"></td>
         <td class="desktop-only"><select class="p-custom-currency" ${lockedCurrency ? 'disabled title="Tahsilatı bulunan kaydın para birimi korunur."' : ''}>${['USD', 'EUR', 'TRY'].map(currency => `<option value="${currency}" ${currency === rowCurrency ? 'selected' : ''}>${currency === 'TRY' ? 'TL' : currency}</option>`).join('')}</select></td>
         <td><input class="p-mekke-room-no" value="${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}" placeholder="Örn: M-305"></td>
         <td><input class="p-medine-room-no" value="${escapeHtml(p.medineRoomNo || p.roomNo || '')}" placeholder="Örn: D-214"></td>
         <td><input class="p-note" value="${escapeHtml(p.note || '')}" placeholder="Not"></td>
         <td><button type="button" class="icon-btn danger remove-row">Sil</button></td>`;
-        const labels = ['Ad Soyad','Cinsiyet','TC No','Telefon Numarası','Pasaport Numarası','Doğum Tarihi','Pasaport Başlangıç','Pasaport Bitiş','Oda Kaç Kişilik','Yolcunun Yakınlığı','Kimin Yakını?','Oda Yakınlığı (A–Z)','Otobüs No','Koltuk No','Kişiye Özel Fiyat','Para Birimi','Mekke Oda No','Medine Oda No','Not',''];
+        const labels = ['Ad Soyad','Cinsiyet','TC No','Telefon Numarası','Pasaport Numarası','Doğum Tarihi','Pasaport Başlangıç','Pasaport Bitiş','Oda Kaç Kişilik','Yolcunun Yakınlığı','Kimin Yakını?','Oda Yakınlığı (A–Z)','Otobüs No','Koltuk No','Otobüs Hocası','Kişiye Özel Fiyat','Para Birimi','Mekke Oda No','Medine Oda No','Not',''];
         [...tr.cells].forEach((cell,i)=>{cell.dataset.label=labels[i];const field=cell.querySelector('input,select,textarea');if(field)field.setAttribute('aria-label',labels[i]);});
         $('passengerTable').querySelector('tbody').appendChild(tr);
         tr.querySelector('.p-name').addEventListener('input', schedulePassengerRelations);
         tr.querySelector('.p-relationship').addEventListener('change', refreshPassengerRelations);
         tr.querySelector('.p-relative-person').addEventListener('change', e => { e.target.dataset.selected = e.target.value; });
+        tr.querySelector('.p-bus-no').addEventListener('input', () => refreshSeatOptions(tr));
+        tr.querySelector('.p-seat-no').addEventListener('focus', () => refreshSeatOptions(tr));
+        tr.querySelector('.p-guide-bus').addEventListener('focus', e => { const value = e.target.value; e.target.innerHTML = guideBusOptions(value); e.target.value = value; });
         const priceInput = tr.querySelector('.p-custom-price');
         if (priceInput) priceInput.addEventListener('input', () => { tr.dataset.priceSource = 'custom'; });
         const currencyInput = tr.querySelector('.p-custom-currency');
         if (currencyInput) currencyInput.addEventListener('change', () => { tr.dataset.priceSource = 'custom'; });
         if (IS_APP_MODE && tr.dataset.priceSource !== 'custom' && roomPeople && !lockedCurrency) syncPassengerRowPrice(tr, true);
+    }
+
+    function passengerFormPlan() {
+        const tourId = $('listTourSelect')?.value || $('listTourId')?.value || '';
+        return state?.tourBusPlans?.[tourId];
+    }
+
+    // Free seats of the row's bus: seats held by other lists and by other rows of this form are left out.
+    function refreshSeatOptions(tr) {
+        const options = tr.querySelector('.p-seat-options');
+        if (!options) return;
+        const busNo = tr.querySelector('.p-bus-no').value.trim();
+        const taken = [...$('passengerTable').querySelectorAll('tbody tr')].filter(row => row !== tr && row.querySelector('.p-bus-no').value.trim() === busNo).map(row => row.querySelector('.p-seat-no').value.trim()).filter(Boolean);
+        options.innerHTML = window.TurizmPassengerRegistration.seatOptions(passengerFormPlan(), $('listId')?.value || '', busNo, taken).map(o => `<option value="${escapeHtml(o.value)}"${o.label ? ` label="${escapeHtml(o.value + ' · ' + o.label)}"` : ''}></option>`).join('');
+    }
+
+    function guideBusOptions(selected) {
+        const options = window.TurizmBusPlan.normalizePlan(passengerFormPlan()).buses.map((bus, index) => [String(index + 1), `${index + 1}. otobüs · ${bus.guide || 'hoca girilmedi'}`]);
+        if (selected && !options.some(([value]) => value === selected)) options.push([selected, `${selected}. otobüs`]);
+        return '<option value="">Kendi otobüsünün hocası</option>' + options.map(([value, text]) => `<option value="${escapeHtml(value)}" ${value === selected ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('');
     }
 
     function syncPassengerRowPrice(tr, force = false) {
@@ -3167,6 +3191,7 @@
             roomGroup: tr.querySelector('.p-room-group').value,
             busNo: tr.querySelector('.p-bus-no').value.trim(),
             seatNo: tr.querySelector('.p-seat-no').value.trim(),
+            guideBusNo: tr.querySelector('.p-guide-bus')?.value || '',
             mekkeRoomNo: tr.querySelector('.p-mekke-room-no')?.value.trim() || '',
             medineRoomNo: tr.querySelector('.p-medine-room-no')?.value.trim() || '',
             note: tr.querySelector('.p-note').value.trim(),

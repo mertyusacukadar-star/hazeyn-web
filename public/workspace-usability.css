@@ -97,7 +97,7 @@
  }
 }
 
-@media(min-width:761px){body.desktop-app #passengerTable{min-width:2900px}body.desktop-app #passengerTable .p-relationship{min-width:105px}body.desktop-app #passengerTable .p-room-group{min-width:100px}body.desktop-app #passengerTable :is(.p-bus-no,.p-seat-no){min-width:85px}}
+@media(min-width:761px){body.desktop-app #passengerTable{min-width:3080px}body.desktop-app #passengerTable .p-relationship{min-width:105px}body.desktop-app #passengerTable .p-room-group{min-width:100px}body.desktop-app #passengerTable :is(.p-bus-no,.p-seat-no){min-width:85px}body.desktop-app #passengerTable .p-guide-bus{min-width:170px}}
 
 #passengerTable .p-relative-person{min-width:180px;width:190px} @media(max-width:760px){#passengerTable .p-relative-person{min-width:0;width:100%}}
 

@@ -1,7 +1,7 @@
 (function(root){
 'use strict';
 const P=typeof module!=='undefined'&&module.exports?require('./bus-plan'):root.TurizmBusPlan;
-const relationships=['Kendisi','Eşi','Babası','Oğlu','Kızı'];
+const relationships=['Kendisi','Eşi','Annesi','Babası','Kardeşi','Oğlu','Kızı'];
 const letters=Array.from({length:26},(_,i)=>String.fromCharCode(65+i));
 const group=p=>letters.includes(String(p.roomGroup||'').toUpperCase())?String(p.roomGroup).toUpperCase():'';
 function hasPayments(accounting){return Array.isArray(accounting?.payments)&&accounting.payments.length>0;}
@@ -31,6 +31,7 @@ function validate(passengers){
    if(p.relativePassengerId===p.id||!passengers.some(x=>x.id===p.relativePassengerId&&String(x.name||'').trim()))throw Error(who+': yakınlık için listedeki başka bir yolcuyu seçin.');
   }
   if(p.roomGroup&&!letters.includes(p.roomGroup))throw Error(who+': oda yakınlığı A–Z arasında olmalı.');
+  if(p.guideBusNo&&!/^(?:[1-9]|1d|20)$/.test(String(p.guideBusNo)))throw Error(who+': hoca için 1–20 arasında bir otobüs seçin.');
   const s=seating(p);if(!s.busNo&&!s.seatNo)continue;
   if(!/^(?:[1-9]|1\d|20)$/.test(s.busNo)||!/^([1-9]\d{0,2})$/.test(s.seatNo))throw Error(who+': otobüs no (1–20) ve koltuk no (1–999) birlikte girilmeli.');
  }
@@ -76,6 +77,18 @@ function currentSeat(plan,listId,p){
  const index=normalized.buses.findIndex(b=>b.id===placed.busId);
  return {busNo:String(index+1),seatNo:P.seatLabel(normalized.buses[index],placed.seat)};
 }
+// Seats a registration row may still take: other lists' seats in the saved plan are taken,
+// this list's own seats follow the rows currently on the form.
+function seatOptions(plan,listId,busNo,formTaken=[]){
+ if(!/^(?:[1-9]|1d|20)$/.test(String(busNo||'').trim()))return [];
+ const bus=P.normalizePlan(plan).buses[Number(busNo)-1]||P.makeBus(),own=id=>{try{return JSON.parse(id)[0]===String(listId);}catch(_){return false;}};
+ const taken=new Set(formTaken.map(String));
+ return Array.from({length:bus.capacity},(_,i)=>i+1).filter(n=>!(bus.assignments[n]&&!own(bus.assignments[n]))&&!taken.has(P.seatLabel(bus,n))).map(n=>({value:P.seatLabel(bus,n),label:P.isStaff(bus,n)?'Görevli yeri':''}));
+}
+function guide(plan,p){
+ const busNo=String(p?.guideBusNo||p?.busNo||'').trim();if(!busNo)return {busNo:'',name:''};
+ return {busNo,name:P.normalizePlan(plan).buses[Number(busNo)-1]?.guide||''};
+}
 function rooms(passengers){
  const types=new Map();
  for(const p of passengers||[]){const type=String(p.roomPeople||p.room||'').trim()||'secilmedi';if(!types.has(type))types.set(type,[]);types.get(type).push(p);}
@@ -93,7 +106,7 @@ function rooms(passengers){
  }
  return result;
 }
-const api={relationships,letters,group,seating,validate,changedSeats,syncPlans,currentSeat,rooms,hasPayments,tourCurrency,priceText,relationshipText};
+const api={relationships,letters,group,seating,validate,changedSeats,syncPlans,currentSeat,seatOptions,guide,rooms,hasPayments,tourCurrency,priceText,relationshipText};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 root.TurizmPassengerRegistration=api;
 })(typeof window==='undefined'?globalThis:window);
