@@ -454,6 +454,10 @@
         document.title = IS_APP_MODE ? `${company.name} • Turizm Muhasebe` : `${company.name} • Site Yönetimi`;
         document.querySelectorAll('[data-company-name]').forEach(el => { el.textContent = company.name; });
         document.querySelectorAll('[data-company-short-name]').forEach(el => { el.textContent = company.shortName; });
+        // The browser tab icon follows the active company; the installed app keeps the shared icon.
+        const tabIcon = document.querySelector('link[rel="icon"]');
+        const nextIcon = company.appIcon || 'assets/mobile-app-icon-192.png?v=20261020-icons1';
+        if (tabIcon && tabIcon.getAttribute('href') !== nextIcon) tabIcon.setAttribute('href', nextIcon);
         document.querySelectorAll('[data-company-logo]').forEach(el => {
             const context = el.dataset.companyLogo;
             el.src = context === 'login' ? company.loginLogo : company.logo;

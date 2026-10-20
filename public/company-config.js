@@ -1,9 +1,9 @@
 (function(root){
 'use strict';
 const config={
- hazeyn:Object.freeze({id:'hazeyn',name:'Hazeyn Turizm',shortName:'Hazeyn',city:'İstanbul',receiptPrefix:'HZ',logo:'assets/logo.png',loginLogo:'assets/logo.png',receiptLogo:'assets/hazeyn-logo-receipt.png',publicUrl:'index.html',accent:'#c4912f'}),
- hakikat:Object.freeze({id:'hakikat',name:'Hakikat Turizm',shortName:'Hakikat',city:'Konya',receiptPrefix:'HK',logo:'assets/hakikat-logo-white.png',loginLogo:'assets/hakikat-logo.png',receiptLogo:'assets/hakikat-logo.png',publicUrl:'',accent:'#628c2c'}),
- afyon:Object.freeze({id:'afyon',name:'Afyon Hakikat',shortName:'Afyon Hakikat',city:'Afyon',receiptPrefix:'AFH',logo:'assets/hakikat-logo-white.png',loginLogo:'assets/hakikat-logo.png',receiptLogo:'assets/hakikat-logo.png',publicUrl:'',accent:'#397c73'})
+ hazeyn:Object.freeze({id:'hazeyn',name:'Hazeyn Turizm',shortName:'Hazeyn',city:'İstanbul',receiptPrefix:'HZ',logo:'assets/logo.png',loginLogo:'assets/logo.png',receiptLogo:'assets/hazeyn-logo-receipt.png',appIcon:'assets/app-icon-hazeyn-64.png',publicUrl:'index.html',accent:'#c4912f'}),
+ hakikat:Object.freeze({id:'hakikat',name:'Hakikat Turizm',shortName:'Hakikat',city:'Konya',receiptPrefix:'HK',logo:'assets/hakikat-logo-white.png',loginLogo:'assets/hakikat-logo.png',receiptLogo:'assets/hakikat-logo.png',appIcon:'assets/app-icon-hakikat-64.png',publicUrl:'',accent:'#628c2c'}),
+ afyon:Object.freeze({id:'afyon',name:'Afyon Hakikat',shortName:'Afyon Hakikat',city:'Afyon',receiptPrefix:'AFH',logo:'assets/hakikat-logo-white.png',loginLogo:'assets/hakikat-logo.png',receiptLogo:'assets/hakikat-logo.png',appIcon:'assets/app-icon-hakikat-64.png',publicUrl:'',accent:'#397c73'})
 };
 const defaults={...config};
 const ids=Object.keys(config);

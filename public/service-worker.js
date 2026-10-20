@@ -1,4 +1,4 @@
-const CACHE_NAME = 'turizm-v13-guide';
+const CACHE_NAME = 'turizm-v14-icons';
 const APP_SHELL = [
   '/passenger-registration.js?v=20261020-guide2',
   '/receipt-preview.js?v=20261002-mobile3',
@@ -13,7 +13,7 @@ const APP_SHELL = [
   '/tour-trash.js?v=20261002-tour-save1',
   '/recovery-ui.js?v=20261002-tour-save1',
   '/backup-destinations.js?v=20261002-mobile3',
-  '/company-config.js?v=20261002-mobile3',
+  '/company-config.js?v=20261020-icons1',
   '/bus-companies.js?v=20261002-mobile3',
   '/bus-shared-picker.js?v=20261002-mobile3',
   '/passenger-fields.js?v=20261002-mobile3',
@@ -37,7 +37,9 @@ const APP_SHELL = [
   '/workspace-ui.js?v=20261002-tour-save1',
   '/sidebar-nav.css?v=20261020-guide2',
   '/sidebar-nav.js?v=20261020-guide2',
-  '/app.js?v=20261020-guide2',
+  '/assets/app-icon-hazeyn-64.png',
+  '/assets/app-icon-hakikat-64.png',
+  '/app.js?v=20261020-icons1',
   '/vendor/exceljs.min.js?v=4.4.0',
   '/assets/mobile-app-icon-192.png',
   '/assets/mobile-app-icon-512.png',
