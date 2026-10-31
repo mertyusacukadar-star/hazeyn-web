@@ -3719,6 +3719,7 @@
             <article class="program-balance-card ${group.open ? 'open' : 'paid'}">
                 <header><div><h4>${escapeHtml(group.title)}</h4><small>${escapeHtml(formatDateTR(group.date) || 'Tarih belirtilmemiş')} • ${group.passengers} yolcu</small></div><span>${group.open ? `${group.open} bakiye açık` : 'Tamamı ödendi'}</span></header>
                 <div class="program-balance-values"><span><small>Toplam</small><b>${escapeHtml(currencySummary(group.contract))}</b></span><span><small>Ödenen</small><b>${escapeHtml(currencySummary(group.paid))}</b></span><span><small>Kalan</small><b>${escapeHtml(currencySummary(group.balance))}</b></span></div>
+                <button class="icon-btn program-payment-link" type="button" data-ps-show-program="${escapeHtml(group.id)}">Kim ödedi? İsim isim gör</button>
                 ${group.debtors.length ? `<details class="program-debtor-list"><summary>${group.debtors.length} borçlu yolcuyu göster</summary><div class="program-debtor-rows">${group.debtors
                     .sort((a, b) => b.balance - a.balance)
                     .map(debtor => `<div class="program-debtor-row"><div><b>${escapeHtml(debtor.name)}</b><small>${escapeHtml(debtor.roomPeople ? `${debtor.roomPeople} kişilik oda` : 'Oda belirtilmemiş')}${debtor.phone ? ` • ${escapeHtml(debtor.phone)}` : ''}</small></div><strong>${escapeHtml(formatMoney(debtor.balance, debtor.currency))}</strong>${hasPermission('viewAccounting') ? `<button class="icon-btn" type="button" data-open-debtor="${escapeHtml(debtor.passengerId)}" data-debtor-list="${escapeHtml(debtor.listId)}" data-debtor-name="${escapeHtml(debtor.name)}">Ödeme Aç</button>` : ''}</div>`).join('')}</div></details>` : ''}
@@ -4826,6 +4827,12 @@
                     document.querySelectorAll('.passenger-tour-group[open]').forEach(group => { if (group !== selectedGroup) group.open = false; });
                     selectedPassengerTourGroupId = selectedGroup.dataset.passengerTourGroup || '';
                 } else if (selectedGroup) selectedPassengerTourGroupId = '';
+                return;
+            }
+
+            const showProgramPayments = e.target.closest && e.target.closest('[data-ps-show-program]');
+            if (showProgramPayments) {
+                paymentStatusPanel?.selectProgram(showProgramPayments.dataset.psShowProgram);
                 return;
             }
 

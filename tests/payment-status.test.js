@@ -27,7 +27,13 @@ assert.match(S.fileName('Ekim Umre',new Date(2026,9,31)),/^odeme-durumu-ekim-umr
 
 (async()=>{
  const workbook=S.buildWorkbook(ExcelJS,rows,{companyName:'Örnek Turizm',generatedAt:new Date(2026,9,31,10,0)});
- assert.deepEqual(workbook.worksheets.map(s=>s.name),['Özet','Tüm Yolcular','Tamamını Ödeyenler','Kısmi Ödeyenler','Hiç Ödemeyenler']);
+ assert.deepEqual(workbook.worksheets.map(s=>s.name),['Özet','Tüm Yolcular','Tamamını Ödeyenler','Kısmi Ödeyenler','Hiç Ödemeyenler','Kapadokya 01.12','Ekim Umre 10.11'],'toplu çıktıda her program kendi sayfasında');
+ const umreSheet=workbook.getWorksheet('Ekim Umre 10.11');
+ assert.equal(umreSheet.getRow(4).getCell(4).value,'ODA','program sayfasında program sütunu tekrarlanmaz');
+ assert.deepEqual([5,6,7,8].map(n=>umreSheet.getRow(n).getCell(2).value),['Ayşe Örnek','Mehmet Kısmi','Ücretsiz Kayıt','Zeynep Borçlu']);
+ assert.match(umreSheet.getCell(1,1).value,/EKİM UMRE • 10\.11\.2026/);
+ const clash=S.buildWorkbook(ExcelJS,[...rows,S.makeRow({...raw[0],programId:'umre2',passengerId:'z'}),S.makeRow({...raw[0],programId:'x',programTitle:'Özet',programDate:'',passengerId:'y'})]);
+ const names=clash.worksheets.map(s=>s.name);assert.equal(new Set(names.map(n=>n.toLocaleLowerCase('tr-TR'))).size,names.length,'sayfa adları benzersiz');assert.ok(names.every(n=>n.length<=31));
  const unpaid=workbook.getWorksheet('Hiç Ödemeyenler');
  assert.equal(unpaid.getRow(4).getCell(4).value,'PROGRAM','çok programlı raporda program sütunu var');
  assert.deepEqual([unpaid.getRow(5).getCell(2).value,unpaid.getRow(6).getCell(2).value].sort(),['Zeynep Borçlu','Ücretsiz Kayıt'].sort());
@@ -42,7 +48,8 @@ assert.match(S.fileName('Ekim Umre',new Date(2026,9,31)),/^odeme-durumu-ekim-umr
  const reread=new ExcelJS.Workbook();await reread.xlsx.load(buffer);assert.equal(reread.worksheets.length,5);
 
  const html=fs.readFileSync(path.join(__dirname,'../public/admin.html'),'utf8'),app=fs.readFileSync(path.join(__dirname,'../public/app.js'),'utf8');
- assert.match(html,/id="paymentStatusSection"/);assert.match(html,/payment-status\.js\?v=/);assert.match(html,/payment-status\.css\?v=/);
+ assert.match(html,/id="paymentStatusSection"/);assert.match(html,/data-ps-programs/);assert.match(html,/data-ps-bulk/);assert.doesNotMatch(html,/data-ps-program /);
+ assert.match(app,/data-ps-show-program="\$\{escapeHtml\(group\.id\)\}"/,'bakiye kartından programın isim listesine geçilir');assert.match(app,/paymentStatusPanel\?\.selectProgram\(/);assert.match(html,/payment-status\.js\?v=/);assert.match(html,/payment-status\.css\?v=/);
  assert.ok(html.indexOf('payment-status.js')<html.indexOf('src="app.js'),'modül app.js öncesinde yüklenir');
  assert.match(app,/getRows: \(\) => state && hasPermission\('viewAccounting'\)/,'veri yüklenmeden panel çizilmez');assert.match(app,/if \(state\) paymentStatusPanel\.refresh\(\)/);
  assert.match(app,/canExport: \(\) => hasPermission\('viewAccounting'\) && hasPermission\('exportPassengerLists'\)/);

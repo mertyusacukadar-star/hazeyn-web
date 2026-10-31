@@ -123,23 +123,23 @@ function buildWorkbook(ExcelJS,rows,{companyName='',programTitle='',generatedAt=
  });
  if(!list.length)summary.addRow(['Bu kapsamda yolcu kaydı yok.']);
 
- const detailCols=[
-  ['NO',6],['AD SOYAD',30],['TELEFON',16],...(multi?[['PROGRAM',30],['PROGRAM TARİHİ',13]]:[]),['ODA',8],['PARA BİRİMİ',10],['ÜCRET',14],['ÖDENEN',14],['KALAN',14],['SON ÖDEME',13],['ÖDEME SAYISI',10],['DURUM',16]
- ];
- const addDetail=(name,items,color,fill)=>{
+ const addDetail=(name,items,color,fill,withProgram=multi,heading=name)=>{
+  const detailCols=[
+   ['NO',6],['AD SOYAD',30],['TELEFON',16],...(withProgram?[['PROGRAM',30],['PROGRAM TARİHİ',13]]:[]),['ODA',8],['PARA BİRİMİ',10],['ÜCRET',14],['ÖDENEN',14],['KALAN',14],['SON ÖDEME',13],['ÖDEME SAYISI',10],['DURUM',16]
+  ];
   const sheet=workbook.addWorksheet(name,{views:[{showGridLines:false,state:'frozen',ySplit:4}]});
   setup(sheet,true);
-  title(sheet,name,detailCols.length);
+  title(sheet,heading,detailCols.length);
   header(sheet,4,detailCols.map(c=>c[0]),color);
   detailCols.forEach((c,i)=>{sheet.getColumn(i+1).width=c[1];});
   items.forEach((item,index)=>{
    const info=statusInfo(item.status);
-   const values=[index+1,item.name,item.phone,...(multi?[item.programTitle,isoToDate(item.programDate)||'']:[]),item.roomPeople?`${item.roomPeople} kişilik`:'',item.currency,item.agreedPrice,item.paid,item.balance,isoToDate(item.lastPaymentAt)||'',item.paymentCount,item.noPrice&&item.status==='unpaid'?'Ücret girilmemiş':info.short];
+   const values=[index+1,item.name,item.phone,...(withProgram?[item.programTitle,isoToDate(item.programDate)||'']:[]),item.roomPeople?`${item.roomPeople} kişilik`:'',item.currency,item.agreedPrice,item.paid,item.balance,isoToDate(item.lastPaymentAt)||'',item.paymentCount,item.noPrice&&item.status==='unpaid'?'Ücret girilmemiş':info.short];
    const row=sheet.addRow(values);
    row.eachCell({includeEmpty:true},cell=>{cell.border=border;cell.alignment={vertical:'middle'};});
-   const base=multi?7:5;
+   const base=withProgram?7:5;
    [base+1,base+2,base+3].forEach(c=>{row.getCell(c).numFmt=money;});
-   row.getCell(base+4).numFmt='dd.mm.yyyy';if(multi)row.getCell(5).numFmt='dd.mm.yyyy';
+   row.getCell(base+4).numFmt='dd.mm.yyyy';if(withProgram)row.getCell(5).numFmt='dd.mm.yyyy';
    const statusCell=row.getCell(detailCols.length);
    statusCell.font={bold:true,color:{argb:'FF'+info.color}};statusCell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF'+info.fill}};
    if(fill&&index%2===1)row.eachCell(cell=>{if(cell!==statusCell)cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF7F9F8'}};});
@@ -150,6 +150,19 @@ function buildWorkbook(ExcelJS,rows,{companyName='',programTitle='',generatedAt=
  };
  addDetail('Tüm Yolcular',sorted,'1C4A52',true);
  STATUSES.forEach(s=>addDetail(s.sheet,sorted.filter(r=>r.status===s.id),s.color,true));
+ // Birden çok program seçildiyse her tur kendi sayfasında da isim isim listelenir.
+ if(multi){
+  const used=new Set(workbook.worksheets.map(s=>s.name.toLocaleLowerCase('tr-TR')));
+  list.forEach(program=>{
+   const items=sorted.filter(r=>r.programId===program.id);
+   const datePart=program.date?` ${program.date.slice(8,10)}.${program.date.slice(5,7)}`:'';
+   const base=String(program.title).replace(/[\[\]:*?\/\\]/g,' ').replace(/\s+/g,' ').trim().slice(0,31-datePart.length)+datePart;
+   let name=base||'Program',n=2;
+   while(used.has(name.toLocaleLowerCase('tr-TR'))){const suffix=` (${n++})`;name=base.slice(0,31-suffix.length)+suffix;}
+   used.add(name.toLocaleLowerCase('tr-TR'));
+   addDetail(name,items,'1C4A52',true,false,`${program.title}${program.date?` • ${program.date.split('-').reverse().join('.')}`:''}`);
+  });
+ }
  return workbook;
 }
 
@@ -158,18 +171,44 @@ function createPanel(options){
  const root=o.root;if(!root)return {refresh(){}};
  const $=sel=>root.querySelector(sel);
  const esc=o.escapeHtml||(v=>String(v??''));
- const ui={programId:'',status:'all',query:''};
+ const ui={programId:'',status:'all',query:'',selected:new Set()};
  let rows=[];
  try{const saved=JSON.parse(localStorage.getItem('turizmPaymentStatusV1')||'{}');if(STATUSES.some(s=>s.id===saved.status)||saved.status==='all')ui.status=saved.status;}catch(e){}
  const remember=()=>{try{localStorage.setItem('turizmPaymentStatusV1',JSON.stringify({status:ui.status}));}catch(e){}};
 
+ // Program kartları: karta basınca yalnız o turun yolcuları; kutucuklarla
+ // birden çok program seçilip tek Excel'de toplu çıktı alınır.
  function renderPrograms(list){
-  const select=$('[data-ps-program]');if(!select)return;
+  const box=$('[data-ps-programs]');if(!box)return;
   if(ui.programId&&!list.some(p=>p.id===ui.programId))ui.programId='';
-  select.innerHTML=(list.length>1?`<option value="">Tüm programlar (${list.reduce((n,p)=>n+p.count,0)} yolcu)</option>`:'')+list.map(p=>`<option value="${esc(p.id)}">${esc(p.title)}${p.date?` • ${esc(o.formatDate?o.formatDate(p.date):p.date)}`:''} (${p.count})</option>`).join('');
+  ui.selected.forEach(id=>{if(!list.some(p=>p.id===id))ui.selected.delete(id);});
   if(list.length===1)ui.programId=list[0].id;
-  select.value=ui.programId;
-  select.closest('label').hidden=list.length<2;
+  box.hidden=list.length<2;
+  const fd=o.formatDate||(v=>v);
+  const counts=c=>`<span class="ps-mini"><i class="ps-paid" title="Tamamını ödeyen">${c.paid}</i><i class="ps-partial" title="Kısmi ödeyen">${c.partial}</i><i class="ps-unpaid" title="Hiç ödemeyen">${c.unpaid}</i></span>`;
+  const total=summarize(rows);
+  box.innerHTML=`<div class="ps-program-head"><b>Programlar</b><small>Bir programa basın: yalnız o turun yolcuları görünür. Kutucuklarla birkaç program seçip toplu Excel alın.</small></div><div class="ps-program-grid"><button type="button" class="ps-program ps-program-all${ui.programId?'':' active'}" data-ps-open=""><span class="ps-program-title">Tüm programlar</span><small>${list.length} program • ${total.count} yolcu</small>${counts(total.counts)}</button>${list.map(p=>`<div class="ps-program${ui.programId===p.id?' active':''}${ui.selected.has(p.id)?' picked':''}"><label class="ps-pick" title="Toplu çıktı için seç"><input type="checkbox" data-ps-pick="${esc(p.id)}"${ui.selected.has(p.id)?' checked':''} aria-label="${esc(p.title)} programını seç"></label><button type="button" data-ps-open="${esc(p.id)}"><span class="ps-program-title">${esc(p.title)}</span><small>${p.date?`${esc(fd(p.date))} • `:''}${p.count} yolcu</small>${counts(p.counts)}</button></div>`).join('')}</div>`;
+  renderBulk(list);
+ }
+
+ function renderBulk(list){
+  const bar=$('[data-ps-bulk]');if(!bar)return;
+  const n=ui.selected.size,canExport=o.canExport?o.canExport():true;
+  bar.hidden=list.length<2;
+  const people=list.filter(p=>ui.selected.has(p.id)).reduce((s,p)=>s+p.count,0);
+  bar.innerHTML=`<span>${n?`<b>${n} program seçildi</b> • ${people} yolcu`:'Toplu çıktı için programların kutucuklarını işaretleyin.'}</span><span class="ps-bulk-actions"><button type="button" class="icon-btn" data-ps-pick-all>${n===list.length?'Seçimi kaldır':'Tümünü seç'}</button>${canExport?`<button type="button" class="btn btn-gold" data-ps-bulk-excel${n?'':' disabled'}>Seçilenleri Excel'e Aktar</button>`:''}</span>`;
+ }
+
+ function renderScope(scoped){
+  const box=$('[data-ps-scope]');if(!box)return;
+  const p=ui.programId?programs(scoped)[0]:null;
+  box.innerHTML=p?`<b>${esc(p.title)}</b><small>${p.date?`${esc((o.formatDate||(v=>v))(p.date))} • `:''}${p.count} yolcu • isim isim ödeme durumu</small>`:`<b>Tüm programlar</b><small>${scoped.length} yolcu • programına göre sıralı</small>`;
+ }
+
+ function selectProgram(id){
+  ui.programId=String(id||'');
+  refresh();
+  root.scrollIntoView?.({behavior:'smooth',block:'start'});
  }
 
  function renderTabs(summary){
@@ -203,19 +242,22 @@ function createPanel(options){
   renderPrograms(list);
   const scoped=rows.filter(r=>!ui.programId||r.programId===ui.programId);
   const summary=summarize(scoped);
-  renderTabs(summary);renderTotals(summary);
+  renderScope(scoped);renderTabs(summary);renderTotals(summary);
   const multi=!ui.programId&&list.length>1;
   renderTable(filter(scoped,{status:ui.status,query:ui.query}),multi);
-  const excel=$('[data-ps-excel]');if(excel){excel.hidden=!(o.canExport?o.canExport():true);excel.disabled=!scoped.length;}
+  const excel=$('[data-ps-excel]');
+  if(excel){excel.hidden=!(o.canExport?o.canExport():true);excel.disabled=!scoped.length;excel.textContent=ui.programId&&list.length>1?'Bu Programı Excel\'e Aktar':'Excel İndir';}
  }
 
- async function exportExcel(){
+ async function exportExcel(programIds){
   if(o.canExport&&!o.canExport()){o.toast?.('Excel indirme yetkin yok.');return;}
   const ExcelJS=o.ExcelJS?o.ExcelJS():root.ownerDocument?.defaultView?.ExcelJS;
   if(!ExcelJS){o.toast?.('Excel hazırlama bileşeni yüklenemedi. Sayfayı yenileyip tekrar deneyin.');return;}
-  const scoped=rows.filter(r=>!ui.programId||r.programId===ui.programId);
+  const ids=programIds?new Set(programIds):null;
+  const scoped=rows.filter(r=>ids?ids.has(r.programId):(!ui.programId||r.programId===ui.programId));
   if(!scoped.length){o.toast?.('İndirilecek yolcu yok.');return;}
-  const programTitle=ui.programId?(scoped[0]?.programTitle||''):'';
+  const count=new Set(scoped.map(r=>r.programId)).size;
+  const programTitle=count===1?(scoped[0]?.programTitle||''):ids?`Seçili ${count} Program`:'';
   try{
    const workbook=buildWorkbook(ExcelJS,scoped,{companyName:o.companyName?o.companyName():'',programTitle});
    const buffer=await workbook.xlsx.writeBuffer();
@@ -231,11 +273,18 @@ function createPanel(options){
  root.addEventListener('click',event=>{
   const tab=event.target.closest('[data-ps-status]');
   if(tab){ui.status=tab.dataset.psStatus;remember();refresh();return;}
+  const open=event.target.closest('[data-ps-open]');
+  if(open){ui.programId=open.dataset.psOpen;refresh();return;}
+  if(event.target.closest('[data-ps-pick-all]')){const list=programs(rows);if(ui.selected.size===list.length)ui.selected.clear();else list.forEach(p=>ui.selected.add(p.id));refresh();return;}
+  if(event.target.closest('[data-ps-bulk-excel]')){if(ui.selected.size)exportExcel([...ui.selected]);return;}
   if(event.target.closest('[data-ps-excel]'))exportExcel();
  });
- root.addEventListener('change',event=>{if(event.target.matches('[data-ps-program]')){ui.programId=event.target.value;refresh();}});
+ root.addEventListener('change',event=>{
+  const pick=event.target.closest('[data-ps-pick]');
+  if(pick){if(pick.checked)ui.selected.add(pick.dataset.psPick);else ui.selected.delete(pick.dataset.psPick);refresh();}
+ });
  root.addEventListener('input',event=>{if(event.target.matches('[data-ps-search]')){ui.query=event.target.value;refresh();}});
- return {refresh,exportExcel};
+ return {refresh,exportExcel,selectProgram};
 }
 
 const api={STATUSES,classify,makeRow,programs,summarize,filter,buildWorkbook,fileName,createPanel};
