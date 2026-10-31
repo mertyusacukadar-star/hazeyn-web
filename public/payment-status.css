@@ -1,0 +1,65 @@
+.payment-status-section{display:grid;gap:14px;margin-top:16px;padding:20px;background:var(--paper,#fff);color:var(--ink,#203337);border:1px solid var(--line,#dce5e0)}
+.payment-status-section .ps-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.payment-status-section .ps-head h3{margin:2px 0 4px;font-size:20px}
+.payment-status-section .ps-head small{color:var(--muted,#66757a);font-size:12px;line-height:1.5}
+.payment-status-section .ps-excel{flex-shrink:0;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.payment-status-section .ps-excel::before{content:'';width:16px;height:16px;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12m0 0-4-4m4 4 4-4M5 21h14'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12m0 0-4-4m4 4 4-4M5 21h14'/%3E%3C/svg%3E") center/contain no-repeat}
+.payment-status-section .ps-controls{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:10px}
+.payment-status-section .ps-controls label{display:grid;gap:5px;font-size:11px;font-weight:800;color:var(--muted,#66757a);text-transform:uppercase;letter-spacing:.3px}
+.payment-status-section .ps-controls label[hidden]{display:none}
+.payment-status-section .ps-controls :is(select,input){width:100%;min-height:40px;padding:8px 11px;border:1px solid var(--line,#dce5e0);border-radius:10px;background:var(--soft,#f6f8f7);color:var(--ink,#203337);font:inherit;font-size:14px;text-transform:none;letter-spacing:0}
+.payment-status-section .ps-controls label:only-child,.payment-status-section .ps-controls label[hidden]+label{grid-column:1/-1}
+
+.ps-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.ps-tab{--ps-c:#1c4a52;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:52px;padding:10px 14px;border:1px solid var(--line,#dce5e0);border-left:4px solid var(--ps-c);border-radius:12px;background:var(--soft,#f6f8f7);color:var(--ink,#203337);font:inherit;font-size:13px;font-weight:750;text-align:left;cursor:pointer;transition:background .15s,box-shadow .15s}
+.ps-tab b{font-size:20px;color:var(--ps-c)}
+.ps-tab:hover{box-shadow:0 2px 10px #0001}
+.ps-tab.active{background:color-mix(in srgb,var(--ps-c) 13%,var(--paper,#fff));border-color:var(--ps-c);box-shadow:0 0 0 1px var(--ps-c) inset}
+.ps-tab.ps-paid,.ps-badge.ps-paid{--ps-c:#1f7a45}
+.ps-tab.ps-partial,.ps-badge.ps-partial{--ps-c:#b07400}
+.ps-tab.ps-unpaid,.ps-badge.ps-unpaid{--ps-c:#b2433a}
+
+.ps-totals{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.ps-totals span{position:relative;overflow:hidden;padding:10px 12px;border:1px solid var(--line,#dce5e0);border-radius:11px;background:var(--soft,#f6f8f7)}
+.ps-totals small{display:block;color:var(--muted,#66757a);font-size:10px;font-weight:850;text-transform:uppercase}
+.ps-totals b{display:block;margin-top:3px;font-size:14px;overflow-wrap:anywhere}
+.ps-progress i{position:absolute;left:0;bottom:0;height:4px;width:var(--ps-share,0%);background:#1f7a45;border-radius:0 3px 3px 0}
+
+.ps-table-wrap{max-height:560px;overflow:auto;border:1px solid var(--line,#dce5e0);border-radius:12px}
+.ps-table{width:100%;border-collapse:collapse;font-size:13px}
+.ps-table th{position:sticky;top:0;z-index:1;padding:9px 10px;background:var(--soft,#f1f5f3);color:var(--muted,#66757a);font-size:10px;font-weight:900;text-align:left;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid var(--line,#dce5e0);white-space:nowrap}
+.ps-table td{padding:9px 10px;border-bottom:1px solid var(--line,#e6ece9);vertical-align:middle}
+.ps-table tbody tr:last-child td{border-bottom:0}
+.ps-table tbody tr:hover{background:color-mix(in srgb,var(--soft,#f6f8f7) 70%,transparent)}
+.ps-table td small{display:block;margin-top:2px;color:var(--muted,#66757a);font-size:11px}
+.ps-table .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ps-table tr.ps-unpaid .ps-balance{color:#b2433a;font-weight:800}
+.ps-table tr.ps-partial .ps-balance{color:#b07400;font-weight:800}
+.ps-table tr.ps-paid .ps-balance{color:#1f7a45}
+.ps-table .ps-actions{text-align:right;white-space:nowrap}
+.ps-table .ps-actions .icon-btn{padding:6px 10px;font-size:12px}
+.ps-badge{display:inline-block;padding:3px 9px;border-radius:999px;background:color-mix(in srgb,var(--ps-c) 15%,transparent);color:var(--ps-c);font-size:11px;font-weight:900;white-space:nowrap}
+.ps-table-wrap .empty{margin:0;padding:22px;text-align:center}
+
+@media(max-width:900px){.ps-tabs,.ps-totals{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){
+ .payment-status-section{padding:14px}
+ .payment-status-section .ps-head{flex-direction:column}
+ .payment-status-section .ps-excel{width:100%;justify-content:center}
+ .payment-status-section .ps-controls{grid-template-columns:1fr}
+ .ps-tab{min-height:46px;padding:8px 10px;font-size:12px}
+ .ps-tab b{font-size:17px}
+ .ps-table-wrap{max-height:none;border:0;overflow:visible}
+ .ps-table thead{display:none}
+ .ps-table,.ps-table tbody{display:block}
+ .ps-table tr{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-bottom:10px;padding:12px;border:1px solid var(--line,#dce5e0);border-left:4px solid var(--ps-c,#1c4a52);border-radius:12px;background:var(--paper,#fff)}
+ .ps-table tr.ps-paid{--ps-c:#1f7a45}.ps-table tr.ps-partial{--ps-c:#b07400}.ps-table tr.ps-unpaid{--ps-c:#b2433a}
+ .ps-table td{display:block;padding:0;border:0;text-align:left!important}
+ .ps-table td::before{content:attr(data-label);display:block;color:var(--muted,#66757a);font-size:9px;font-weight:900;text-transform:uppercase}
+ .ps-table td[data-label="#"]{display:none}
+ .ps-table td[data-label="Yolcu"],.ps-table td[data-label="Program"],.ps-table .ps-actions{grid-column:1/-1}
+ .ps-table td[data-label="Yolcu"]::before{display:none}
+ .ps-table td[data-label="Yolcu"] b{font-size:15px}
+ .ps-table .ps-actions .icon-btn{width:100%;margin-top:6px}
+}
+@media print{.payment-status-section{display:none}}

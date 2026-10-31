@@ -262,6 +262,7 @@
     let revealObserver = null;
     let publicRefreshInFlight = false;
     let accountingSearchQuery = '';
+    let paymentStatusPanel = null;
     let currentAppUser = null;
     let desktopUsers = [];
     let selectedPassengerTourGroupId = '';
@@ -3631,6 +3632,45 @@
         if ($('accountingStatBalance')) $('accountingStatBalance').innerHTML = multiCurrencyHtml(balance);
         if ($('accountingStatOpen')) $('accountingStatOpen').textContent = String(openCount);
         renderProgramBalances();
+        paymentStatusPanel?.refresh();
+    }
+
+    function paymentStatusRows() {
+        return workspacePassengerContexts().map(context => {
+            const snapshot = passengerAccountSnapshot(context);
+            return {
+                programId: String(context.tour?.id || context.list?.tourId || context.list?.id || ''),
+                programTitle: context.tour?.title || context.list?.title || 'Programsız Liste',
+                programDate: context.tour?.departureDate || context.list?.date || '',
+                listId: context.list.id,
+                passengerId: context.passenger.id,
+                name: context.passenger.name || 'İsimsiz yolcu',
+                phone: context.passenger.phone || '',
+                roomPeople: context.passenger.roomPeople || context.passenger.room || '',
+                currency: snapshot.currency,
+                agreedPrice: snapshot.agreedPrice,
+                paid: snapshot.paid,
+                payments: snapshot.payments
+            };
+        });
+    }
+
+    function setupPaymentStatusPanel() {
+        if (!$('paymentStatusSection') || !window.TurizmPaymentStatus) return;
+        paymentStatusPanel = window.TurizmPaymentStatus.createPanel({
+            root: $('paymentStatusSection'),
+            getRows: () => state && hasPermission('viewAccounting') ? paymentStatusRows() : [],
+            escapeHtml,
+            formatMoney,
+            formatDate: formatDateDMY,
+            companyName: () => currentCompany().name,
+            canOpen: () => hasPermission('viewAccounting'),
+            canExport: () => hasPermission('viewAccounting') && hasPermission('exportPassengerLists'),
+            ExcelJS: () => window.ExcelJS,
+            toast
+        });
+        // Veri yüklenince renderAccountingStats paneli doldurur.
+        if (state) paymentStatusPanel.refresh();
     }
 
     function currencySummary(values) {
@@ -4648,6 +4688,7 @@
         };
         if ($('accountingSearch')) $('accountingSearch').addEventListener('input', handleAccountingSearch);
         if ($('globalPassengerSearch')) $('globalPassengerSearch').addEventListener('input', handleAccountingSearch);
+        setupPaymentStatusPanel();
         if ($('costTourSelect')) $('costTourSelect').addEventListener('change', event => {
             if (workspaceUI && !workspaceUI.canLeave()) { event.target.value = selectedCostTourId; return; }
             selectedCostTourId = event.target.value; loadSelectedTourCosts();

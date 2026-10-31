@@ -24,6 +24,7 @@
     <link rel="stylesheet" href="workspace-theme.css?v=20261002-tour-save1">
 <link rel="stylesheet" href="workspace-usability.css?v=20261020-guide2">
 <link rel="stylesheet" href="sidebar-nav.css?v=20261020-guide2">
+<link rel="stylesheet" href="payment-status.css?v=20261031-pay1">
 </head>
 <body data-page="admin" class="admin-body">
     <div id="appBoot" role="status"><strong>Turizm Muhasebe</strong><p>Çalışma alanınız hazırlanıyor…</p><button type="button" hidden onclick="location.reload()">Yeniden dene</button></div>
@@ -294,6 +295,20 @@
                     <div class="program-balance-heading"><div><span class="section-kicker">PROGRAM BAZINDA</span><h3>Her Programın Kalan Bakiyesi</h3></div><small>Her program ayrı hesaplanır.</small></div>
                     <div id="accountingProgramBalances" class="program-balance-grid"></div>
                 </div>
+
+                <section class="admin-card payment-status-section" id="paymentStatusSection" aria-labelledby="paymentStatusTitle">
+                    <div class="ps-head">
+                        <div><span class="section-kicker">ÖDEME DURUMU</span><h3 id="paymentStatusTitle">Kim Ödedi, Kim Ödemedi?</h3><small>Seçili programın yolcuları tamamını ödeyen, kısmi ödeyen ve hiç ödemeyen olarak ayrılır.</small></div>
+                        <button class="btn btn-gold ps-excel" type="button" data-ps-excel>Excel İndir</button>
+                    </div>
+                    <div class="ps-controls">
+                        <label><span>Program</span><select data-ps-program aria-label="Program seç"></select></label>
+                        <label><span>Yolcu ara</span><input data-ps-search type="search" placeholder="Ad, telefon veya program" autocomplete="off" /></label>
+                    </div>
+                    <div class="ps-tabs" data-ps-tabs role="group" aria-label="Ödeme durumu"></div>
+                    <div class="ps-totals" data-ps-totals></div>
+                    <div class="ps-table-wrap" data-ps-table></div>
+                </section>
 
                 <div class="admin-card accounting-guide">
                     <b>Nasıl çalışır?</b>
@@ -584,7 +599,8 @@
 <script src="state-sync.js?v=20261002-tour-save1"></script>
 <script src="user-directory.js?v=20261002-mobile3"></script>
 <script src="sidebar-nav.js?v=20261020-guide2"></script>
-<script src="app.js?v=20261020-icons1"></script>
+<script src="payment-status.js?v=20261031-pay1"></script>
+<script src="app.js?v=20261031-pay1"></script>
 <div id="dataSaveStatus" class="data-save-status" role="status" aria-live="polite" hidden><span aria-hidden="true"></span> İşleminiz kaydediliyor…</div>
 </body>
 </html>
