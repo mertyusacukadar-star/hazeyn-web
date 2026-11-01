@@ -14,6 +14,18 @@ body.workspace-modern .admin-sidebar .admin-tab[data-tab="nusuk"]::before{--nav-
 .nk-stats .nk-ok{--c:#1f7a45}.nk-stats .nk-bad{--c:#b2433a}.nk-stats .nk-warn{--c:#b07400}.nk-stats .nk-kid{--c:#6a4fa3}
 .nk-tools{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:10px}
 .nk-search{flex:1 1 240px;max-width:420px}
+.nk-gender{display:flex;flex-wrap:wrap;gap:6px}
+.nk-gender button{--c:#1c4a52;min-height:38px;padding:6px 12px;border:1px solid var(--line,#dce5e0);border-radius:999px;background:var(--soft,#f6f8f7);color:var(--ink,#203337);font:inherit;font-size:13px;font-weight:800;cursor:pointer}
+.nk-gender button b{color:var(--c)}
+.nk-gender button.active{border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,var(--paper,#fff))}
+.nk-gender .nk-men,.nk-group-men td{--c:#2f5d8a}.nk-gender .nk-women,.nk-group-women td{--c:#8a3f6b}.nk-gender .nk-nogender,.nk-group-none td{--c:#b07400}
+.nk-bulk select{min-height:40px;padding:6px 10px;border:1px solid var(--line,#dce5e0);border-radius:10px;background:var(--soft,#f6f8f7);color:var(--ink,#203337);font:inherit;font-size:14px;text-transform:none}
+.nk-table tr.nk-group td{position:sticky;top:33px;z-index:1;padding:8px 10px;background:color-mix(in srgb,var(--c) 12%,var(--paper,#fff));border-left:4px solid var(--c);color:var(--ink,#203337);font-size:12px}
+.nk-table tr.nk-group b{color:var(--c);font-size:14px}
+.nk-table tr.nk-mixed td{background:color-mix(in srgb,#b2433a 8%,transparent)}
+.nk-warn-text{color:#b2433a!important;font-weight:800}
+.nk-alert{padding:10px 14px;border:1px solid #e7b0aa;border-left:4px solid #b2433a;border-radius:10px;background:color-mix(in srgb,#b2433a 7%,var(--paper,#fff));font-size:13px}
+.nk-alert-soft{border-color:#e9cf98;border-left-color:#b07400;background:color-mix(in srgb,#b07400 7%,var(--paper,#fff))}
 .nk-bulk{display:flex;flex-wrap:wrap;align-items:end;gap:8px;padding:8px 10px;border:1px dashed var(--line,#dce5e0);border-radius:12px}
 .nk-table-wrap{overflow:auto;max-height:640px;border:1px solid var(--line,#dce5e0);border-radius:12px}
 .nk-table{width:100%;border-collapse:collapse;font-size:13px}
@@ -64,6 +76,8 @@ body.workspace-modern .admin-sidebar .admin-tab[data-tab="nusuk"]::before{--nav-
  .nk-table thead{display:none}.nk-table,.nk-table tbody{display:block}
  .nk-table tr{display:grid;grid-template-columns:auto 52px minmax(0,1fr);gap:6px 10px;margin-bottom:10px;padding:12px;border:1px solid var(--line,#dce5e0);border-radius:12px;background:var(--paper,#fff)}
  .nk-table td{display:block;padding:0;border:0}
+ .nk-table tr.nk-group{display:block;margin:14px 0 8px;padding:0;border:0;background:none}
+ .nk-table tr.nk-group td{position:static;padding:8px 10px;border-radius:10px}
  .nk-table td:nth-child(n+4){grid-column:1/-1}
  .nk-table td:nth-child(n+4)::before{content:attr(data-label);display:block;color:var(--muted,#66757a);font-size:9px;font-weight:900;text-transform:uppercase}
  .nk-row-actions{text-align:left}

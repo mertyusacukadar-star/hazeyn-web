@@ -1,7 +1,7 @@
-const CACHE_NAME = 'turizm-v17-nusuk';
+const CACHE_NAME = 'turizm-v18-nusuk-gender';
 const APP_SHELL = [
-  '/nusuk-tracking.js?v=20261101-nusuk1',
-  '/nusuk-tracking.css?v=20261101-nusuk1',
+  '/nusuk-tracking.js?v=20261101-nusuk2',
+  '/nusuk-tracking.css?v=20261101-nusuk2',
   '/payment-status.js?v=20261031-pay2',
   '/payment-status.css?v=20261031-pay2',
   '/passenger-registration.js?v=20261020-guide2',

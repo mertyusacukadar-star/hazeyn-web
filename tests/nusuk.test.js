@@ -23,6 +23,15 @@ assert.equal(kid('girl').role,'mother');assert.equal(kid('girl').escort.id,'mom'
 assert.equal(kid('boy').role,'father');assert.equal(kid('boy').escort.id,'dad','erkek çocuk anneye bağlı olsa da babasıyla girer');
 assert.equal(kid('lone').escort,null,'bağlı ebeveyn yoksa uyarı');
 const s=N.summarize(rows);assert.deepEqual([s.total,s.booked,s.pending,s.noVisa,s.children],[3,1,2,2,3]);
+assert.deepEqual([s.men,s.women,s.noGender],[1,2,0]);
+assert.deepEqual(rows.adults.map(r=>r.gender),['Erkek','Kadın','Kadın'],'önce erkekler, sonra kadınlar');
+assert.deepEqual(N.filterRows(rows.adults,{gender:'Kadın'}).map(r=>r.passengerId).sort(),['big','mom']);
+assert.equal(N.genderOf({relationship:'Annesi'}),'Kadın');assert.equal(N.genderOf({relationship:'Babası'}),'Erkek');assert.equal(N.genderOf({relationship:'Eşi'}),'');
+// Kadın ve erkek aynı tarih+saatte olamaz
+const slotRow=(key,gender,date,time)=>({key,gender,nusuk:{date,time}});
+const slots=N.mixedSlots([slotRow('a','Erkek','2026-11-22','10:00'),slotRow('b','Kadın','2026-11-22','10:00'),slotRow('c','Kadın','2026-11-22','11:00'),slotRow('d','Erkek','2026-11-23','10:00'),slotRow('e','','2026-11-23','10:00')]);
+assert.deepEqual(slots.map(x=>[x.date,x.time,x.keys]),[['2026-11-22','10:00',['a','b']]],'cinsiyeti boş yolcu çakışma sayılmaz');
+assert.equal(N.mixedSlots([slotRow('a','Erkek','2026-11-22','10:00')],(r,f)=>f==='time'?'11:00':r.nusuk[f]).length,0,'taslak değerleri okunur');
 assert.deepEqual(N.filterRows(rows.adults,{filter:'pending'}).map(r=>r.passengerId).sort(),['big','mom']);
 assert.deepEqual(N.filterRows(rows.adults,{query:'u2222'}).map(r=>r.passengerId),['mom'],'pasaport no ile arama');
 assert.deepEqual(N.filterRows(rows.adults,{query:'ayse'}).map(r=>r.passengerId),['mom'],'Türkçe harf duyarsız arama');
@@ -50,13 +59,16 @@ assert.equal(N.matchPassenger({name:'MEHMET KAYA'},twins).by,'ambiguous');assert
 (async()=>{
  // Excel: şifre sütunları yalnız yetkili çıktısında
  const withCreds=N.buildWorkbook(ExcelJS,{...rows,adults:rows.adults.map(r=>r.passengerId==='dad'?{...r,nusuk:{...r.nusuk,email:'a@b.c',password:'gizli'}}:r)},{companyName:'Örnek',tourTitle:'Kasım Umre',includeCredentials:true});
- assert.deepEqual(withCreds.worksheets.map(w=>w.name),['Tüm Yolcular','Randevu Alınanlar','Randevu Alınmayanlar','5 Yaş ve Altı']);
- assert.equal(withCreds.getWorksheet('Tüm Yolcular').getRow(3).getCell(8).value,'NUSUK ŞİFRE');
+ assert.deepEqual(withCreds.worksheets.map(w=>w.name),['Tüm Yolcular','Erkekler','Kadınlar','Randevu Alınanlar','Randevu Alınmayanlar','5 Yaş ve Altı']);
+ assert.equal(withCreds.getWorksheet('Tüm Yolcular').getRow(3).getCell(9).value,'NUSUK ŞİFRE');
+ assert.equal(withCreds.getWorksheet('Tüm Yolcular').getRow(3).getCell(3).value,'CİNSİYET');
+ assert.deepEqual([4,5].map(n=>withCreds.getWorksheet('Kadınlar').getRow(n).getCell(3).value),['Kadın','Kadın']);
+ assert.equal(withCreds.getWorksheet('Erkekler').getRow(4).getCell(2).value,'Ahmet Örnek');
  const plain=N.buildWorkbook(ExcelJS,rows,{companyName:'Örnek',tourTitle:'Kasım Umre'});
  assert.ok(!plain.getWorksheet('Tüm Yolcular').getRow(3).values.includes('NUSUK ŞİFRE'));
  assert.equal(plain.getWorksheet('Randevu Alınanlar').getRow(4).getCell(2).value,'Ahmet Örnek');
  assert.match(String(plain.getWorksheet('5 Yaş ve Altı').getRow(4).getCell(5).value),/^(Annesi|Babası): |Eşleşen ebeveyn yok/);
- const buf=await plain.xlsx.writeBuffer();const back=new ExcelJS.Workbook();await back.xlsx.load(buf);assert.equal(back.worksheets.length,4);
+ const buf=await plain.xlsx.writeBuffer();const back=new ExcelJS.Workbook();await back.xlsx.load(buf);assert.equal(back.worksheets.length,6);
 
  // Sunucu: yetkisiz çalışana şifre gitmez, kayıtta korunur, değiştirilemez
  const state=()=>({passengerLists:[{id:'l1',passengers:[{id:'dad',name:'Ahmet',nusuk:{email:'a@b.c',password:'gizli',booked:false,visaPage:'hazeyn/nusuk/t1/l1/dad/visa-1.jpg'}}]}]});
