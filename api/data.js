@@ -8,8 +8,52 @@ const {
   sanitizeAdminState, sanitizePublicState, separateTourCollections, adminStateForClient,
   ensureBucket
 } = require('./_supabase');
-const { authorizeDataRequest, applyDesktopAudit, filterStateByPermissions, assertStateChangeAllowed, hasUserPermission } = require('./_appAuth');
+const { authorizeDataRequest, authenticateDesktopRequest, applyDesktopAudit, filterStateByPermissions, assertStateChangeAllowed, hasUserPermission } = require('./_appAuth');
 const Nusuk = require('./_nusuk');
+const NusukShared = require('./_nusukShared');
+const Companies = require('../public/company-config');
+
+// Firmalar arası ortak Nusuk (ayrı Vercel fonksiyonu açmamak için /api/data içinde).
+async function handleNusukShared(req, res){
+  const auth = await authenticateDesktopRequest(req);
+  if(!auth) return res.status(401).json({ok:false, error:'Oturumun sona ermiş. Tekrar giriş yapın.'});
+  const company = String(req.query?.company || ''), tourId = String(req.query?.tourId || '');
+  if(!Companies.valid(company) || !tourId) return res.status(400).json({ok:false, error:'Firma ve program seçin.'});
+  const user = auth.user;
+  if(!(user.role === 'owner' || (user.companies.includes(company) && hasUserPermission(user, 'viewPassengers')))) return res.status(403).json({ok:false, error:'Bu firmanın yolcularını görme yetkin yok.'});
+  const client = supabaseAdmin();
+  const row = await Recovery.read(client, NusukShared.STORE_ID);
+  const store = row?.data || {groups:[]};
+  const body = req.method === 'POST' ? requestBody(req) : {};
+  const record = NusukShared.activeRecord(store, company, tourId);
+  if(req.method === 'GET' && (!NusukShared.allowed(auth) || (record && !NusukShared.allowed(auth, false, record.sources.map(s => s.company)))))
+    return res.status(200).json({ok:true, canCombine:false, restricted:Boolean(record), record:null, lists:[], catalog:{}});
+  if(req.method === 'POST'){
+    const target = body.action === 'create' ? null : (store.groups || []).find(g => g.id === body.id && !g.archived);
+    const required = [...(target?.sources || []), ...(Array.isArray(body.sources) ? body.sources : [])].map(s => s?.company);
+    if(!NusukShared.allowed(auth, true, required)) return res.status(403).json({ok:false, error:'Ortak Nusuk için dahil tüm firmalara erişim ve Nusuk yetkisi gerekir.'});
+    if(target && !target.sources.some(s => s.company === company && s.tourId === tourId)) return res.status(400).json({ok:false, error:'Ortak Nusuk seçili programla eşleşmiyor.'});
+  }
+  const companies = NusukShared.accessibleCompanies(auth);
+  const readStates = async () => {
+    const rows = await Promise.all(companies.map(c => client.from(TABLE).select('data').eq('id', companyRowId(c)).maybeSingle()));
+    const states = {};
+    rows.forEach((r, i) => { if(r.error) throw r.error; states[companies[i]] = r.data?.data || companyDefaultData(companies[i]); });
+    return states;
+  };
+  if(req.method === 'GET') return res.status(200).json(NusukShared.context(store, await readStates(), company, tourId, auth, hasUserPermission));
+  if(body.action === 'save'){
+    const target = (store.groups || []).find(g => g.id === body.id && !g.archived);
+    if(!target) return res.status(404).json({ok:false, error:'Ortak Nusuk bulunamadı.'});
+    await NusukShared.saveChanges(client, target, body.changes);
+    return res.status(200).json(NusukShared.context(store, await readStates(), company, tourId, auth, hasUserPermission));
+  }
+  const states = await readStates();
+  const result = NusukShared.mutate(store, states, body, String(user.displayName || user.username));
+  if(!result.record.sources.some(s => s.company === company && s.tourId === tourId)) return res.status(400).json({ok:false, error:'Ortak Nusuk seçili programla eşleşmiyor.'});
+  await Recovery.write(client, NusukShared.STORE_ID, row, result.store, 'before-nusuk-group');
+  return res.status(200).json(NusukShared.context(result.store, states, company, tourId, auth, hasUserPermission));
+}
 
 function requestBody(req){
   return typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
@@ -53,6 +97,13 @@ function cleanFileName(name){
 module.exports = async function handler(req, res){
   res.setHeader('Cache-Control', 'no-store');
   const action = String(req.query && req.query.action || '');
+  if(action === 'nusuk-shared'){
+    try { return await handleNusukShared(req, res); }
+    catch(err){
+      console.error('nusuk shared:', err && err.message);
+      return res.status(Number(err && err.statusCode) || 503).json({ok:false, error:err && err.statusCode ? err.message : 'Ortak Nusuk verisine ulaşılamadı. Yeniden deneyin.'});
+    }
+  }
   const timings=[],authContext={directoryLoaded:false};
   const mark=(name,start)=>{timings.push(name+';dur='+Math.max(0,Date.now()-start));res.setHeader('Server-Timing',timings.join(', '));};
   if(req.query?.scope==='admin'||req.method==='POST'||action==='upload-config'){

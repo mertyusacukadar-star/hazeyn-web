@@ -129,6 +129,13 @@ assert.equal(N.matchPassenger({name:'MEHMET KAYA'},twins).by,'ambiguous');assert
  assert.equal((data.match(/Nusuk\.redactForClient\(/g)||[]).length,3,'GET, baseline ve kayıt yanıtı şifreyi gizler');
  assert.match(data,/Nusuk\.preserveOnSave\(dataToSave, previousState, authorization, hasUserPermission\)/);
  const module=fs.readFileSync(path.join(__dirname,'../public/nusuk-tracking.js'),'utf8');
+ assert.doesNotMatch(module,/href="#nk/,'panel içi bağlantı adres çubuğunu değiştirip çalışma alanından atmaz');
+ // Ortak Nusuk: firma önekli liste kimlikleri, satır firmayı ve gerçek liste kimliğini taşır; Excel'de FİRMA sütunu
+ const sl=N.sharedLists({lists:[{company:'afyon',id:'l1',passengers:[p('x','Fatma Test',{gender:'Kadın'})]},{company:'hazeyn',id:'l1',passengers:[p('y','Ali Test',{gender:'Erkek'})]}]},'t1');
+ const srows=N.tourRows(sl,tour);
+ assert.deepEqual(srows.adults.map(r=>`${r.company}|${r.sourceListId}|${r.key}`),['hazeyn|l1|hazeyn~l1:y','afyon|l1|afyon~l1:x'],'aynı liste kimliği iki firmada çakışmaz');
+ const swb=N.buildWorkbook(ExcelJS,srows,{companyName:'Ortak',tourTitle:'T',companyOf:r=>r.company.toUpperCase()});
+ assert.equal(swb.getWorksheet('Tüm Yolcular').getRow(3).getCell(3).value,'FİRMA');assert.equal(swb.getWorksheet('Tüm Yolcular').getRow(4).getCell(3).value,'HAZEYN');
  assert.match(module,/i\+=150/,'görsel bağlantıları sunucunun 200 sınırının altında parça parça istenir');assert.match(data,/slice\(0, 200\)/);
  const ws=fs.readFileSync(path.join(__dirname,'../public/workspace-ui.js'),'utf8');
  assert.match(ws,/panelId === 'tab-buses' \|\| panelId === 'tab-nusuk'\) return ''/,'Nusuk filtreleri/yeniden çizim sekme geçişini kilitlemez');

@@ -3689,8 +3689,8 @@
             .sort((a, b) => String(b.departureDate || '').localeCompare(String(a.departureDate || '')));
     }
 
-    async function nusukFileRequest(action, body) {
-        const response = await fetch(`/api/data?action=${action}&company=${encodeURIComponent(currentCompanyId)}`, {
+    async function nusukFileRequest(action, body, company = currentCompanyId) {
+        const response = await fetch(`/api/data?action=${action}&company=${encodeURIComponent(company)}`, {
             method: 'POST', headers: authorizedHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body)
         });
         const result = await response.json().catch(() => ({}));
@@ -3698,8 +3698,30 @@
         return result;
     }
 
-    async function uploadNusukFile({ blob, ...meta }) {
-        const info = await nusukFileRequest('nusuk-upload', meta);
+    // Dosya yolları firma klasörüyle başlar; ortak Nusuk'ta her istek dosyanın kendi firmasına gider.
+    async function nusukFilesByCompany(action, paths) {
+        const groups = new Map();
+        paths.forEach(path => { const company = String(path).split('/')[0]; if (!groups.has(company)) groups.set(company, []); groups.get(company).push(path); });
+        const results = await Promise.all([...groups].map(([company, items]) => nusukFileRequest(action, { paths: items }, company).catch(error => { console.warn('Vize dosyası işlemi yapılamadı.', error); return {}; })));
+        return Object.assign({}, ...results.map(result => result.urls || {}));
+    }
+
+    async function nusukSharedRequest(tourId, body) {
+        const url = `/api/data?action=nusuk-shared&company=${encodeURIComponent(currentCompanyId)}&tourId=${encodeURIComponent(tourId)}`;
+        const response = await fetch(url, body ? { method: 'POST', headers: authorizedHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) } : { headers: authorizedHeaders(), cache: 'no-store' });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.ok) throw Error(result.error || 'Ortak Nusuk işlemi yapılamadı.');
+        return result;
+    }
+
+    async function refreshAfterSharedNusuk() {
+        const remote = await fetchRemoteData({ admin: true });
+        if (!remote) return;
+        state = mergeDefaults(remote); await rememberServerBase(state); await cacheDataLocally(state);
+    }
+
+    async function uploadNusukFile({ blob, company, ...meta }) {
+        const info = await nusukFileRequest('nusuk-upload', meta, company || currentCompanyId);
         const cfg = await getUploadConfig();
         if (!cfg || !window.supabase) throw Error('Dosya deposuna bağlanılamadı.');
         const client = window.supabase.createClient(cfg.url, cfg.anonKey);
@@ -3736,8 +3758,13 @@
             canExport: () => hasPermission('exportPassengerLists'),
             save: saveNusukChanges,
             uploadPrivate: uploadNusukFile,
-            viewUrls: async paths => (await nusukFileRequest('nusuk-view', { paths })).urls,
-            removePaths: paths => nusukFileRequest('nusuk-remove', { paths }),
+            viewUrls: paths => nusukFilesByCompany('nusuk-view', paths),
+            removePaths: paths => nusukFilesByCompany('nusuk-remove', paths),
+            shared: IS_APP_MODE ? { load: tourId => nusukSharedRequest(tourId), post: (tourId, body) => nusukSharedRequest(tourId, body) } : null,
+            afterSharedSave: refreshAfterSharedNusuk,
+            currentCompany: () => currentCompanyId,
+            companyNames: () => Object.fromEntries(Object.values(window.TurizmCompanies?.config || {}).map(company => [company.id, company.shortName || company.name])),
+            confirm: message => window.askWorkspaceConfirmation ? window.askWorkspaceConfirmation(message) : Promise.resolve(window.confirm(message)),
             ExcelJS: () => window.ExcelJS,
             companyName: () => currentCompany().name,
             escapeHtml, formatDate: formatDateDMY, toast

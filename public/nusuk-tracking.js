@@ -69,7 +69,7 @@ function tourRows(lists,tour){
   const passengers=list.passengers||[];
   passengers.forEach(passenger=>{
    const age=ageOn(passenger.birthDate,referenceDate(tour,passenger));
-   const row={key:passengerKey(list.id,passenger.id),listId:String(list.id),passengerId:String(passenger.id),passenger,nusuk:passenger.nusuk||{},age,gender:genderOf(passenger)};
+   const row={key:passengerKey(list.id,passenger.id),listId:String(list.id),sourceListId:String(list.sourceListId||list.id),company:list.company||'',passengerId:String(passenger.id),passenger,nusuk:passenger.nusuk||{},age,gender:genderOf(passenger)};
    if(age!==null&&age<=CHILD_MAX_AGE)children.push({...row,...escortFor(passenger,passengers)});
    else adults.push(row);
   });
@@ -142,9 +142,14 @@ function planVisaImport(pages,everyone){
  });
 }
 
+// Ortak Nusuk: firmaların listeleri seçili turun altında, firma önekli kimliklerle birleşir.
+function sharedLists(ctx,tourId){
+ return (ctx?.lists||[]).map(list=>({...list,id:`${list.company}~${list.id}`,sourceListId:String(list.id),tourId:String(tourId)}));
+}
+
 const isoToDate=value=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(value||''));return m?new Date(Date.UTC(+m[1],+m[2]-1,+m[3])):null;};
 
-function buildWorkbook(ExcelJS,rows,{companyName='',tourTitle='',includeCredentials=false,generatedAt=new Date()}={}){
+function buildWorkbook(ExcelJS,rows,{companyName='',tourTitle='',includeCredentials=false,companyOf=null,generatedAt=new Date()}={}){
  const workbook=new ExcelJS.Workbook();workbook.creator=companyName;workbook.created=generatedAt;
  const thin={style:'thin',color:{argb:'FFD6DCD8'}},border={top:thin,left:thin,bottom:thin,right:thin};
  const sheet=(name,cols,color)=>{
@@ -158,16 +163,18 @@ function buildWorkbook(ExcelJS,rows,{companyName='',tourTitle='',includeCredenti
   cols.forEach((c,i)=>{ws.getColumn(i+1).width=c[1];});
   return ws;
  };
- const adultCols=[['NO',6],['AD SOYAD',30],['CİNSİYET',10],['PASAPORT NO',15],['VİZE NO',15],['RANDEVU TARİHİ',14],['SAAT',9],...(includeCredentials?[['NUSUK E-POSTA',30],['NUSUK ŞİFRE',18]]:[]),['RANDEVU ALINDI',14]];
+ // Ortak Nusuk çıktısında FİRMA sütunu eklenir (companyOf verilirse).
+ const adultCols=[['NO',6],['AD SOYAD',30],...(companyOf?[['FİRMA',16]]:[]),['CİNSİYET',10],['PASAPORT NO',15],['VİZE NO',15],['RANDEVU TARİHİ',14],['SAAT',9],...(includeCredentials?[['NUSUK E-POSTA',30],['NUSUK ŞİFRE',18]]:[]),['RANDEVU ALINDI',14]];
+ const dateCol=adultCols.findIndex(c=>c[0]==='RANDEVU TARİHİ')+1;
  const mixed=new Set(mixedSlots(rows.adults).flatMap(s=>s.keys));
  const addAdults=(name,items,color)=>{
   const ws=sheet(name,adultCols,color);
   items.forEach((r,i)=>{
    const n=r.nusuk||{};
-   const row=ws.addRow([i+1,r.passenger.name||'',r.gender||'Belirtilmemiş',r.passenger.passportNo||'',n.visaNo||'',isoToDate(n.date)||'',n.time||'',...(includeCredentials?[n.email||'',n.password||'']:[]),n.booked?'EVET':'HAYIR']);
+   const row=ws.addRow([i+1,r.passenger.name||'',...(companyOf?[companyOf(r)]:[]),r.gender||'Belirtilmemiş',r.passenger.passportNo||'',n.visaNo||'',isoToDate(n.date)||'',n.time||'',...(includeCredentials?[n.email||'',n.password||'']:[]),n.booked?'EVET':'HAYIR']);
    row.eachCell({includeEmpty:true},c=>{c.border=border;c.alignment={vertical:'middle'};});
-   row.getCell(6).numFmt='dd.mm.yyyy';
-   if(mixed.has(r.key))[6,7].forEach(c=>{row.getCell(c).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFBE3E0'}};row.getCell(c).font={bold:true,color:{argb:'FFA23B32'}};});
+   row.getCell(dateCol).numFmt='dd.mm.yyyy';
+   if(mixed.has(r.key))[dateCol,dateCol+1].forEach(c=>{row.getCell(c).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFBE3E0'}};row.getCell(c).font={bold:true,color:{argb:'FFA23B32'}};});
    const st=row.getCell(adultCols.length);st.font={bold:true,color:{argb:n.booked?'FF1F7A45':'FFA23B32'}};
   });
   if(!items.length)ws.addRow(['','Bu grupta yolcu yok.']);else ws.autoFilter={from:{row:3,column:1},to:{row:3+items.length,column:adultCols.length}};
@@ -248,10 +255,27 @@ async function readVisaPdf(file,onPage){
 function createPanel(options){
  const o=options||{};const rootEl=o.root;if(!rootEl)return {refresh(){},isDirty:()=>false};
  const esc=o.escapeHtml||(v=>String(v??''));const fd=o.formatDate||(v=>v);
- const ui={tourId:'',filter:'all',query:'',gender:'all',bulkGender:'Erkek',bulkDate:'',bulkTime:''};
- const drafts=new Map(),shown=new Set(),urlCache=new Map();
- let current={adults:[],children:[]},tour=null,busy=false;
+ const ui={tourId:'',filter:'all',query:'',gender:'all',bulkGender:'Erkek',bulkDate:'',bulkTime:'',ownView:false};
+ const drafts=new Map(),shown=new Set(),urlCache=new Map(),shared=new Map();
+ let current={adults:[],children:[]},tour=null,busy=false,sharedCtx=null,sharedMode=false;
  const can=()=>o.canManage?o.canManage():false;
+ const companyName=id=>(o.companyNames?o.companyNames():{})[id]||id;
+
+ // Ortak Nusuk bağlamı tur başına bir kez istenir; birleştirme/kayıt sonrası yenilenir.
+ function loadShared(tourId,force){
+  if(!o.shared||!tourId)return;
+  const entry=shared.get(tourId);
+  // Başka bir çalışanın yaptığı birleştirme bir dakika içinde görünür.
+  if(entry&&!force&&(entry.loading||(entry.ctx&&Date.now()-entry.at<60000)||(entry.error&&Date.now()-entry.at<60000)))return;
+  shared.set(tourId,{...(entry||{}),loading:true});
+  o.shared.load(tourId).then(ctx=>{shared.set(tourId,{ctx,at:Date.now()});}).catch(error=>{console.warn('Ortak Nusuk alınamadı.',error);shared.set(tourId,{error:true,at:Date.now()});}).finally(()=>{if(String(ui.tourId)===String(tourId))draw();});
+ }
+ async function sharedAction(body,message){
+  if(busy)return null;busy=true;
+  try{const ctx=await o.shared.post(tour.id,body);shared.set(String(tour.id),{ctx,at:Date.now()});if(message)o.toast?.(message);if(body.action==='save')o.afterSharedSave?.();return ctx;}
+  catch(error){o.toast?.(error.message||'Ortak Nusuk işlemi yapılamadı.');return null;}
+  finally{busy=false;draw();}
+ }
  const value=(row,field)=>{const d=drafts.get(row.key);return d&&Object.prototype.hasOwnProperty.call(d,field)?d[field]:(row.nusuk[field]??'');};
 
  function tours(){return (o.getTours?o.getTours():[]);}
@@ -260,8 +284,14 @@ function createPanel(options){
   if(fixed)ui.tourId=fixed;
   if(!list.some(t=>String(t.id)===String(ui.tourId)))ui.tourId=list[0]?String(list[0].id):'';
   tour=list.find(t=>String(t.id)===String(ui.tourId))||null;
-  current=tour?tourRows(o.getLists?o.getLists():[],tour):{adults:[],children:[]};
+  if(tour)loadShared(String(tour.id));
+  sharedCtx=tour?shared.get(String(tour.id))?.ctx||null:null;
+  sharedMode=Boolean(sharedCtx?.record&&!ui.ownView);
+  current=tour?tourRows(sharedMode?sharedLists(sharedCtx,tour.id):(o.getLists?o.getLists():[]),tour):{adults:[],children:[]};
   const s=summarize(current),manage=can();
+  const ownName=companyName(o.currentCompany?o.currentCompany():'');
+  const missingCompanies=sharedCtx?Object.keys(sharedCtx.catalog||{}).filter(c=>!(sharedCtx.record?.sources||[]).some(src=>src.company===c)):[];
+  const sharedBar=!tour||!sharedCtx?'':sharedCtx.record?`<div class="nk-shared"><div><span class="section-kicker">ORTAK NUSUK</span><div class="nk-shared-sources">${sharedCtx.record.sources.map(src=>`<span class="nk-company-chip">${esc(companyName(src.company))} • ${esc(src.title)}${src.date?` • ${esc(fd(src.date))}`:''}</span>`).join('')}</div><small>Saat ve kadın/erkek kontrolü birleşik listede yapılır; her yolcunun bilgisi kendi firmasına kaydedilir.</small></div><div class="nk-shared-actions"><div class="nk-gender" role="group" aria-label="Görünüm"><button type="button" data-nk-view="shared" class="${sharedMode?'active':''}">Ortak görünüm</button><button type="button" data-nk-view="own" class="${sharedMode?'':'active'}">Yalnız ${esc(ownName)}</button></div>${manage&&sharedCtx.canCombine?`${missingCompanies.length?'<button type="button" class="icon-btn" data-nk-combine="extend">Firma ekle</button>':''}<button type="button" class="icon-btn" data-nk-unlink>Birleştirmeyi kaldır</button>`:''}</div></div>`:sharedCtx.restricted?'<div class="nk-alert nk-alert-soft">Bu program ortak Nusuk\'a bağlı. Ortak görünüm yalnız dahil tüm firmalara erişimi olan kullanıcılara açılır.</div>':'';
   const items=filterRows(current.adults,ui);
   const mix=mixedSlots(current.adults,value),mixKeys=new Set(mix.flatMap(m=>m.keys));
   const pw=row=>{const n=row.nusuk;if(!manage)return n.credentialsHidden?(n.storedCredentials||[]).includes('password')?'<span class="nk-muted">Kayıtlı (gizli)</span>':'<span class="nk-muted">—</span>':'—';const visible=shown.has(row.key);return `<span class="nk-pw"><input class="nk-in" data-field="password" type="${visible?'text':'password'}" value="${esc(value(row,'password'))}" autocomplete="new-password" aria-label="Nusuk şifresi"><button type="button" class="nk-eye" data-nk-eye="${esc(row.key)}" title="${visible?'Gizle':'Göster'}" aria-label="Şifreyi ${visible?'gizle':'göster'}">${visible?'🙈':'👁'}</button></span>`;};
@@ -270,9 +300,10 @@ function createPanel(options){
   const photo=row=>row.nusuk.visaPhoto?`<img class="nk-photo" data-nk-photo="${esc(row.nusuk.visaPhoto)}" alt="${esc(row.passenger.name)} vesikalık">`:'<span class="nk-photo nk-photo-empty" title="Vize yüklenmedi">?</span>';
   rootEl.innerHTML=`
   <div class="nk-head"><div><span class="section-kicker">NUSUK RANDEVU</span><h3>Ravza / Nusuk Takibi</h3><small>Yolcuların randevu tarihi, saati, Nusuk hesabı ve vizesi. 5 yaş ve altı çocuklar randevu almaz; kız annesiyle, erkek babasıyla girer.</small></div>
-   <div class="nk-actions">${manage?`<label class="btn btn-outline dark nk-upload">Vizeleri Yükle (PDF)<input type="file" accept="application/pdf" multiple data-nk-upload hidden></label>`:''}${o.canExport&&o.canExport()?`<button type="button" class="btn btn-gold" data-nk-excel ${tour?'':'disabled'}>Excel İndir</button>`:''}</div></div>
+   <div class="nk-actions">${manage&&tour&&sharedCtx?.canCombine&&!sharedCtx.record?'<button type="button" class="btn btn-outline dark" data-nk-combine="create">Firmalar arası birleştir</button>':''}${manage?`<label class="btn btn-outline dark nk-upload">Vizeleri Yükle (PDF)<input type="file" accept="application/pdf" multiple data-nk-upload hidden></label>`:''}${o.canExport&&o.canExport()?`<button type="button" class="btn btn-gold" data-nk-excel ${tour?'':'disabled'}>Excel İndir</button>`:''}</div></div>
   ${fixed?'':`<label class="nk-tour"><span>Umre programı</span><select data-nk-tour>${list.length?list.map(t=>`<option value="${esc(t.id)}" ${String(t.id)===String(ui.tourId)?'selected':''}>${esc(t.title)}${t.departureDate?` • ${esc(fd(t.departureDate))}`:''}</option>`).join(''):'<option value="">Umre programı yok</option>'}</select></label>`}
-  ${tour?`<div class="nk-stats"><button type="button" data-nk-filter="all" class="${ui.filter==='all'?'active':''}"><span>Randevu gereken</span><b>${s.total}</b></button><button type="button" data-nk-filter="booked" class="nk-ok ${ui.filter==='booked'?'active':''}"><span>Randevu alındı</span><b>${s.booked}</b></button><button type="button" data-nk-filter="pending" class="nk-bad ${ui.filter==='pending'?'active':''}"><span>Alınmadı</span><b>${s.pending}</b></button><button type="button" data-nk-filter="novisa" class="nk-warn ${ui.filter==='novisa'?'active':''}"><span>Vize no eksik</span><b>${s.noVisa}</b></button><a href="#nkChildren" class="nk-kid"><span>5 yaş ve altı</span><b>${s.children}</b></a></div>
+  ${sharedBar}
+  ${tour?`<div class="nk-stats"><button type="button" data-nk-filter="all" class="${ui.filter==='all'?'active':''}"><span>Randevu gereken</span><b>${s.total}</b></button><button type="button" data-nk-filter="booked" class="nk-ok ${ui.filter==='booked'?'active':''}"><span>Randevu alındı</span><b>${s.booked}</b></button><button type="button" data-nk-filter="pending" class="nk-bad ${ui.filter==='pending'?'active':''}"><span>Alınmadı</span><b>${s.pending}</b></button><button type="button" data-nk-filter="novisa" class="nk-warn ${ui.filter==='novisa'?'active':''}"><span>Vize no eksik</span><b>${s.noVisa}</b></button><button type="button" data-nk-children class="nk-kid"><span>5 yaş ve altı</span><b>${s.children}</b></button></div>
   <div class="nk-tools"><label class="nk-search"><span>Yolcu ara</span><input type="search" data-nk-search value="${esc(ui.query)}" placeholder="Ad, pasaport veya vize no"></label>
    <div class="nk-gender" role="group" aria-label="Cinsiyete göre göster"><button type="button" data-nk-gender="all" class="${ui.gender==='all'?'active':''}">Tümü</button><button type="button" data-nk-gender="Erkek" class="nk-men ${ui.gender==='Erkek'?'active':''}">Erkekler <b>${s.men}</b></button><button type="button" data-nk-gender="Kadın" class="nk-women ${ui.gender==='Kadın'?'active':''}">Kadınlar <b>${s.women}</b></button>${s.noGender?`<button type="button" data-nk-gender="" class="nk-nogender ${ui.gender===''?'active':''}">Cinsiyet yok <b>${s.noGender}</b></button>`:''}</div>
    ${manage?`<div class="nk-bulk"><label><span>Kime</span><select data-nk-bulk-gender><option value="Erkek" ${ui.bulkGender==='Erkek'?'selected':''}>Erkeklere</option><option value="Kadın" ${ui.bulkGender==='Kadın'?'selected':''}>Kadınlara</option></select></label><label><span>Randevu tarihi</span><input type="date" data-nk-bulk-date value="${esc(ui.bulkDate)}"></label><label><span>Saat</span><input type="time" data-nk-bulk-time value="${esc(ui.bulkTime)}"></label><button type="button" class="icon-btn" data-nk-bulk>Boş olanlara uygula</button></div>`:''}</div>
@@ -280,11 +311,11 @@ function createPanel(options){
   ${s.noGender?`<div class="nk-alert nk-alert-soft">${s.noGender} yolcunun cinsiyeti seçilmemiş. Yolcu listesinden seçin; aksi halde saat ayrımı kontrol edilemez.</div>`:''}
   <div class="nk-table-wrap"><table class="nk-table"><thead><tr><th title="Randevu alındı">✓</th><th>Foto</th><th>Yolcu</th><th>Vize no</th><th>Tarih</th><th>Saat</th><th>Nusuk e-posta</th><th>Şifre</th><th></th></tr></thead><tbody>${GENDER_GROUPS.map(g=>{const group=items.filter(r=>r.gender===g.id);if(!group.length)return '';const all=current.adults.filter(r=>r.gender===g.id);const times=[...new Set(all.map(r=>[value(r,'date'),value(r,'time')].filter(Boolean).join(' ')).filter(t=>t.includes(':')))].sort();return `<tr class="nk-group nk-group-${g.id==='Erkek'?'men':g.id==='Kadın'?'women':'none'}"><td colspan="9"><b>${g.label}</b> • ${all.length} yolcu • ${all.filter(r=>r.nusuk.booked).length} randevu alındı${times.length?` • Saatler: ${times.map(t=>esc(t.replace(/^(\d{4})-(\d{2})-(\d{2})/,'$3.$2.$1'))).join(', ')}`:''}</td></tr>`+group.map(row=>rowHtml(row)).join('');}).join('')||`<tr><td colspan="9" class="nk-empty">${current.adults.length?'Bu filtrede yolcu yok.':'Bu programda randevu alınacak yolcu yok.'}</td></tr>`}</tbody></table></div>`:'<div class="empty">Nusuk takibi için önce bir Umre programı oluşturun.</div>'}
   ${tour?`${manage&&drafts.size?`<div class="nk-savebar"><span><b>${drafts.size}</b> yolcuda kaydedilmemiş değişiklik</span><span><button type="button" class="icon-btn" data-nk-discard>Vazgeç</button><button type="button" class="btn btn-gold" data-nk-save ${busy?'disabled':''}>${busy?'Kaydediliyor…':'Değişiklikleri Kaydet'}</button></span></div>`:''}
-  <section class="nk-children" id="nkChildren"><h4>5 yaş ve altı (randevu alınmaz)</h4>${childrenHtml()}</section>`:''}
+  <section class="nk-children"><h4>5 yaş ve altı (randevu alınmaz)</h4>${childrenHtml()}</section>`:''}
   <dialog class="nk-dialog" data-nk-dialog></dialog>`;
   loadPhotos();
 
-  function rowHtml(row){return `<tr data-key="${esc(row.key)}" class="${row.nusuk.booked?'nk-booked':''}${drafts.has(row.key)?' nk-dirty':''}${mixKeys.has(row.key)?' nk-mixed':''}"><td data-label="Randevu alındı"><input type="checkbox" class="nk-check" data-nk-book ${row.nusuk.booked?'checked':''} ${manage?'':'disabled'} aria-label="${esc(row.passenger.name)} randevu alındı"></td><td data-label="Foto">${photo(row)}</td><td data-label="Yolcu"><b>${esc(row.passenger.name||'İsimsiz yolcu')}</b><small>${esc(row.passenger.passportNo||'Pasaport no yok')}${row.age!==null?` • ${row.age} yaş`:''}${row.gender?'':' • <span class="nk-warn-text">Cinsiyet seçilmemiş</span>'}</small></td><td data-label="Vize no">${manage?`<input class="nk-in nk-visa" data-field="visaNo" inputmode="numeric" value="${esc(value(row,'visaNo'))}" placeholder="Vize no" aria-label="Vize numarası">`:esc(row.nusuk.visaNo||'—')}</td><td data-label="Tarih">${field(row,'date','date','Randevu tarihi')}</td><td data-label="Saat">${field(row,'time','time','Randevu saati')}${mixKeys.has(row.key)?'<small class="nk-warn-text">Bu saatte karşı cinsten yolcu var</small>':''}</td><td data-label="Nusuk e-posta">${email(row)}</td><td data-label="Şifre">${pw(row)}</td><td class="nk-row-actions">${row.nusuk.visaPage?`<button type="button" class="icon-btn" data-nk-visa="${esc(row.nusuk.visaPage)}" data-nk-name="${esc(row.passenger.name)}">Vizesini gör</button>`:'<span class="nk-muted">Vize yok</span>'}</td></tr>`;}
+  function rowHtml(row){return `<tr data-key="${esc(row.key)}" class="${row.nusuk.booked?'nk-booked':''}${drafts.has(row.key)?' nk-dirty':''}${mixKeys.has(row.key)?' nk-mixed':''}"><td data-label="Randevu alındı"><input type="checkbox" class="nk-check" data-nk-book ${row.nusuk.booked?'checked':''} ${manage?'':'disabled'} aria-label="${esc(row.passenger.name)} randevu alındı"></td><td data-label="Foto">${photo(row)}</td><td data-label="Yolcu"><b>${esc(row.passenger.name||'İsimsiz yolcu')}</b>${sharedMode?`<span class="nk-company-chip nk-company-${esc(row.company)}">${esc(companyName(row.company))}</span>`:''}<small>${esc(row.passenger.passportNo||'Pasaport no yok')}${row.age!==null?` • ${row.age} yaş`:''}${row.gender?'':' • <span class="nk-warn-text">Cinsiyet seçilmemiş</span>'}</small></td><td data-label="Vize no">${manage?`<input class="nk-in nk-visa" data-field="visaNo" inputmode="numeric" value="${esc(value(row,'visaNo'))}" placeholder="Vize no" aria-label="Vize numarası">`:esc(row.nusuk.visaNo||'—')}</td><td data-label="Tarih">${field(row,'date','date','Randevu tarihi')}</td><td data-label="Saat">${field(row,'time','time','Randevu saati')}${mixKeys.has(row.key)?'<small class="nk-warn-text">Bu saatte karşı cinsten yolcu var</small>':''}</td><td data-label="Nusuk e-posta">${email(row)}</td><td data-label="Şifre">${pw(row)}</td><td class="nk-row-actions">${row.nusuk.visaPage?`<button type="button" class="icon-btn" data-nk-visa="${esc(row.nusuk.visaPage)}" data-nk-name="${esc(row.passenger.name)}">Vizesini gör</button>`:'<span class="nk-muted">Vize yok</span>'}</td></tr>`;}
 
   function childrenHtml(){return current.children.length?`<div class="nk-child-grid">${current.children.map(c=>{const e=c.escort,en=e?.nusuk||{};return `<article class="nk-child ${e?'':'nk-child-missing'}"><div class="nk-child-top">${photo(c)}<div><b>${esc(c.passenger.name||'İsimsiz')}</b><small>${c.age} yaş • ${esc(c.gender||'Cinsiyet yok')}${c.nusuk.visaNo?` • Vize ${esc(c.nusuk.visaNo)}`:''}</small></div>${c.nusuk.visaPage?`<button type="button" class="icon-btn" data-nk-visa="${esc(c.nusuk.visaPage)}" data-nk-name="${esc(c.passenger.name)}">Vizesini gör</button>`:''}</div><p>${e?`${c.role==='mother'?'Annesiyle':'Babasıyla'} girer: <b>${esc(e.name)}</b>`:`${c.role==='mother'?'Annesi':c.role==='father'?'Babası':'Ebeveyni'} eşleşmedi. Yolcu listesinde yakınlığı (${c.role==='mother'?'Kızı':'Oğlu'} → ebeveyn) seçin.`}</p>${e?`<span class="nk-chip ${en.booked?'ok':'bad'}">${en.booked?'Randevusu alındı':'Randevusu yok'}${en.date?` • ${esc(fd(en.date))} ${esc(en.time||'')}`:''}</span>`:''}</article>`;}).join('')}</div>`:'<p class="nk-muted">Bu programda 5 yaş ve altı yolcu yok.</p>';}
  }
@@ -312,9 +343,54 @@ function createPanel(options){
 
  async function persist(changes,message){
   if(!changes.length||busy)return false;
+  if(sharedMode){
+   // Ortak görünüm: sunucu her yolcuyu kendi firmasının kaydına yazar.
+   const rows=current.adults.concat(current.children);
+   const payload=changes.map(c=>{const r=rows.find(x=>x.key===c.key)||{};return {company:r.company,listId:r.sourceListId,passengerId:c.passengerId,patch:c.patch};}).filter(c=>c.company);
+   const ctx=await sharedAction({action:'save',id:sharedCtx.record.id,revision:sharedCtx.record.revision,changes:payload},message);
+   if(ctx)changes.forEach(c=>{if(c.fromDraft)drafts.delete(c.key);});
+   draw();return Boolean(ctx);
+  }
   busy=true;draw();
   try{const ok=await o.save(changes);if(ok){changes.forEach(c=>{const d=drafts.get(c.key);if(d&&c.fromDraft)drafts.delete(c.key);});o.toast?.(message);}return ok;}
   finally{busy=false;draw();}
+ }
+
+ // Firmalar arası birleştirme: diğer firmalardan aynı tarihe girecek Umre programlarını seçtirir.
+ function chooseSources(mode){
+  const dlg=rootEl.querySelector('[data-nk-dialog]');
+  const base=mode==='extend'?sharedCtx.record.sources.map(s=>({company:s.company,tourId:s.tourId})):[{company:o.currentCompany(),tourId:String(tour.id)}];
+  const others=Object.keys(sharedCtx.catalog||{}).filter(c=>!base.some(s=>s.company===c));
+  if(!others.length){o.toast?.('Birleştirilecek başka firma yok.');return;}
+  dlg.innerHTML=`<form method="dialog" class="nk-dialog-head"><b>${mode==='extend'?'Ortak Nusuk\'a firma ekle':'Firmalar arası ortak Nusuk'}</b><button class="icon-btn" value="close" aria-label="Kapat">✕</button></form>
+   <p class="nk-muted">Aynı tarihte Ravza'ya girecek diğer firmaların Umre programını seçin. Yolcu, vize ve Nusuk bilgileri kendi firmasında kalır; liste ve saat kontrolü birlikte yapılır.</p>
+   ${others.map(c=>`<fieldset class="nk-pick" data-company="${esc(c)}"><legend>${esc(companyName(c))}</legend><label class="nk-pick-include"><input type="checkbox" data-include ${others.length===1?'checked':''}> Bu firmanın programını dahil et</label><label><span>Program</span><select data-tour><option value="">Program seçin</option>${(sharedCtx.catalog[c]||[]).slice().sort((a,b)=>Math.abs(Date.parse(a.date||0)-Date.parse(tour.departureDate||0))-Math.abs(Date.parse(b.date||0)-Date.parse(tour.departureDate||0))).map(t=>`<option value="${esc(t.id)}" ${t.linked?'disabled':''}>${esc(t.title)} • ${esc(t.date?fd(t.date):'Tarihsiz')} • ${t.count} yolcu${t.linked?' • zaten ortak':''}</option>`).join('')}</select></label></fieldset>`).join('')}
+   <p class="nk-pick-error nk-warn-text" role="status"></p>
+   <div class="nk-dialog-foot"><button type="button" class="icon-btn" data-nk-pick-cancel>Vazgeç</button><button type="button" class="btn btn-gold" data-nk-pick-ok>${mode==='extend'?'Firmayı ekle':'Birleştir'}</button></div>`;
+  dlg.onclick=async event=>{
+   if(event.target.closest('[data-nk-pick-cancel]')){dlg.close();return;}
+   if(!event.target.closest('[data-nk-pick-ok]'))return;
+   const added=[],error=dlg.querySelector('.nk-pick-error');
+   for(const field of dlg.querySelectorAll('.nk-pick')){
+    if(!field.querySelector('[data-include]').checked)continue;
+    const id=field.querySelector('[data-tour]').value;
+    if(!id){error.textContent=`${companyName(field.dataset.company)} için bir program seçin.`;return;}
+    added.push({company:field.dataset.company,tourId:id});
+   }
+   if(!added.length){error.textContent='En az bir firma ve program seçin.';return;}
+   dlg.close();
+   const body=mode==='extend'?{action:'extend',id:sharedCtx.record.id,revision:sharedCtx.record.revision,sources:[...base,...added]}:{action:'create',sources:[...base,...added]};
+   if(drafts.size){o.toast?.('Önce kaydedilmemiş değişiklikleri kaydedin veya vazgeçin.');return;}
+   const ctx=await sharedAction(body,mode==='extend'?'Firma ortak Nusuk\'a eklendi.':'Programlar ortak Nusuk\'ta birleştirildi.');
+   if(ctx){ui.ownView=false;draw();}
+  };
+  dlg.showModal?.();
+ }
+
+ async function unlink(){
+  const ok=o.confirm?await o.confirm('Ortak Nusuk bağlantısı kaldırılsın mı? Yolcuların randevu ve vize bilgileri kendi firmalarında aynen kalır.'):window.confirm('Ortak Nusuk bağlantısı kaldırılsın mı?');
+  if(!ok)return;
+  if(await sharedAction({action:'archive',id:sharedCtx.record.id,revision:sharedCtx.record.revision},'Ortak Nusuk bağlantısı kaldırıldı.')){ui.ownView=false;drafts.clear();draw();}
  }
 
  async function openVisa(path,name){
@@ -360,7 +436,9 @@ function createPanel(options){
    try{
     for(const p of chosen){
      const row=everyone.find(r=>r.key===p.match);
-     const base={tourId:tour.id,listId:row.listId,passengerId:row.passengerId};
+     // Ortak görünümde dosya, yolcunun kendi firmasının gizli klasörüne yüklenir.
+     const source=sharedMode?sharedCtx.record.sources.find(s=>s.company===row.company):null;
+     const base=source?{company:row.company,tourId:source.tourId,listId:row.sourceListId,passengerId:row.passengerId}:{tourId:tour.id,listId:row.listId,passengerId:row.passengerId};
      const visaPage=await o.uploadPrivate({...base,kind:'visa',blob:p.pageBlob});
      const visaPhoto=p.photoBlob?await o.uploadPrivate({...base,kind:'photo',blob:p.photoBlob}):'';
      changes.push({key:row.key,listId:row.listId,passengerId:row.passengerId,patch:{visaNo:p.parsed.visaNo||row.nusuk.visaNo||'',visaPage,visaPhoto,visaUploadedAt:new Date().toISOString()},oldPaths:[row.nusuk.visaPage,row.nusuk.visaPhoto].filter(Boolean)});
@@ -378,7 +456,7 @@ function createPanel(options){
   const ExcelJS=o.ExcelJS?o.ExcelJS():null;
   if(!ExcelJS||!tour){o.toast?.('Excel hazırlama bileşeni yüklenemedi.');return;}
   try{
-   const workbook=buildWorkbook(ExcelJS,current,{companyName:o.companyName?o.companyName():'',tourTitle:tour.title||'',includeCredentials:can()});
+   const workbook=buildWorkbook(ExcelJS,current,{companyName:sharedMode?'Ortak Nusuk':(o.companyName?o.companyName():''),tourTitle:tour.title||'',includeCredentials:can(),companyOf:sharedMode?row=>companyName(row.company):null});
    const blob=new Blob([await workbook.xlsx.writeBuffer()],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=fileName(tour.title);document.body.appendChild(link);link.click();link.remove();
    setTimeout(()=>URL.revokeObjectURL(link.href),2000);o.toast?.('Nusuk listesi Excel olarak indirildi.');
@@ -388,9 +466,14 @@ function createPanel(options){
  rootEl.addEventListener('click',event=>{
   const t=event.target;
   const filter=t.closest('[data-nk-filter]');if(filter){ui.filter=filter.dataset.nkFilter;draw();return;}
+  // Bağlantı (#hash) kullanılmaz: çalışma alanı adres değişince tur listesine döner.
+  if(t.closest('[data-nk-children]')){rootEl.querySelector('.nk-children')?.scrollIntoView({behavior:'smooth',block:'start'});return;}
   const eye=t.closest('[data-nk-eye]');if(eye){const k=eye.dataset.nkEye;shown.has(k)?shown.delete(k):shown.add(k);draw();return;}
   const visa=t.closest('[data-nk-visa]');if(visa){openVisa(visa.dataset.nkVisa,visa.dataset.nkName);return;}
   if(t.closest('[data-nk-excel]')){exportExcel();return;}
+  const combine=t.closest('[data-nk-combine]');if(combine){if(drafts.size){o.toast?.('Önce kaydedilmemiş değişiklikleri kaydedin veya vazgeçin.');return;}chooseSources(combine.dataset.nkCombine);return;}
+  if(t.closest('[data-nk-unlink]')){if(drafts.size){o.toast?.('Önce kaydedilmemiş değişiklikleri kaydedin veya vazgeçin.');return;}unlink();return;}
+  const view=t.closest('[data-nk-view]');if(view){const own=view.dataset.nkView==='own';if(own===ui.ownView)return;if(drafts.size){o.toast?.('Görünümü değiştirmeden önce değişiklikleri kaydedin veya vazgeçin.');return;}ui.ownView=own;if(!own)loadShared(String(tour.id),true);draw();return;}
   if(t.closest('[data-nk-discard]')){drafts.clear();draw();return;}
   const gender=t.closest('[data-nk-gender]');if(gender){ui.gender=gender.dataset.nkGender;draw();return;}
   if(t.closest('[data-nk-save]')){
@@ -406,7 +489,7 @@ function createPanel(options){
  });
  rootEl.addEventListener('change',event=>{
   const t=event.target;
-  if(t.matches('[data-nk-tour]')){ui.tourId=t.value;ui.filter='all';draw();return;}
+  if(t.matches('[data-nk-tour]')){if(drafts.size){o.toast?.('Program değiştirmeden önce değişiklikleri kaydedin veya vazgeçin.');t.value=ui.tourId;return;}ui.tourId=t.value;ui.filter='all';ui.ownView=false;draw();return;}
   if(t.matches('[data-nk-upload]')){const files=[...t.files||[]];t.value='';if(files.length)importVisas(files);return;}
   if(t.matches('[data-nk-book]')){const key=t.closest('tr').dataset.key,row=current.adults.find(r=>r.key===key);if(!row)return;const booked=t.checked;persist([{key,listId:row.listId,passengerId:row.passengerId,patch:{booked,bookedAt:booked?new Date().toISOString():''}}],booked?'Randevu alındı olarak işaretlendi.':'Randevu işareti kaldırıldı.');return;}
   if(t.matches('[data-nk-bulk-date]')){ui.bulkDate=t.value;return;}
@@ -419,7 +502,7 @@ function createPanel(options){
  return {refresh:draw,isDirty:()=>drafts.size>0};
 }
 
-const api={CHILD_MAX_AGE,PDFJS_VERSION,GENDER_GROUPS,normName,normPassport,ageOn,childGender,genderOf,mixedSlots,escortFor,tourRows,summarize,filterRows,parseVisaItems,matchPassenger,planVisaImport,buildWorkbook,fileName,loadPdfJs,readVisaPdf,createPanel,passengerKey};
+const api={CHILD_MAX_AGE,PDFJS_VERSION,GENDER_GROUPS,normName,normPassport,ageOn,childGender,genderOf,mixedSlots,escortFor,tourRows,summarize,filterRows,parseVisaItems,matchPassenger,planVisaImport,sharedLists,buildWorkbook,fileName,loadPdfJs,readVisaPdf,createPanel,passengerKey};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 root.TurizmNusuk=api;
 })(typeof window==='undefined'?globalThis:window);
