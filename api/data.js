@@ -8,7 +8,41 @@ const {
   sanitizeAdminState, sanitizePublicState, separateTourCollections, adminStateForClient,
   ensureBucket
 } = require('./_supabase');
-const { authorizeDataRequest, applyDesktopAudit, filterStateByPermissions, assertStateChangeAllowed } = require('./_appAuth');
+const { authorizeDataRequest, applyDesktopAudit, filterStateByPermissions, assertStateChangeAllowed, hasUserPermission } = require('./_appAuth');
+const Nusuk = require('./_nusuk');
+
+function requestBody(req){
+  return typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+}
+
+// Nusuk vize sayfası/vesikalık: gizli depoya imzalı yükleme, kısa süreli görüntüleme
+// ve silme. Yollar daima istek yapılan firmanın klasörüyle sınırlıdır.
+async function handleNusukFiles(req, res, action, companyId, authorization){
+  const body = requestBody(req);
+  const manage = Nusuk.canManage(authorization, hasUserPermission);
+  const view = authorization.kind !== 'desktop' || hasUserPermission(authorization.user, 'viewPassengers');
+  if(action === 'nusuk-view' ? !view : !manage) return res.status(403).json({ok:false, error:'Nusuk vize dosyaları için yetkin yok.'});
+  const client = supabaseAdmin();
+  if(action === 'nusuk-upload'){
+    const objectPath = Nusuk.objectPath(companyId, body);
+    if(!objectPath) return res.status(400).json({ok:false, error:'Yolcu bilgisi eksik.'});
+    await Nusuk.ensurePrivateBucket(client);
+    const { data, error } = await client.storage.from(Nusuk.PRIVATE_BUCKET).createSignedUploadUrl(objectPath);
+    if(error) throw error;
+    return res.status(200).json({ok:true, bucket:Nusuk.PRIVATE_BUCKET, path:objectPath, token:data.token});
+  }
+  const paths = [...new Set((Array.isArray(body.paths) ? body.paths : []).map(String))].slice(0, 200);
+  if(!paths.length || !paths.every(item => Nusuk.ownsPath(companyId, item))) return res.status(400).json({ok:false, error:'Geçersiz dosya yolu.'});
+  if(action === 'nusuk-remove'){
+    const { error } = await client.storage.from(Nusuk.PRIVATE_BUCKET).remove(paths);
+    if(error) throw error;
+    return res.status(200).json({ok:true});
+  }
+  const { data, error } = await client.storage.from(Nusuk.PRIVATE_BUCKET).createSignedUrls(paths, Nusuk.SIGNED_URL_SECONDS);
+  if(error) throw error;
+  const urls = Object.fromEntries((data || []).filter(item => item && item.signedUrl && !item.error).map(item => [item.path, item.signedUrl]));
+  return res.status(200).json({ok:true, urls, expiresIn:Nusuk.SIGNED_URL_SECONDS});
+}
 
 function cleanFileName(name){
   const ext = path.extname(String(name || '')).toLowerCase() || '.jpg';
@@ -64,12 +98,12 @@ module.exports = async function handler(req, res){
           if(point?.source === companyRowId(companyId) && point.sha256 === Recovery.digest(point.state)) baseline = point.state;
         }
         if(!baseline) return res.status(404).json({ok:false,error:'Bu sürümün karşılaştırma kopyası bulunamadı.'});
-        const payload = adminStateForClient(baseline,authorization.kind);
+        const payload = Nusuk.redactForClient(adminStateForClient(baseline,authorization.kind), authorization, hasUserPermission);
         payload._meta = {...payload._meta,serverRevision:revision};
         return res.status(200).json(payload);
       }
       res.setHeader('X-Turizm-Company', companyId);
-      const payload = wantsAdmin ? adminStateForClient(rawState, authorization.kind) : sanitizePublicState(rawState);
+      const payload = wantsAdmin ? Nusuk.redactForClient(adminStateForClient(rawState, authorization.kind), authorization, hasUserPermission) : sanitizePublicState(rawState);
       if(wantsAdmin) payload._meta = {...payload._meta, serverRevision:data?.updated_at||''};
       return res.status(200).json(payload);
     } catch(err){
@@ -85,6 +119,13 @@ module.exports = async function handler(req, res){
     const authorization = await authorizeDataRequest(req, companyId, authContext);
     mark('auth',authStart);
     if(!authorization) return res.status(401).json({ok:false, error:'Bu firma hesabı için yetkin yok veya oturumun sona ermiş.'});
+    if(['nusuk-upload', 'nusuk-view', 'nusuk-remove'].includes(action)){
+      try { return await handleNusukFiles(req, res, action, companyId, authorization); }
+      catch(err){
+        console.error(err);
+        return res.status(500).json({ok:false, error:'Vize dosyası işlemi yapılamadı.'});
+      }
+    }
     if(action === 'signed-upload'){
       try{
         const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
@@ -114,8 +155,9 @@ module.exports = async function handler(req, res){
       if(authorization.kind === 'desktop') Recovery.expected(existing,dataToSave._meta?.serverRevision);
       if(dataToSave._meta) delete dataToSave._meta.serverRevision;
       dataToSave = separateTourCollections(dataToSave, previousState, authorization.kind);
+      if(authorization.kind === 'desktop') dataToSave = filterStateByPermissions(dataToSave, previousState, authorization);
+      dataToSave = Nusuk.preserveOnSave(dataToSave, previousState, authorization, hasUserPermission);
       if(authorization.kind === 'desktop'){
-        dataToSave = filterStateByPermissions(dataToSave, previousState, authorization);
         assertStateChangeAllowed(dataToSave, previousState, authorization);
         dataToSave = applyDesktopAudit(dataToSave, previousState, authorization);
       }
@@ -132,7 +174,7 @@ module.exports = async function handler(req, res){
       const revision = await Recovery.write(client,companyRowId(companyId),existing,dataToSave);
       mark('persist',saveStart);
       res.setHeader('X-Turizm-Company', companyId);
-      const state = adminStateForClient(dataToSave,authorization.kind);
+      const state = Nusuk.redactForClient(adminStateForClient(dataToSave,authorization.kind), authorization, hasUserPermission);
       state._meta = {...state._meta,serverRevision:revision,pendingSync:false};
       return res.status(200).json({ok:true, company:companyId, revision, state});
     } catch(err){

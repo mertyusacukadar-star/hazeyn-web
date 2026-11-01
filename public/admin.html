@@ -25,6 +25,7 @@
 <link rel="stylesheet" href="workspace-usability.css?v=20261020-guide2">
 <link rel="stylesheet" href="sidebar-nav.css?v=20261020-guide2">
 <link rel="stylesheet" href="payment-status.css?v=20261031-pay2">
+<link rel="stylesheet" href="nusuk-tracking.css?v=20261101-nusuk1">
 </head>
 <body data-page="admin" class="admin-body">
     <div id="appBoot" role="status"><strong>Turizm Muhasebe</strong><p>Çalışma alanınız hazırlanıyor…</p><button type="button" hidden onclick="location.reload()">Yeniden dene</button></div>
@@ -62,6 +63,7 @@
             <button class="admin-tab" data-tab="blog">Merak Edilenler / Blog</button>
             <button class="admin-tab" data-tab="passengers" data-permission="viewPassengers">Yolcu Listesi PDF</button>
             <button class="admin-tab" data-tab="accounting" data-permission="viewAccounting">Muhasebe &amp; Makbuz</button>
+            <button class="admin-tab" data-tab="nusuk" data-permission="viewPassengers">Nusuk Takip</button>
             <button class="admin-tab desktop-only" data-tab="costs" data-permission="viewCosts">Maliyet &amp; Net Kâr</button>
             <button class="admin-tab desktop-only desktop-owner-only" data-tab="users">Kullanıcılar &amp; Yetkiler</button>
             <button class="admin-tab" data-tab="settings">Site Ayarları</button>
@@ -462,6 +464,7 @@
                                 <label><input type="checkbox" data-app-permission="sendReceiptWhatsApp" /> WhatsApp’tan PDF makbuz gönder</label>
                                 <label><input type="checkbox" data-app-permission="manageCosts" /> Tur giderlerini kaydet</label>
                                 <label><input type="checkbox" data-app-permission="exportBackup" /> Yedek indir</label>
+                                <label><input type="checkbox" data-app-permission="manageNusuk" /> Nusuk bilgileri: e-posta/şifre görme, randevu ve vize düzenleme</label>
                                 <label><input type="checkbox" data-app-permission="manageRecovery" /> Tüm firmaların yedek ve kurtarma yönetimi</label>
                                 <p>Bu özel yetki tüm firmaların kayıtları, çalışan hesapları, geri yükleme ve ortak bulut bağlantılarına erişim verir.</p>
                             </div>
@@ -570,6 +573,7 @@
                 </form>
             </section>
             <section id="tab-buses" class="admin-panel"></section>
+            <section id="tab-nusuk" class="admin-panel"><div class="nusuk-panel" id="nusukPanel"></div></section>
         </main>
     </div>
     <script src="vendor/exceljs.min.js?v=4.4.0"></script>
@@ -587,7 +591,7 @@
     <script src="bus-shared-picker.js?v=20261002-mobile3"></script>
     <script src="bus-print.js?v=20261020-guide2"></script>
     <script src="bus-workspace.js?v=20261020-guide2"></script>
-    <script src="workspace-ui.js?v=20261002-tour-save1"></script>
+    <script src="workspace-ui.js?v=20261101-nusuk1"></script>
     <script src="passenger-fields.js?v=20261002-mobile3"></script>
     <script src="/umre-visuals.js?v=20260930-1"></script>
     <script src="/tour-card.js?v=20260930-1"></script>
@@ -602,7 +606,8 @@
 <script src="user-directory.js?v=20261002-mobile3"></script>
 <script src="sidebar-nav.js?v=20261020-guide2"></script>
 <script src="payment-status.js?v=20261031-pay2"></script>
-<script src="app.js?v=20261031-pay2"></script>
+<script src="nusuk-tracking.js?v=20261101-nusuk1"></script>
+<script src="app.js?v=20261101-nusuk1"></script>
 <div id="dataSaveStatus" class="data-save-status" role="status" aria-live="polite" hidden><span aria-hidden="true"></span> İşleminiz kaydediliyor…</div>
 </body>
 </html>

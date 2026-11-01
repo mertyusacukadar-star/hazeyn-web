@@ -1,4 +1,5 @@
 const Recovery = require('./_recovery');
+const Nusuk = require('./_nusuk');
 const Companies = require('../public/company-config');
 const crypto = require('crypto');
 const {
@@ -16,8 +17,10 @@ const PERMISSION_KEYS = [
   'viewPassengers', 'managePassengers', 'deletePassengerLists', 'exportPassengerLists',
   'viewAccounting', 'managePrices', 'recordPayments', 'voidPayments', 'printReceipts',
   'sendWelcomeWhatsApp', 'sendReceiptWhatsApp',
-  'viewCosts', 'manageCosts', 'exportBackup', 'manageRecovery'
+  'viewCosts', 'manageCosts', 'exportBackup', 'manageRecovery', 'manageNusuk'
 ];
+// Varsayılan olarak verilmeyen hassas yetkiler (Nusuk e-posta/şifre dahil).
+const OPT_IN_PERMISSIONS = ['manageRecovery', 'manageNusuk'];
 
 function secureEqual(left, right){
   const a = Buffer.from(String(left || ''), 'utf8');
@@ -52,7 +55,7 @@ function normalizeCompanies(value){
 
 function normalizePermissions(value){
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : null;
-  return Object.fromEntries(PERMISSION_KEYS.map(key => [key, source ? source[key] === true : key !== 'manageRecovery']));
+  return Object.fromEntries(PERMISSION_KEYS.map(key => [key, source ? source[key] === true : !OPT_IN_PERMISSIONS.includes(key)]));
 }
 
 function hasUserPermission(user, permission){
@@ -70,7 +73,8 @@ function permissionError(permission){
     voidPayments:'Ödeme iptal etme',
     sendWelcomeWhatsApp:'WhatsApp kayıt mesajı gönderme',
     sendReceiptWhatsApp:'WhatsApp makbuzu gönderme',
-    manageCosts:'Tur gideri değiştirme'
+    manageCosts:'Tur gideri değiştirme',
+    manageNusuk:'Nusuk randevu ve vize bilgisi değiştirme'
   };
   const error = new Error(`${labels[permission] || 'Bu işlem'} yetkin yok.`);
   error.statusCode = 403;
@@ -87,7 +91,7 @@ function passengerStructure(lists){
     return {
       ...listFields,
       passengers:(Array.isArray(passengers) ? passengers : []).map(passenger => {
-        const { accounting, createdBy:passengerCreatedBy, ...passengerFields } = passenger || {};
+        const { accounting, createdBy:passengerCreatedBy, nusuk, ...passengerFields } = passenger || {};
         return passengerFields;
       })
     };
@@ -144,6 +148,7 @@ function filterStateByPermissions(nextState, previousState, auth){
         (restoredList.passengers || []).forEach(passenger => {
           const candidate = candidatePassengers.get(String(passenger.id));
           if(candidate && candidate.accounting) passenger.accounting = cloneValue(candidate.accounting);
+          if(candidate && hasUserPermission(user, 'manageNusuk') && Object.prototype.hasOwnProperty.call(candidate, 'nusuk')) passenger.nusuk = cloneValue(candidate.nusuk);
         });
         return restoredList;
       });
@@ -162,6 +167,7 @@ function assertStateChangeAllowed(nextState, previousState, auth){
   if(comparable(next.deletedTours || []) !== comparable(previous.deletedTours || [])) requirePermission('manageTours');
   if(comparable(next.tourBusPlans || {}) !== comparable(previous.tourBusPlans || {})) requirePermission('managePassengers');
   if(comparable(next.tourCosts || {}) !== comparable(previous.tourCosts || {})) requirePermission('manageCosts');
+  if(Nusuk.changed(next, previous)) requirePermission('manageNusuk');
   if(comparable(passengerStructure(next.passengerLists)) !== comparable(passengerStructure(previous.passengerLists))) {
     const nextIds = new Set((next.passengerLists || []).map(list => String(list.id)));
     const previousIds = new Set((previous.passengerLists || []).map(list => String(list.id)));

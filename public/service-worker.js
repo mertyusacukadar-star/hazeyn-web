@@ -1,5 +1,7 @@
-const CACHE_NAME = 'turizm-v16-payment-programs';
+const CACHE_NAME = 'turizm-v17-nusuk';
 const APP_SHELL = [
+  '/nusuk-tracking.js?v=20261101-nusuk1',
+  '/nusuk-tracking.css?v=20261101-nusuk1',
   '/payment-status.js?v=20261031-pay2',
   '/payment-status.css?v=20261031-pay2',
   '/passenger-registration.js?v=20261020-guide2',
@@ -36,12 +38,12 @@ const APP_SHELL = [
   '/mrz-camera.js?v=20260917-livecamera2',
   '/document-reader.js?v=20260917-livecamera2',
   '/workspace-ui.css?v=20261002-mobile3',
-  '/workspace-ui.js?v=20261002-tour-save1',
+  '/workspace-ui.js?v=20261101-nusuk1',
   '/sidebar-nav.css?v=20261020-guide2',
   '/sidebar-nav.js?v=20261020-guide2',
   '/assets/app-icon-hazeyn-64.png',
   '/assets/app-icon-hakikat-64.png',
-  '/app.js?v=20261031-pay2',
+  '/app.js?v=20261101-nusuk1',
   '/vendor/exceljs.min.js?v=4.4.0',
   '/assets/mobile-app-icon-192.png',
   '/assets/mobile-app-icon-512.png',

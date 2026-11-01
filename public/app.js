@@ -282,14 +282,16 @@
         ['viewDashboard', 'Genel Bakış'], ['viewTours', 'Turları Gör'], ['manageTours', 'Tur Yönet'],
         ['viewPassengers', 'Yolcu Listelerini Gör'], ['managePassengers', 'Yolcu Yönet'], ['deletePassengerLists', 'Yolcu Listesi Sil'], ['exportPassengerLists', 'PDF / Excel'],
         ['viewAccounting', 'Muhasebeyi Gör'], ['managePrices', 'Fiyat Değiştir'], ['recordPayments', 'Ödeme Al'], ['voidPayments', 'Ödeme İptal'], ['printReceipts', 'Makbuz Yazdır'],
-        ['sendWelcomeWhatsApp', 'WhatsApp Kayıt Mesajı'], ['sendReceiptWhatsApp', 'WhatsApp PDF Makbuz'],
+        ['sendWelcomeWhatsApp', 'WhatsApp Kayıt Mesajı'], ['sendReceiptWhatsApp', 'WhatsApp PDF Makbuz'], ['manageNusuk', 'Nusuk Bilgileri (şifre, vize)'],
         ['viewCosts', 'Maliyetleri Gör'], ['manageCosts', 'Maliyet Yönet'], ['manageRecovery', 'Tüm Firmalar: Yedek ve Kurtarma'], ['exportBackup', 'Yedek İndir']
     ];
-    const APP_TAB_PERMISSIONS = { dashboard: 'viewDashboard', tours: 'viewTours', passengers: 'viewPassengers', accounting: 'viewAccounting', costs: 'viewCosts', buses: 'viewPassengers' };
+    // Varsayılan olarak işaretlenmeyen hassas yetkiler.
+    const OPT_IN_APP_PERMISSIONS = ['manageRecovery', 'manageNusuk'];
+    const APP_TAB_PERMISSIONS = { dashboard: 'viewDashboard', tours: 'viewTours', passengers: 'viewPassengers', accounting: 'viewAccounting', costs: 'viewCosts', buses: 'viewPassengers', nusuk: 'viewPassengers' };
     const APP_ACTION_VIEW_PERMISSIONS = {
         manageTours: 'viewTours', managePassengers: 'viewPassengers', deletePassengerLists: 'viewPassengers', exportPassengerLists: 'viewPassengers',
         managePrices: 'viewAccounting', recordPayments: 'viewAccounting', voidPayments: 'viewAccounting', printReceipts: 'viewAccounting',
-        sendWelcomeWhatsApp: 'viewPassengers', sendReceiptWhatsApp: 'viewAccounting', manageCosts: 'viewCosts'
+        sendWelcomeWhatsApp: 'viewPassengers', sendReceiptWhatsApp: 'viewAccounting', manageCosts: 'viewCosts', manageNusuk: 'viewPassengers'
     };
 
     function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
@@ -360,7 +362,7 @@
 
     function normalizeAppPermissions(source) {
         const explicit = source && typeof source === 'object' && !Array.isArray(source);
-        return Object.fromEntries(APP_PERMISSION_DEFINITIONS.map(([key]) => [key, explicit ? source[key] === true : key !== 'manageRecovery']));
+        return Object.fromEntries(APP_PERMISSION_DEFINITIONS.map(([key]) => [key, explicit ? source[key] === true : !OPT_IN_APP_PERMISSIONS.includes(key)]));
     }
 
     function hasPermission(permission) {
@@ -2375,6 +2377,7 @@
         if (IS_APP_MODE) loadWhatsAppIntegrationStatus();
         workspaceUI?.refresh();
         if ($('tab-buses')?.classList.contains('active')) renderBusWorkspace();
+        if ($('tab-nusuk')?.classList.contains('active')) renderNusuk();
     }
 
     function renderDashboard() {
@@ -2404,6 +2407,7 @@
         }
         if (tab === 'costs' && IS_APP_MODE) renderCostAccounting();
         if (tab === 'buses') renderBusWorkspace();
+        if (tab === 'nusuk') renderNusuk();
         if (tab === 'users' && isAppOwner()) loadDesktopUsers();
         if (tab === 'passengers') renderPassengerAdmin();
         return true;
@@ -2415,7 +2419,7 @@
         $('desktopUserId').value = '';
         $('desktopUserActive').checked = true;
         window.TurizmUserDirectory?.openEditor(false);
-        document.querySelectorAll('[data-app-permission]').forEach(input => { input.checked = input.dataset.appPermission!=='manageRecovery'; });
+        document.querySelectorAll('[data-app-permission]').forEach(input => { input.checked = !OPT_IN_APP_PERMISSIONS.includes(input.dataset.appPermission); });
     }
 
     function permissionSelectionFromForm() {
@@ -3067,6 +3071,8 @@
         tr.dataset.priceSource = accounting.priceSource === 'custom' ? 'custom' : 'room';
         tr._accounting = accounting;
         tr._createdBy = clone(p.createdBy || null);
+        // Yolcu düzenleyicisi Nusuk alanını göstermez ama kaydederken korur.
+        tr._nusuk = p.nusuk ? clone(p.nusuk) : null;
         tr._document = Object.fromEntries(['identityNo', 'identityEnd', 'nationality', 'issuingCountry', 'placeOfBirth', 'issuingAuthority', 'documentReadAt', 'documentVerification'].filter(key => p[key]).map(key => [key, p[key]]));
         tr.innerHTML = `
         <td><textarea class="p-name" rows="2" placeholder="Ad Soyad">${escapeHtml(p.name || '')}</textarea></td>
@@ -3274,7 +3280,8 @@
             medineRoomNo: tr.querySelector('.p-medine-room-no')?.value.trim() || '',
             note: tr.querySelector('.p-note').value.trim(),
             createdBy: clone(tr._createdBy || currentActor()),
-            accounting
+            accounting,
+            ...(tr._nusuk ? { nusuk: clone(tr._nusuk) } : {})
             };
         }).filter(p => p.name || p.gender || p.tc || p.phone || p.passportNo || p.birthDate || p.passportStart || p.passportEnd || p.roomPeople || p.mekkeRoomNo || p.medineRoomNo || p.note || p.roomGroup || p.busNo || p.seatNo);
     }
@@ -3671,6 +3678,74 @@
         });
         // Veri yüklenince renderAccountingStats paneli doldurur.
         if (state) paymentStatusPanel.refresh();
+    }
+
+    let nusukPanel = null;
+    const NUSUK_TOUR_TYPES = ['umre', 'hac'];
+
+    function nusukTours() {
+        return (state?.tours || []).filter(tour => NUSUK_TOUR_TYPES.includes(tour.type || 'umre'))
+            .sort((a, b) => String(b.departureDate || '').localeCompare(String(a.departureDate || '')));
+    }
+
+    async function nusukFileRequest(action, body) {
+        const response = await fetch(`/api/data?action=${action}&company=${encodeURIComponent(currentCompanyId)}`, {
+            method: 'POST', headers: authorizedHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body)
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.ok) throw Error(result.error || 'Vize dosyası işlemi yapılamadı.');
+        return result;
+    }
+
+    async function uploadNusukFile({ blob, ...meta }) {
+        const info = await nusukFileRequest('nusuk-upload', meta);
+        const cfg = await getUploadConfig();
+        if (!cfg || !window.supabase) throw Error('Dosya deposuna bağlanılamadı.');
+        const client = window.supabase.createClient(cfg.url, cfg.anonKey);
+        const { error } = await client.storage.from(info.bucket).uploadToSignedUrl(info.path, info.token, blob, { contentType: 'image/jpeg' });
+        if (error) throw error;
+        return info.path;
+    }
+
+    // Nusuk değişiklikleri güncel kayıt üzerine uygulanır (muhasebe ile aynı akış).
+    async function saveNusukChanges(changes) {
+        if (!requirePermission('manageNusuk')) return false;
+        const remote = await fetchRemoteData({ admin: true });
+        if (remote) { state = mergeDefaults(remote); await rememberServerBase(state); await cacheDataLocally(state); }
+        let missing = 0;
+        changes.forEach(change => {
+            const context = getPassengerContext(change.listId, change.passengerId);
+            if (!context) { missing += 1; return; }
+            context.passenger.nusuk = { ...(context.passenger.nusuk || {}), ...change.patch };
+        });
+        if (missing === changes.length) { toast('Yolcu kaydı bulunamadı. Verileri senkronize et.'); return false; }
+        const saved = await saveData({ keepLocalAccounting: true });
+        if (saved && missing) toast(`${missing} yolcu başka bir kullanıcı tarafından değiştirildiği için atlandı.`);
+        return saved;
+    }
+
+    function setupNusukPanel() {
+        if (!$('nusukPanel') || !window.TurizmNusuk) return;
+        nusukPanel = window.TurizmNusuk.createPanel({
+            root: $('nusukPanel'),
+            getTours: nusukTours,
+            fixedTourId: () => { const id = workspaceTourId(); return id && nusukTours().some(tour => String(tour.id) === id) ? id : ''; },
+            getLists: () => state?.passengerLists || [],
+            canManage: () => hasPermission('manageNusuk'),
+            canExport: () => hasPermission('exportPassengerLists'),
+            save: saveNusukChanges,
+            uploadPrivate: uploadNusukFile,
+            viewUrls: async paths => (await nusukFileRequest('nusuk-view', { paths })).urls,
+            removePaths: paths => nusukFileRequest('nusuk-remove', { paths }),
+            ExcelJS: () => window.ExcelJS,
+            companyName: () => currentCompany().name,
+            escapeHtml, formatDate: formatDateDMY, toast
+        });
+    }
+
+    function renderNusuk() {
+        if (!state || !hasPermission('viewPassengers')) return;
+        nusukPanel?.refresh();
     }
 
     function currencySummary(values) {
@@ -4690,6 +4765,7 @@
         if ($('accountingSearch')) $('accountingSearch').addEventListener('input', handleAccountingSearch);
         if ($('globalPassengerSearch')) $('globalPassengerSearch').addEventListener('input', handleAccountingSearch);
         setupPaymentStatusPanel();
+        setupNusukPanel();
         if ($('costTourSelect')) $('costTourSelect').addEventListener('change', event => {
             if (workspaceUI && !workspaceUI.canLeave()) { event.target.value = selectedCostTourId; return; }
             selectedCostTourId = event.target.value; loadSelectedTourCosts();

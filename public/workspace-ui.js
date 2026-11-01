@@ -2,8 +2,10 @@
     'use strict';
     const LEGACY = '__unassigned__';
     const labels = { active: 'Aktif', completed: 'Tamamlandı', draft: 'Taslak' };
-    const tabs = { overview: 'Tur özeti', passengers: 'Yolcular & odalar', accounting: 'Tahsilatlar', costs: 'Giderler & kâr', buses: 'Otobüs düzeni' };
-    const permission = { overview: null, passengers: 'viewPassengers', accounting: 'viewAccounting', costs: 'viewCosts', buses: 'viewPassengers' };
+    const tabs = { overview: 'Tur özeti', passengers: 'Yolcular & odalar', accounting: 'Tahsilatlar', costs: 'Giderler & kâr', buses: 'Otobüs düzeni', nusuk: 'Nusuk & vize' };
+    const permission = { overview: null, passengers: 'viewPassengers', accounting: 'viewAccounting', costs: 'viewCosts', buses: 'viewPassengers', nusuk: 'viewPassengers' };
+    // Nusuk randevusu yalnız Umre/Hac programlarında anlamlıdır.
+    const tabFits = (card, key) => key !== 'nusuk' || ['umre', 'hac'].includes(card.type);
     const normalize = value => String(value || '').toLocaleLowerCase('tr-TR').replace(/ı/g, 'i').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     function buildTourCards(tours = [], lists = []) {
         const ids = new Set(tours.map(t => String(t.id)));
@@ -25,7 +27,7 @@
     }
     function routeFor(id, tab = 'overview') { return `#work/tour/${encodeURIComponent(id)}/${Object.hasOwn(tabs, tab) ? tab : 'overview'}`; }
     function parseRoute(hash) {
-        const match = /^#work\/tour\/([^/]+)\/(overview|passengers|accounting|costs|buses)$/.exec(hash || '');
+        const match = /^#work\/tour\/([^/]+)\/(overview|passengers|accounting|costs|buses|nusuk)$/.exec(hash || '');
         if (!match) return null;
         try { return { id: decodeURIComponent(match[1]), tab: match[2] }; } catch (_) { return null; }
     }
@@ -123,13 +125,13 @@
             home.querySelector('.workspace-summary').innerHTML = `<article><span>Güncel turlar</span><strong>${currentModel.cards.filter(t=>!t.legacy&&window.TurizmWorkspaceCollections.tourLifecycle(t)==='current').length}</strong><small>${currentModel.cards.filter(t=>!t.legacy&&window.TurizmWorkspaceCollections.tourLifecycle(t)==='past').length} geçmiş · ${currentModel.cards.filter(t=>!t.legacy&&window.TurizmWorkspaceCollections.tourLifecycle(t)==='draft').length} taslak</small></article><article><span>Toplam yolcu</span><strong>${currentModel.cards.reduce((n,t)=>n+t.passengerCount,0)}</strong><small>Kayıtlı listelerinizde</small></article><article><span>Kayıtlı listeler</span><strong>${currentModel.cards.reduce((n,t)=>n+t.listCount,0)}</strong><small>Tur bazında düzenli takip</small></article>`;
             drawCards();
             if (!card) return;
-            const allowedTabs=Object.entries(tabs).filter(([key])=> (!permission[key] || currentModel.permissions[permission[key]]) && !(card.legacy&&['costs','buses'].includes(key)));
+            const allowedTabs=Object.entries(tabs).filter(([key])=> (!permission[key] || currentModel.permissions[permission[key]]) && !(card.legacy&&['costs','buses','nusuk'].includes(key)) && tabFits(card,key));
             header.innerHTML=`<button type="button" class="workspace-back" data-workspace-back>← Tüm turlar</button><div class="workspace-tour-heading"><div><span class="workspace-kicker">TUR ÇALIŞMA ALANI</span><h2>${escape(card.title)}</h2><p>${escape(dateLabel(card.departureDate))} · ${card.passengerCount} yolcu · ${escape(currentModel.companyName)}</p></div><span class="workspace-tour-status" data-status="${escape(card.status)}">${escape(labels[card.status])}</span></div><nav class="workspace-tour-tabs" aria-label="Seçili tur bölümleri">${allowedTabs.map(([key,label])=>`<button type="button" data-workspace-tab="${key}" class="${view===key?'active':''}" aria-current="${view===key?'page':'false'}">${label}</button>`).join('')}</nav>`;
-            detail.innerHTML=`<div class="workspace-heading"><div><h3>Bu turda ne yapmak istersiniz?</h3><p>Her bölüm yalnızca seçtiğiniz tura ait kayıtları gösterir.</p></div>${!card.legacy&&currentModel.permissions.manageTours?'<button type="button" class="btn btn-outline dark" data-workspace-edit>Tur bilgilerini düzenle</button>':''}</div><div class="workspace-tour-grid">${allowedTabs.filter(([key])=>key!=='overview').map(([key,label])=>`<article class="workspace-tour-card"><span class="workspace-kicker">${escape(({passengers:'YOLCU YÖNETİMİ',accounting:'ÖDEME TAKİBİ',costs:'MALİYET KONTROLÜ',buses:'YOLCULUK PLANI'})[key])}</span><h3>${label}</h3><p>${escape(({passengers:`${card.passengerCount} yolcu, ${card.listCount} liste. Kayıtlar, odalar ve pasaport bilgileri.`,accounting:'Tahsilat alın, kalan bakiyeleri ve makbuzları görüntüleyin.',costs:'Otel, uçuş ve diğer giderleri takip edin; turun net kârını görün.',buses:'Otobüsleri ve koltukları düzenleyin; yolcuları birlikte yerleştirin.'})[key])}</p><button type="button" class="workspace-tour-open" data-workspace-tab="${key}">Bölümü aç ${icon('arrow')}</button></article>`).join('')}</div>`;
+            detail.innerHTML=`<div class="workspace-heading"><div><h3>Bu turda ne yapmak istersiniz?</h3><p>Her bölüm yalnızca seçtiğiniz tura ait kayıtları gösterir.</p></div>${!card.legacy&&currentModel.permissions.manageTours?'<button type="button" class="btn btn-outline dark" data-workspace-edit>Tur bilgilerini düzenle</button>':''}</div><div class="workspace-tour-grid">${allowedTabs.filter(([key])=>key!=='overview').map(([key,label])=>`<article class="workspace-tour-card"><span class="workspace-kicker">${escape(({passengers:'YOLCU YÖNETİMİ',accounting:'ÖDEME TAKİBİ',costs:'MALİYET KONTROLÜ',buses:'YOLCULUK PLANI',nusuk:'RAVZA RANDEVUSU'})[key])}</span><h3>${label}</h3><p>${escape(({passengers:`${card.passengerCount} yolcu, ${card.listCount} liste. Kayıtlar, odalar ve pasaport bilgileri.`,accounting:'Tahsilat alın, kalan bakiyeleri ve makbuzları görüntüleyin.',costs:'Otel, uçuş ve diğer giderleri takip edin; turun net kârını görün.',buses:'Otobüsleri ve koltukları düzenleyin; yolcuları birlikte yerleştirin.',nusuk:'Nusuk randevu tarihi ve saati, vize numarası ve vesikalık; 5 yaş ve altı çocuklar ayrı.'})[key])}</p><button type="button" class="workspace-tour-open" data-workspace-tab="${key}">Bölümü aç ${icon('arrow')}</button></article>`).join('')}</div>`;
         }
         function navigate(id, tab, replace = false) {
             if (!canLeave()) return false;
-            if (id === LEGACY && ['costs','buses'].includes(tab)) { hooks.toast('Maliyetler için kayıtlı bir tur seçin.'); return false; }
+            if (id === LEGACY && ['costs','buses','nusuk'].includes(tab)) { hooks.toast('Bu bölüm için kayıtlı bir tur seçin.'); return false; }
             if (id && !currentModel?.cards.some(card=>card.id===id)) { hooks.toast('Bu tur mevcut firma hesabında bulunamadı.'); return false; }
             if (permission[tab] && !currentModel?.permissions[permission[tab]]) return false;
             selectedId=id; view=tab; hooks.setTour(id);
