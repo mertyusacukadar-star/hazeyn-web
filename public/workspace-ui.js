@@ -84,7 +84,9 @@
             if (event.target.closest('[data-workspace-edit]') && canLeave()) { const id = selectedId; selectedId = ''; hooks.setTour(''); showLegacy('tours'); hooks.editTour(id); checkpoint('tab-tours'); }
         });
         function fingerprint(panelId) {
-            if (panelId === 'tab-buses') return '';
+            // Otobüs ve Nusuk panelleri kendi kaydedilmemiş değişikliklerini izler;
+            // filtre ve yeniden çizim burada değişiklik sayılmamalı.
+            if (panelId === 'tab-buses' || panelId === 'tab-nusuk') return '';
             const panel = $(({ 'tab-passengers': 'passengerEditorCard', 'tab-tours': 'tourForm', 'tab-costs': 'tourCostForm', 'tab-accounting': 'accountingSearchResults' })[panelId] || panelId);
             if (!panel) return '';
             const inputs = [...panel.querySelectorAll('input,textarea,select')];
@@ -94,7 +96,7 @@
         function checkpoint(panelId) { if (panelId) baseline.set(panelId, fingerprint(panelId)); else ['tab-passengers','tab-tours','tab-costs','tab-accounting'].forEach(id => { if (!baseline.has(id)) baseline.set(id, fingerprint(id)); }); updateDraftButtons(); }
         function hasChanges(panelId) { if (hooks.hasExtraChanges?.(panelId)) return true; return [...baseline].some(([id, value]) => (!panelId || id === panelId) && fingerprint(id) !== value); }
         function updateDraftButtons() { discardButtons.forEach((button,id) => { button.hidden = !modern || !hasChanges(id); }); }
-        function canLeave() { if (hooks.hasExtraChanges?.()) { hooks.toast('Otobüs planında kaydedilmemiş değişiklik var. Planı kaydedin veya Vazgeç düğmesini kullanın.', ()=>{showLegacy('buses');return '#tab-buses [data-action=save]';}); return false; } if (!modern || !hasChanges()) return true; const id=[...baseline.keys()].find(id=>hasChanges(id)); const destination=()=>{showLegacy(id.replace('tab-',''));return ({'tab-passengers':'#savePassengerList','tab-tours':'#tourForm','tab-costs':'#tourCostForm','tab-accounting':'#accountingSearchResults'})[id];}; hooks.toast('Kaydedilmemiş değişiklik var. Açık formu kaydedin veya Temizle / Vazgeç düğmesini kullanın.', destination); return false; }
+        function canLeave() { const pending = hooks.pendingWork?.(); if (pending) { hooks.toast(pending.message, ()=>{showLegacy(pending.tab);return pending.selector;}); return false; } if (hooks.hasExtraChanges?.()) { hooks.toast('Otobüs planında kaydedilmemiş değişiklik var. Planı kaydedin veya Vazgeç düğmesini kullanın.', ()=>{showLegacy('buses');return '#tab-buses [data-action=save]';}); return false; } if (!modern || !hasChanges()) return true; const id=[...baseline.keys()].find(id=>hasChanges(id)); const destination=()=>{showLegacy(id.replace('tab-',''));return ({'tab-passengers':'#savePassengerList','tab-tours':'#tourForm','tab-costs':'#tourCostForm','tab-accounting':'#accountingSearchResults'})[id];}; hooks.toast('Kaydedilmemiş değişiklik var. Açık formu kaydedin veya Temizle / Vazgeç düğmesini kullanın.', destination); return false; }
         function selectedCard() { return currentModel?.cards.find(card => card.id === selectedId); }
         function drawCards() {
             if (!currentModel) return;

@@ -115,17 +115,31 @@ function parseVisaItems(items){
 }
 
 // Önce pasaport no, sonra ad-soyad (aynı kelimeler) eşleşir; birden fazla aday varsa
-// doğum tarihi ayırt eder, yine de belirsizse otomatik atanmaz.
+// doğum tarihi ayırt eder, yine de belirsizse otomatik atanmaz. Toplu PDF'te turda
+// olmayan kişiler de bulunabilir: iki tarafta da pasaport no varsa ve farklıysa aynı
+// isim eşleşme sayılmaz (by:'other-passport').
 function matchPassenger(parsed,candidates){
  const pass=normPassport(parsed?.passportNo);
  if(pass){const hit=candidates.filter(c=>normPassport(c.passenger.passportNo)===pass);if(hit.length===1)return {row:hit[0],by:'passport'};}
- const vt=tokens(parsed?.name);if(vt.length<2)return {row:null,by:''};
- const scored=candidates.map(c=>{const pt=tokens(c.passenger.name);const common=vt.filter(t=>pt.includes(t)).length;const full=common===vt.length||common===pt.length;return {c,ok:full&&common>=2,common};}).filter(s=>s.ok);
- if(!scored.length)return {row:null,by:''};
+ const vt=tokens(parsed?.name);if(vt.length<2)return {row:null,by:parsed?.visaNo?'':'unread'};
+ const named=candidates.map(c=>{const pt=tokens(c.passenger.name);const common=vt.filter(t=>pt.includes(t)).length;const full=common===vt.length||common===pt.length;return {c,ok:full&&common>=2,common};}).filter(s=>s.ok);
+ const scored=named.filter(s=>{const other=normPassport(s.c.passenger.passportNo);return !(pass&&other&&other!==pass);});
+ if(!scored.length)return {row:null,by:named.length?'other-passport':''};
  const best=Math.max(...scored.map(s=>s.common));
  let top=scored.filter(s=>s.common===best).map(s=>s.c);
  if(top.length>1&&parsed.birthDate)top=top.filter(c=>c.passenger.birthDate===parsed.birthDate);
  return top.length===1?{row:top[0],by:'name'}:{row:null,by:'ambiguous'};
+}
+
+// PDF sayfalarını turun yolcularına dağıtır; aynı yolcuya düşen ikinci sayfa eklenmez.
+function planVisaImport(pages,everyone){
+ const used=new Set();
+ return pages.map(page=>{
+  const m=matchPassenger(page.parsed,everyone);
+  if(m.row&&used.has(m.row.key))return {...page,match:'',by:'duplicate'};
+  if(m.row)used.add(m.row.key);
+  return {...page,match:m.row?m.row.key:'',by:m.by};
+ });
 }
 
 const isoToDate=value=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(value||''));return m?new Date(Date.UTC(+m[1],+m[2]-1,+m[3])):null;};
@@ -277,7 +291,10 @@ function createPanel(options){
 
  async function signed(paths){
   const now=Date.now(),need=[...new Set(paths)].filter(p=>p&&!(urlCache.get(p)?.exp>now));
-  if(need.length&&o.viewUrls){try{const urls=await o.viewUrls(need);Object.entries(urls||{}).forEach(([p,u])=>urlCache.set(p,{url:u,exp:now+8*60*1000}));}catch(e){console.warn('Vize görseli bağlantısı alınamadı.',e);}}
+  // Sunucu tek istekte en çok 200 yol kabul eder; kalabalık turlarda parça parça istenir.
+  for(let i=0;need.length&&o.viewUrls&&i<need.length;i+=150){
+   try{const urls=await o.viewUrls(need.slice(i,i+150));Object.entries(urls||{}).forEach(([p,u])=>urlCache.set(p,{url:u,exp:now+8*60*1000}));}catch(e){console.warn('Vize görseli bağlantısı alınamadı.',e);}
+  }
   return Object.fromEntries(paths.map(p=>[p,urlCache.get(p)?.url||'']));
  }
  async function loadPhotos(){
@@ -316,15 +333,21 @@ function createPanel(options){
   let pages=[];
   try{for(const f of files)pages=pages.concat(await readVisaPdf(f,(n,total)=>{const p=dlg.querySelector('[data-nk-progress]');if(p)p.textContent=`${f.name}: ${n} / ${total} sayfa`;}));}
   catch(error){console.error(error);dlg.innerHTML=`<div class="nk-progress"><b>PDF okunamadı.</b><span>İnternet bağlantısını kontrol edip tekrar deneyin.</span><form method="dialog"><button class="btn btn-gold">Kapat</button></form></div>`;return;}
-  const used=new Set();
-  const plan=pages.map(p=>{const m=matchPassenger(p.parsed,current.adults.concat(current.children).filter(r=>!used.has(r.key)));if(m.row)used.add(m.row.key);return {...p,match:m.row?m.row.key:'',by:m.by};});
   const everyone=current.adults.concat(current.children);
-  const option=(sel)=>`<option value="">— Eşleştirme yok —</option>${everyone.map(r=>`<option value="${esc(r.key)}" ${r.key===sel?'selected':''}>${esc(r.passenger.name)}${r.passenger.passportNo?` (${esc(r.passenger.passportNo)})`:''}</option>`).join('')}`;
-  const matched=plan.filter(p=>p.match).length;
-  dlg.innerHTML=`<form method="dialog" class="nk-dialog-head"><b>${pages.length} vize okundu • ${matched} eşleşti</b><button class="icon-btn" value="close" aria-label="Kapat">✕</button></form>
-   <p class="nk-muted">Pasaport numarası veya ad-soyad ile eşleştirildi. Yanlış ya da boş olanları seçerek düzeltin; onaylayınca vize sayfası ve vesikalık gizli depoya yüklenir.</p>
-   <div class="nk-review">${plan.map((p,i)=>`<div class="nk-review-row ${p.match?'':'nk-review-miss'}">${p.photoUrl?`<img src="${p.photoUrl}" alt="">`:'<span class="nk-photo nk-photo-empty">?</span>'}<div><b>${esc(p.parsed.name||'İsim okunamadı')}</b><small>Vize ${esc(p.parsed.visaNo||'?')} • Pasaport ${esc(p.parsed.passportNo||'?')} • ${esc(p.file)} s.${p.pageNo}</small><small class="nk-by">${p.by==='passport'?'Pasaport no ile eşleşti':p.by==='name'?'Ad-soyad ile eşleşti':p.by==='ambiguous'?'Birden fazla benzer isim var, seçin':'Eşleşmedi, seçin'}</small></div><select data-nk-plan="${i}">${option(p.match)}</select></div>`).join('')}</div>
+  const plan=planVisaImport(pages,everyone);
+  const option=(sel)=>`<option value="">— Ekleme —</option>${everyone.map(r=>`<option value="${esc(r.key)}" ${r.key===sel?'selected':''}>${esc(r.passenger.name)}${r.passenger.passportNo?` (${esc(r.passenger.passportNo)})`:''}</option>`).join('')}`;
+  const reason={passport:'Pasaport no ile eşleşti',name:'Ad-soyad ile eşleşti',ambiguous:'Turda birden fazla benzer isim var; doğru yolcuyu seçin',duplicate:'Bu yolcunun vizesi PDF\'te daha önce var; tekrar eklenmez','other-passport':'Turda aynı isimli yolcu var ama pasaport no farklı; başka kişi','unread':'Vize bilgisi okunamadı','':'Bu turun yolcularında yok'};
+  const card=(p,i)=>`<div class="nk-review-row ${p.match?'':'nk-review-miss'}">${p.photoUrl?`<img src="${p.photoUrl}" alt="">`:'<span class="nk-photo nk-photo-empty">?</span>'}<div><b>${esc(p.parsed.name||'İsim okunamadı')}</b><small>Vize ${esc(p.parsed.visaNo||'?')} • Pasaport ${esc(p.parsed.passportNo||'?')} • ${esc(p.file)} s.${p.pageNo}</small><small class="nk-by">${esc(reason[p.by]||reason[''])}</small></div><select data-nk-plan="${i}">${option(p.match)}</select></div>`;
+  const toAdd=plan.map((p,i)=>[p,i]).filter(([p])=>p.match),skipped=plan.map((p,i)=>[p,i]).filter(([p])=>!p.match);
+  const missing=everyone.filter(r=>!r.nusuk.visaPage&&!plan.some(p=>p.match===r.key));
+  dlg.innerHTML=`<form method="dialog" class="nk-dialog-head"><b>${pages.length} sayfa okundu • ${toAdd.length} eklenecek • ${skipped.length} eklenmeyecek</b><button class="icon-btn" value="close" aria-label="Kapat">✕</button></form>
+   <p class="nk-muted">Yalnız bu turun yolcularıyla eşleşen vizeler eklenir; pasaport no önceliklidir. Yanlış olanı listeden değiştirebilir veya "— Ekleme —" seçebilirsiniz. Onaylayınca vize sayfası ve vesikalık gizli depoya yüklenir.</p>
+   <h4 class="nk-review-title">Eklenecek vizeler (${toAdd.length})</h4>
+   <div class="nk-review">${toAdd.map(([p,i])=>card(p,i)).join('')||'<p class="nk-muted">Bu turun yolcularıyla eşleşen vize bulunamadı.</p>'}</div>
+   ${skipped.length?`<details class="nk-skipped"><summary>Eklenmeyecek: ${skipped.length} sayfa (bu turda olmayan, tekrar eden veya okunamayan)</summary><div class="nk-review">${skipped.map(([p,i])=>card(p,i)).join('')}</div></details>`:''}
+   ${missing.length?`<details class="nk-skipped"><summary>Bu PDF'te vizesi bulunmayan ${missing.length} yolcu</summary><p class="nk-muted">${missing.map(r=>esc(r.passenger.name)).join(', ')}</p></details>`:''}
    <div class="nk-dialog-foot"><button type="button" class="icon-btn" data-nk-cancel>Vazgeç</button><button type="button" class="btn btn-gold" data-nk-confirm>Onayla ve yükle</button></div>`;
+  dlg.addEventListener('close',()=>pages.forEach(p=>p.photoUrl&&URL.revokeObjectURL(p.photoUrl)),{once:true});
   dlg.onclick=async event=>{
    if(event.target.closest('[data-nk-cancel]')){dlg.close();return;}
    if(!event.target.closest('[data-nk-confirm]'))return;
@@ -396,7 +419,7 @@ function createPanel(options){
  return {refresh:draw,isDirty:()=>drafts.size>0};
 }
 
-const api={CHILD_MAX_AGE,PDFJS_VERSION,GENDER_GROUPS,normName,normPassport,ageOn,childGender,genderOf,mixedSlots,escortFor,tourRows,summarize,filterRows,parseVisaItems,matchPassenger,buildWorkbook,fileName,loadPdfJs,readVisaPdf,createPanel,passengerKey};
+const api={CHILD_MAX_AGE,PDFJS_VERSION,GENDER_GROUPS,normName,normPassport,ageOn,childGender,genderOf,mixedSlots,escortFor,tourRows,summarize,filterRows,parseVisaItems,matchPassenger,planVisaImport,buildWorkbook,fileName,loadPdfJs,readVisaPdf,createPanel,passengerKey};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 root.TurizmNusuk=api;
 })(typeof window==='undefined'?globalThis:window);

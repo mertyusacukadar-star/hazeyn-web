@@ -54,6 +54,25 @@ assert.equal(N.matchPassenger({passportNo:'U22222222',name:'X Y'},cands).row.pas
 assert.equal(N.matchPassenger({passportNo:'',name:'AHMET ORNEK'},cands).by,'name');
 assert.equal(N.matchPassenger({passportNo:'',name:'ORNEK'},cands).row,null,'tek kelime yetmez');
 const twins=[{key:'a',passenger:{id:'a',name:'Mehmet Kaya',birthDate:'1990-01-01'},nusuk:{}},{key:'b',passenger:{id:'b',name:'Mehmet Kaya',birthDate:'1991-01-01'},nusuk:{}}];
+// Aynı isim, farklı pasaport: turdaki yolcu değil
+assert.deepEqual([N.matchPassenger({passportNo:'Z99999999',name:'AHMET ORNEK'},cands).row,N.matchPassenger({passportNo:'Z99999999',name:'AHMET ORNEK'},cands).by],[null,'other-passport']);
+assert.equal(N.matchPassenger({passportNo:'Z99999999',name:'MEHMET DENEME'},[{key:'k',passenger:{id:'k',name:'Mehmet Deneme',passportNo:''},nusuk:{}}]).by,'name','sistemde pasaport yoksa isimle eşleşir');
+// Toplu PDF: 200 sayfa; turda 40 yolcu, geri kalanı başka kişiler, tekrarlar ve okunamayan sayfalar
+const tourPeople=Array.from({length:40},(_,i)=>({key:'l:p'+i,passenger:{id:'p'+i,name:`Yolcu${String.fromCharCode(65+(i%26))} Soyad${String.fromCharCode(65+Math.floor(i/26))}`,passportNo:i%5===0?'':`U${String(10000000+i)}`},nusuk:{}}));
+const pages=[];
+tourPeople.forEach((r,i)=>pages.push({parsed:{visaNo:String(6000000000+i),passportNo:`U${String(10000000+i)}`,name:N.normName(r.passenger.name)}}));
+for(let i=0;i<150;i++)pages.push({parsed:{visaNo:String(6100000000+i),passportNo:`X${String(20000000+i)}`,name:`BASKA${i} KISI`}});
+pages.push({parsed:{visaNo:'6200000001',passportNo:'X30000001',name:N.normName(tourPeople[1].passenger.name)}});
+pages.push({parsed:{visaNo:'6000000002',passportNo:'U10000002',name:N.normName(tourPeople[2].passenger.name)}});
+for(let i=0;i<8;i++)pages.push({parsed:{visaNo:'',passportNo:'',name:''}});
+assert.equal(pages.length,200);
+const plan=N.planVisaImport(pages,tourPeople);
+assert.equal(plan.filter(p=>p.match).length,40,'turdaki 40 yolcunun hepsi eşleşir');
+assert.equal(new Set(plan.filter(p=>p.match).map(p=>p.match)).size,40,'bir yolcuya tek vize');
+assert.equal(plan.slice(40,190).filter(p=>p.match).length,0,'turda olmayan 150 kişi eklenmez');
+assert.equal(plan[190].by,'other-passport','aynı isim farklı pasaport eklenmez');
+assert.equal(plan[191].by,'duplicate','tekrar eden vize eklenmez');
+assert.ok(plan.slice(192).every(p=>!p.match&&p.by==='unread'),'okunamayan sayfa eklenmez');
 assert.equal(N.matchPassenger({name:'MEHMET KAYA'},twins).by,'ambiguous');assert.equal(N.matchPassenger({name:'MEHMET KAYA',birthDate:'1991-01-01'},twins).row.key,'b');
 
 (async()=>{
@@ -109,6 +128,11 @@ assert.equal(N.matchPassenger({name:'MEHMET KAYA'},twins).by,'ambiguous');assert
  assert.ok(html.indexOf('nusuk-tracking.js')<html.indexOf('src="app.js'));
  assert.equal((data.match(/Nusuk\.redactForClient\(/g)||[]).length,3,'GET, baseline ve kayıt yanıtı şifreyi gizler');
  assert.match(data,/Nusuk\.preserveOnSave\(dataToSave, previousState, authorization, hasUserPermission\)/);
+ const module=fs.readFileSync(path.join(__dirname,'../public/nusuk-tracking.js'),'utf8');
+ assert.match(module,/i\+=150/,'görsel bağlantıları sunucunun 200 sınırının altında parça parça istenir');assert.match(data,/slice\(0, 200\)/);
+ const ws=fs.readFileSync(path.join(__dirname,'../public/workspace-ui.js'),'utf8');
+ assert.match(ws,/panelId === 'tab-buses' \|\| panelId === 'tab-nusuk'\) return ''/,'Nusuk filtreleri/yeniden çizim sekme geçişini kilitlemez');
+ assert.match(ws,/const pending = hooks\.pendingWork\?\.\(\)/);assert.match(app,/pendingWork: \(\) => nusukPanel\?\.isDirty\(\)/,'gerçek Nusuk taslağı varsa ilgili alana götürür');
  const W=require('../public/workspace-ui');assert.deepEqual(W.parseRoute('#work/tour/t1/nusuk'),{id:'t1',tab:'nusuk'});
  console.log('nusuk tests passed');
 })().catch(error=>{console.error(error);process.exit(1);});

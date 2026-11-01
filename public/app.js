@@ -240,6 +240,7 @@
                 if (tab === 'tab-accounting') renderAccounting(accountingSearchQuery);
             },
             hasExtraChanges: panel => (!panel || panel === 'tab-buses') && Boolean(busWorkspace?.isDirty()),
+            pendingWork: () => nusukPanel?.isDirty() ? { tab: 'nusuk', selector: '[data-nk-save]', message: 'Nusuk takibinde kaydedilmemiş değişiklik var. Değişiklikleri Kaydet veya Vazgeç düğmesini kullanın.' } : null,
             showPanel: switchTab, newTour: resetTourForm, editTour, deleteTour: deleteAccountingTour, toast
         });
     }

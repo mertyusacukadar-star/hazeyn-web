@@ -8,7 +8,7 @@ body.workspace-modern .admin-sidebar .admin-tab[data-tab="nusuk"]::before{--nav-
 .nk-tour select,.nk-tools input{min-height:40px;padding:8px 11px;border:1px solid var(--line,#dce5e0);border-radius:10px;background:var(--soft,#f6f8f7);color:var(--ink,#203337);font:inherit;font-size:14px;text-transform:none}
 .nk-tour{max-width:520px}
 .nk-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
-.nk-stats>*{--c:#1c4a52;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:52px;padding:10px 14px;border:1px solid var(--line,#dce5e0);border-left:4px solid var(--c);border-radius:12px;background:var(--soft,#f6f8f7);color:var(--ink,#203337);font:inherit;font-size:13px;font-weight:750;text-decoration:none;text-align:left;cursor:pointer}
+.nk-stats>*{--c:#2a7f8c;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:52px;padding:10px 14px;border:1px solid var(--line,#dce5e0);border-left:4px solid var(--c);border-radius:12px;background:var(--soft,#f6f8f7);color:var(--ink,#203337);font:inherit;font-size:13px;font-weight:750;text-decoration:none;text-align:left;cursor:pointer}
 .nk-stats b{font-size:20px;color:var(--c)}
 .nk-stats .active{background:color-mix(in srgb,var(--c) 12%,var(--paper,#fff));box-shadow:0 0 0 1px var(--c) inset}
 .nk-stats .nk-ok{--c:#1f7a45}.nk-stats .nk-bad{--c:#b2433a}.nk-stats .nk-warn{--c:#b07400}.nk-stats .nk-kid{--c:#6a4fa3}
@@ -68,6 +68,10 @@ body.workspace-modern .admin-sidebar .admin-tab[data-tab="nusuk"]::before{--nav-
 .nk-review-row .nk-by{color:#1f7a45;font-weight:800}
 .nk-review-miss{border-color:#e7b0aa;background:color-mix(in srgb,#b2433a 6%,transparent)}.nk-review-miss .nk-by{color:#b2433a}
 .nk-review-row select{min-height:36px;border:1px solid var(--line,#dce5e0);border-radius:8px;background:var(--paper,#fff);color:var(--ink,#203337);font:inherit;font-size:13px}
+.nk-review-title{margin:12px 0 8px;font-size:14px}
+.nk-skipped{margin-top:12px;border:1px dashed var(--line,#dce5e0);border-radius:10px;padding:8px 10px}
+.nk-skipped summary{cursor:pointer;font-weight:800;font-size:13px;color:var(--muted,#66757a)}
+.nk-skipped .nk-review{margin-top:8px;max-height:40dvh}
 .nk-dialog-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
 @media(max-width:900px){.nk-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){
