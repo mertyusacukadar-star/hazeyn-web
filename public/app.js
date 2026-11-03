@@ -3074,6 +3074,9 @@
         tr._createdBy = clone(p.createdBy || null);
         // Yolcu düzenleyicisi Nusuk alanını göstermez ama kaydederken korur.
         tr._nusuk = p.nusuk ? clone(p.nusuk) : null;
+        // Odalama ekranındaki oda yeri; oda tipi değişirse bırakılır.
+        tr._roomSlot = p.roomSlot || '';
+        tr._roomType = String(roomPeople);
         tr._document = Object.fromEntries(['identityNo', 'identityEnd', 'nationality', 'issuingCountry', 'placeOfBirth', 'issuingAuthority', 'documentReadAt', 'documentVerification'].filter(key => p[key]).map(key => [key, p[key]]));
         tr.innerHTML = `
         <td><textarea class="p-name" rows="2" placeholder="Ad Soyad">${escapeHtml(p.name || '')}</textarea></td>
@@ -3282,6 +3285,7 @@
             note: tr.querySelector('.p-note').value.trim(),
             createdBy: clone(tr._createdBy || currentActor()),
             accounting,
+            ...(tr._roomSlot && roomPeople === tr._roomType ? { roomSlot: tr._roomSlot } : {}),
             ...(tr._nusuk ? { nusuk: clone(tr._nusuk) } : {})
             };
         }).filter(p => p.name || p.gender || p.tc || p.phone || p.passportNo || p.birthDate || p.passportStart || p.passportEnd || p.roomPeople || p.mekkeRoomNo || p.medineRoomNo || p.note || p.roomGroup || p.busNo || p.seatNo);
@@ -3391,8 +3395,8 @@
 
         const isSurnameView = surnameSortedLists.has(listId);
         const canManagePassengers = hasPermission('managePassengers');
-        return `<tr class="passenger-order-row ${warningClass} ${roomBandClass}" draggable="${isSurnameView || !canManagePassengers ? 'false' : 'true'}" data-list-id="${escapeHtml(listId)}" data-passenger-index="${originalIndex}">
-        <td class="drag-cell"><span class="drag-handle" title="${isSurnameView ? 'Manuel sıralama için soyad görünümünü kapat' : 'Tut sürükle'}">☰</span> ${i + 1}</td>
+        return `<tr class="passenger-order-row ${warningClass} ${roomBandClass}" data-list-id="${escapeHtml(listId)}" data-passenger-index="${originalIndex}">
+        <td class="drag-cell"><span class="drag-handle" draggable="${isSurnameView || !canManagePassengers ? 'false' : 'true'}" title="${isSurnameView ? 'Oda değiştirmek için soyad görünümünü kapat' : 'Tut ve başka bir yolcunun üstüne bırak: ikisi odalarını değiştirir'}">☰</span> ${i + 1}</td>
         <td>${escapeHtml(p.name)}</td>
         <td>${escapeHtml(p.gender)}</td>
         <td>${escapeHtml(p.tc)}</td>
@@ -3408,8 +3412,21 @@
     </tr>`;
     }
 
+    // Detay tablosu ve PDF, odalama önizlemesiyle aynı odaları gösterir: satırlar oda oda sıralanır,
+    // renk bandı her odada değişir.
+    function passengerRoomBlocks(l) {
+        const blocks = [];
+        createRoomAssignments(passengersForList(l)).forEach(room => {
+            let block = blocks.find(item => item.key === room.roomPeople);
+            if (!block) blocks.push(block = { key: room.roomPeople, title: roomLabel(room.roomPeople === 'secilmedi' ? '' : room.roomPeople), items: [] });
+            const band = room.roomIndexInType % 2 === 0 ? 'room-band-blue' : 'room-band-gold';
+            room.occupants.forEach(p => block.items.push({ ...p, _originalIndex: p._sourceIndex, _band: band }));
+        });
+        return blocks;
+    }
+
     function passengerRoomGroupsHtml(l) {
-        const groups = groupPassengersByRoom(passengersForList(l));
+        const groups = passengerRoomBlocks(l);
         if (!groups.length) return '<div class="empty small">Bu listede yolcu bilgisi yok.</div>';
         return groups.map(group => {
             const colorClass = getRoomColorClass(group.title);
@@ -3418,11 +3435,7 @@
             <div class="passenger-detail-wrap">
                 <table class="passenger-detail-table room-table">
                     <thead><tr><th>Sıra</th><th>Ad Soyad</th><th>Cinsiyet</th><th>TC No</th><th>Telefon</th><th>Pasaport No</th><th>Doğum Tarihi</th><th>Pasaport Başlangıç</th><th>Pasaport Bitiş</th><th>Oda Kaç Kişilik</th><th>Mekke Oda</th><th>Medine Oda</th><th>Not</th><th>Yakınlık</th><th>Oda Grubu</th><th>Otobüs</th><th>Koltuk</th><th>Hoca</th></tr></thead>
-                    <tbody>${group.items.map((p, i) => {
-                        const capacity = Math.max(1, parseInt(String(group.key || '1').replace('+', ''), 10) || 1);
-                        const band = Math.floor(i / capacity) % 2 === 0 ? 'room-band-blue' : 'room-band-gold';
-                        return passengerRowHtml(p, i, l.id, band);
-                    }).join('')}</tbody>
+                    <tbody>${group.items.map((p, i) => passengerRowHtml(p, i, l.id, p._band)).join('')}</tbody>
                 </table>
             </div>
         </div>`;
@@ -3470,10 +3483,10 @@
                 <p><b>Tur:</b> ${escapeHtml(tourTitle)} &nbsp; <b>Uçuş:</b> ${escapeHtml(formatDateTR(flightDate) || '-')} &nbsp; <b>Parkur:</b> ${escapeHtml(route)} &nbsp; <b>Rehber:</b> ${escapeHtml(l.leader || '-')}</p>
                 <p><b>Toplam Yolcu:</b> ${total} &nbsp; <b>Erkek:</b> ${males} &nbsp; <b>Kadın:</b> ${females}${ageSummary} &nbsp; <b class="passport-expiring-count">Pasaportu 6 Aydan Az Kalan:</b> <span class="passport-expiring-count">${expiringCount}</span></p>
                 ${l.notes ? `<p><b>Liste Notu:</b> ${escapeHtml(l.notes)}</p>` : ''}
-                <p class="hint-text"><b>Manuel sıra korunur:</b> ☰ işaretinden yolcuyu taşıyabilirsin. İstersen soyad düğmesiyle geçici olarak aynı soyadları yan yana görebilirsin.</p>
+                <p class="hint-text"><b>Odaları kolay düzenle:</b> Odalama Düzenle düğmesiyle yolcuya dokunup gideceği odaya dokun. Detay tablosunda ☰ işaretini bir yolcunun üstüne bırakırsan ikisi odalarını değiştirir; başka kimse kaymaz.</p>
             </div>
             <div class="admin-item-actions">
-                ${hasPermission('managePassengers') ? `<button class="icon-btn" data-edit-list="${escapeHtml(l.id)}">Düzenle</button>` : ''}
+                ${hasPermission('managePassengers') ? `<button class="icon-btn rooming-board-btn" data-rooming-board="${escapeHtml(l.id)}">Odalama Düzenle</button><button class="icon-btn" data-edit-list="${escapeHtml(l.id)}">Düzenle</button>` : ''}
                 <button class="icon-btn surname-toggle-btn ${surnameSortedLists.has(l.id) ? 'active' : ''}" data-surname-toggle="${escapeHtml(l.id)}">${surnameSortedLists.has(l.id) ? 'Manuel Sıraya Dön' : 'Soyada Göre Grupla'}</button>
                 ${hasPermission('exportPassengerLists') ? `<button class="icon-btn excel-btn" data-excel-list="${escapeHtml(l.id)}">Excel Oda Listesi</button><button class="icon-btn flight-excel-btn" data-flight-excel-list="${escapeHtml(l.id)}">Excel Uçuş Listesi</button><button class="icon-btn" data-print-list="${escapeHtml(l.id)}" data-ori="portrait">PDF (Dikey)</button><button class="icon-btn" data-print-list="${escapeHtml(l.id)}" data-ori="landscape">PDF (Yatay)</button>` : ''}
                 ${hasPermission('deletePassengerLists') ? `<button class="icon-btn danger" data-delete-list="${escapeHtml(l.id)}">Sil</button>` : ''}
@@ -3486,15 +3499,67 @@
     </div>`;
     }
 
-    function reorderPassenger(listId, fromIndex, toIndex) {
+    // Oda tipi değişen yolcunun fiyatı, özel fiyatı ya da tahsilatı yoksa yeni oda fiyatına geçer.
+    function repricePassengerForRoom(l, passenger) {
+        if (!IS_APP_MODE || passenger.accounting?.priceSource === 'custom' || window.TurizmPassengerRegistration.hasPayments(passenger.accounting)) return;
+        const tour = state.tours.find(item => item.id === l.tourId);
+        const fallback = passengerTourPrice(tour, passenger);
+        passenger.accounting = { ...(passenger.accounting || {}), agreedPrice: fallback.amount, currency: fallback.currency, priceSource: 'room', payments: passenger.accounting?.payments || [] };
+    }
+
+    // Sürükle-bırak artık araya sokmaz: iki yolcu odalarını değiştirir, diğer herkes yerinde kalır.
+    async function commitRoomChange(l, nextPassengers, message) {
+        const previous = l.passengers;
+        const types = new Map(previous.map(p => [p.id, String(p.roomPeople || p.room || '')]));
+        l.passengers = nextPassengers;
+        l.passengers.forEach(p => { if (types.get(p.id) !== String(p.roomPeople || p.room || '')) repricePassengerForRoom(l, p); });
+        if (!await saveData({ keepLocalAccounting: IS_APP_MODE })) { l.passengers = previous; renderPassengerAdmin(); return false; }
+        if ($('listId')?.value === l.id && !workspaceUI?.hasChanges('tab-passengers')) loadPassengerListForm(state.passengerLists.find(x => x.id === l.id) || l);
+        renderPassengerAdmin(); toast(message);
+        return true;
+    }
+
+    async function swapPassengerRooms(listId, fromIndex, toIndex) {
         const l = state.passengerLists.find(x => x.id === listId);
-        if (!l || !Array.isArray(l.passengers)) return;
-        fromIndex = Number(fromIndex); toIndex = Number(toIndex);
-        if (!Number.isFinite(fromIndex) || !Number.isFinite(toIndex) || fromIndex === toIndex) return;
-        const item = l.passengers.splice(fromIndex, 1)[0];
-        if (!item) return;
-        const insertAt = fromIndex < toIndex ? toIndex : toIndex;
-        l.passengers.splice(insertAt, 0, item);
+        const a = l?.passengers?.[Number(fromIndex)], b = l?.passengers?.[Number(toIndex)];
+        if (!a || !b || a === b) return;
+        let next;
+        try { next = window.TurizmPassengerRegistration.swapRooms(l.passengers, a.id, b.id); } catch (error) { toast(error.message); return; }
+        await commitRoomChange(l, next, `${a.name || 'Yolcu'} ile ${b.name || 'yolcu'} odalarını değiştirdi.`);
+    }
+
+    // Kenara yaklaşınca en yakın dikey kayan alanı (yoksa sayfayı) kaydırır.
+    function dragAutoScroll(e) {
+        let box = null;
+        for (let node = e.target instanceof Element ? e.target : null; node && node !== document.body && node !== document.documentElement; node = node.parentElement) {
+            const overflow = getComputedStyle(node).overflowY;
+            if ((overflow === 'auto' || overflow === 'scroll') && node.scrollHeight > node.clientHeight + 4) { box = node; break; }
+        }
+        const step = (top, bottom) => { const edge = Math.min(90, (bottom - top) / 4), y = e.clientY; return y < top + edge ? -Math.ceil((top + edge - y) / 3) : y > bottom - edge ? Math.ceil((y - bottom + edge) / 3) : 0; };
+        if (box) { const rect = box.getBoundingClientRect(), s = step(rect.top, rect.bottom); if (s) box.scrollTop += s; }
+        const page = step(0, innerHeight);
+        if (page) window.scrollBy(0, page);
+    }
+
+    function openRoomingBoard(listId) {
+        if (!requirePermission('managePassengers')) return;
+        const l = state.passengerLists.find(x => x.id === listId);
+        if (!l || !window.TurizmRoomingBoard) return;
+        if ($('listId')?.value === l.id && workspaceUI?.hasChanges('tab-passengers')) { toast('Bu liste düzenleme formunda açık ve kaydedilmemiş değişiklik var. Önce Listeyi Kaydet ya da Vazgeç.'); return; }
+        const registration = window.TurizmPassengerRegistration;
+        window.TurizmRoomingBoard.open({
+            title: l.title || 'Yolcu listesi',
+            people: (l.passengers || []).map(p => ({ id: p.id, name: p.name, gender: p.gender, roomGroup: registration.group(p), relation: p.relationship && p.relationship !== 'Kendisi' ? registration.relationshipText(p, l.passengers) : '' })),
+            layout: registration.roomLayout(l.passengers || []),
+            types: registration.roomTypes,
+            capacity: registration.roomCapacity,
+            confirm: askAppConfirmation,
+            toast,
+            onSave: async rooms => {
+                if (!requirePermission('managePassengers')) return false;
+                return commitRoomChange(l, registration.applyRoomLayout(l.passengers, rooms), 'Odalama kaydedildi.');
+            }
+        });
     }
 
     async function updatePassengerRoomField(listId, passengerIndex, field, value) {
@@ -3503,11 +3568,7 @@
         if (!l || !l.passengers || !l.passengers[passengerIndex]) return;
         const passenger = l.passengers[passengerIndex];
         passenger[field] = value;
-        if (IS_APP_MODE && field === 'roomPeople' && passenger.accounting?.priceSource !== 'custom' && !window.TurizmPassengerRegistration.hasPayments(passenger.accounting)) {
-            const tour = state.tours.find(item => item.id === l.tourId);
-            const fallback = passengerTourPrice(tour, passenger);
-            passenger.accounting = { ...(passenger.accounting || {}), agreedPrice: fallback.amount, currency: fallback.currency, priceSource: 'room', payments: passenger.accounting?.payments || [] };
-        }
+        if (field === 'roomPeople') { delete passenger.roomSlot; repricePassengerForRoom(l, passenger); }
         if (!await saveData({ keepLocalAccounting: IS_APP_MODE && field === 'roomPeople' })) return;
         if (field === 'roomPeople' || field === 'mekkeRoomNo' || field === 'medineRoomNo' || field === 'roomNo') renderPassengerAdmin();
     }
@@ -4581,10 +4642,9 @@
         const flightDate = getListFlightDate(l);
         const expiringCount = (l.passengers || []).filter(p => isPassportExpiring(p.passportEnd, flightDate)).length;
 
-        const groupsHtml = groupPassengersByRoom(passengersForList(l)).map(group => {
-            const capacity = Math.max(1, parseInt(String(group.key || '1').replace('+', ''), 10) || 1);
+        const groupsHtml = passengerRoomBlocks(l).map(group => {
             const rows = group.items.map((p, i) => {
-                const roomBand = Math.floor(i / capacity) % 2 === 0 ? 'room-band-blue' : 'room-band-gold';
+                const roomBand = p._band;
                 const warningClass = isPassportExpiring(p.passportEnd, flightDate) ? ' passport-print-warning' : '';
                 return `<tr class="${roomBand}${warningClass}"><td>${i + 1}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.gender)}</td><td>${escapeHtml(p.tc)}</td><td>${escapeHtml(p.phone)}</td><td>${escapeHtml(p.passportNo)}</td><td>${escapeHtml(formatDateDMY(p.birthDate))}</td><td>${escapeHtml(formatDateDMY(p.passportStart))}</td><td>${escapeHtml(formatDateDMY(p.passportEnd))}</td><td>${escapeHtml(p.roomPeople || p.room)}</td><td>${escapeHtml(p.mekkeRoomNo || p.roomNo || '')}</td><td>${escapeHtml(p.medineRoomNo || p.roomNo || '')}</td><td>${escapeHtml(p.note)}</td><td>${escapeHtml(window.TurizmPassengerRegistration.relationshipText(p, l.passengers))}</td><td>${escapeHtml(p.roomGroup || '—')}</td><td>${escapeHtml(p.busNo || '—')}</td><td>${escapeHtml(p.seatNo || '—')}</td><td>${escapeHtml(passengerGuideText(l.tourId, p))}</td></tr>`;
             }).join('');
@@ -4875,12 +4935,14 @@
             if (!row) return;
             if (!hasPermission('managePassengers')) { e.preventDefault(); return; }
             if (surnameSortedLists.has(row.dataset.listId)) { e.preventDefault(); toast('Manuel taşıma için önce “Manuel Sıraya Dön” düğmesine bas.'); return; }
-            dragPassengerInfo = { listId: row.dataset.listId, index: Number(row.dataset.passengerIndex) }; row.classList.add('dragging'); if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', JSON.stringify(dragPassengerInfo)); }
+            dragPassengerInfo = { listId: row.dataset.listId, index: Number(row.dataset.passengerIndex) }; row.classList.add('dragging'); if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', JSON.stringify(dragPassengerInfo)); e.dataTransfer.setDragImage?.(row, 24, 20); }
         });
 
         document.addEventListener('dragover', (e) => {
             const bannerItem = e.target.closest && e.target.closest('.hero-banner-admin-item');
             if (bannerItem && dragHeroBannerInfo) { e.preventDefault(); bannerItem.classList.add('drag-over'); if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'; return; }
+            // Uzun listede sürüklerken ekranın kenarına gelince sayfa kendiliğinden kayar.
+            if (dragPassengerInfo) dragAutoScroll(e);
             const row = e.target.closest && e.target.closest('.passenger-order-row');
             if (!row || !dragPassengerInfo || row.dataset.listId !== dragPassengerInfo.listId) return;
             if (!requirePermission('managePassengers')) { dragPassengerInfo = null; return; }
@@ -4897,7 +4959,7 @@
             if (bannerItem && dragHeroBannerInfo) { e.preventDefault(); bannerItem.classList.remove('drag-over'); const changed = reorderHeroBanner(dragHeroBannerInfo.id, bannerItem.dataset.heroBannerId); dragHeroBannerInfo = null; if (changed) { if (!await saveData()) return; renderHeroBannerAdmin(); applySettings(); toast('Banner sırası güncellendi.'); } return; }
             const row = e.target.closest && e.target.closest('.passenger-order-row');
             if (!row || !dragPassengerInfo || row.dataset.listId !== dragPassengerInfo.listId) return;
-            e.preventDefault(); row.classList.remove('drag-over'); reorderPassenger(dragPassengerInfo.listId, dragPassengerInfo.index, Number(row.dataset.passengerIndex)); dragPassengerInfo = null; if (!await saveData()) return; renderPassengerAdmin(); toast('Yolcu sırası güncellendi.');
+            e.preventDefault(); row.classList.remove('drag-over'); const { listId, index } = dragPassengerInfo; dragPassengerInfo = null; if (!requirePermission('managePassengers')) return; await swapPassengerRooms(listId, index, Number(row.dataset.passengerIndex));
         });
 
         document.addEventListener('dragend', () => {
@@ -4933,6 +4995,9 @@
                 } else if (selectedGroup) selectedPassengerTourGroupId = '';
                 return;
             }
+
+            const roomingBoard = e.target.closest && e.target.closest('[data-rooming-board]');
+            if (roomingBoard) { openRoomingBoard(roomingBoard.dataset.roomingBoard); return; }
 
             const showProgramPayments = e.target.closest && e.target.closest('[data-ps-show-program]');
             if (showProgramPayments) {

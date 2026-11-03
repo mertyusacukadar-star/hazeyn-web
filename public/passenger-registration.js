@@ -1,7 +1,7 @@
 (function(root){
 'use strict';
 const P=typeof module!=='undefined'&&module.exports?require('./bus-plan'):root.TurizmBusPlan;
-const relationships=['Kendisi','Eşi','Annesi','Babası','Kardeşi','Oğlu','Kızı'];
+const relationships=['Kendisi','Eşi','Annesi','Babası','Kardeşi','Oğlu','Kızı','Arkadaşı'];
 const letters=Array.from({length:26},(_,i)=>String.fromCharCode(65+i));
 const group=p=>letters.includes(String(p.roomGroup||'').toUpperCase())?String(p.roomGroup).toUpperCase():'';
 function hasPayments(accounting){return Array.isArray(accounting?.payments)&&accounting.payments.length>0;}
@@ -101,24 +101,74 @@ function guideChoices(plan){return P.normalizePlan(plan).buses.map((b,i)=>({name
 function guideBusFor(plan,name){const wanted=P.fold(String(name||'').trim());return wanted?guideChoices(plan).find(g=>P.fold(g.name)===wanted)?.busNo||'':'';}
 // A typed guide name wins; otherwise the guide of the passenger's (or chosen) bus is shown.
 function guideText(plan,p){return String(p?.guideName||'').trim()||guide(plan,p).name;}
+// roomSlot (R1, R2…) pins a passenger to a room chosen on the rooming board; rooms without it
+// are still filled in list order inside their A–Z room group, after the pinned rooms.
+const roomTypes=['1','2','3','4','5+'];
+const roomCapacity=type=>Math.max(1,parseInt(type)||1);
+const slot=p=>/^R\d{1,4}$/.test(String(p?.roomSlot||''))?String(p.roomSlot):'';
+const roomType=p=>String(p?.roomPeople||p?.room||'').trim();
 function rooms(passengers){
  const types=new Map();
- for(const p of passengers||[]){const type=String(p.roomPeople||p.room||'').trim()||'secilmedi';if(!types.has(type))types.set(type,[]);types.get(type).push(p);}
+ for(const p of passengers||[]){const type=roomType(p)||'secilmedi';if(!types.has(type))types.set(type,[]);types.get(type).push(p);}
  const result=[];let sequence=0,person=0;
  for(const [type,items] of [...types].sort((a,b)=>(parseInt(a[0])||99)-(parseInt(b[0])||99))){
-  const capacity=Math.max(1,parseInt(type)||1),groups=new Map();
-  for(const p of items){const g=group(p);if(!groups.has(g))groups.set(g,[]);groups.get(g).push(p);}
+  const capacity=roomCapacity(type),pinned=new Map(),groups=new Map();
+  for(const p of items){
+   const s=type==='secilmedi'?'':slot(p);
+   if(s){if(!pinned.has(s))pinned.set(s,[]);pinned.get(s).push(p);continue;}
+   const g=group(p);if(!groups.has(g))groups.set(g,[]);groups.get(g).push(p);
+  }
+  const chunks=[...pinned].sort((a,b)=>a[0].slice(1)-b[0].slice(1)).map(([s,people])=>[group(people[0]),people,s])
+   .concat([...groups].sort((a,b)=>(a[0]||'~').localeCompare(b[0]||'~')).map(([letter,people])=>[letter,people,'']));
   let index=0;
-  for(const [letter,people] of [...groups].sort((a,b)=>(a[0]||'~').localeCompare(b[0]||'~'))){
+  for(const [letter,people,s] of chunks){
    for(let i=0;i<people.length;i+=capacity){
     const occupants=people.slice(i,i+capacity).map(p=>({...p,sheetNo:++person}));
-    result.push({roomSequence:++sequence,roomIndexInType:index++,roomPeople:type,roomGroup:letter,roomingLabel:({'1':'TEKLİ','2':'İKİLİ','3':'ÜÇLÜ','4':'DÖRTLÜ','5+':'5+ KİŞİLİK'})[type]||'BELİRSİZ',mekkeRoomNo:occupants.find(p=>p.mekkeRoomNo||p.roomNo)?.mekkeRoomNo||occupants.find(p=>p.roomNo)?.roomNo||'',medineRoomNo:occupants.find(p=>p.medineRoomNo||p.roomNo)?.medineRoomNo||occupants.find(p=>p.roomNo)?.roomNo||'',occupants});
+    result.push({roomSequence:++sequence,roomIndexInType:index++,roomPeople:type,roomGroup:letter,roomSlot:i?'':s,roomingLabel:({'1':'TEKLİ','2':'İKİLİ','3':'ÜÇLÜ','4':'DÖRTLÜ','5+':'5+ KİŞİLİK'})[type]||'BELİRSİZ',mekkeRoomNo:occupants.find(p=>p.mekkeRoomNo||p.roomNo)?.mekkeRoomNo||occupants.find(p=>p.roomNo)?.roomNo||'',medineRoomNo:occupants.find(p=>p.medineRoomNo||p.roomNo)?.medineRoomNo||occupants.find(p=>p.roomNo)?.roomNo||'',occupants});
    }
   }
  }
  return result;
 }
-const api={relationships,letters,group,seating,validate,changedSeats,syncPlans,currentSeat,seatOptions,seatMap,guide,guideChoices,guideBusFor,guideText,rooms,hasPayments,tourCurrency,priceText,relationshipText};
+// Current rooms as an editable layout: [{type, ids, mekkeRoomNo, medineRoomNo}]; passengers
+// without a room type are returned separately.
+function roomLayout(passengers){
+ const list=rooms(passengers);
+ return {
+  rooms:list.filter(r=>r.roomPeople!=='secilmedi').map(r=>({type:r.roomPeople,ids:r.occupants.map(p=>p.id),mekkeRoomNo:r.mekkeRoomNo,medineRoomNo:r.medineRoomNo})),
+  unassigned:list.filter(r=>r.roomPeople==='secilmedi').flatMap(r=>r.occupants.map(p=>p.id))
+ };
+}
+// Writes a board layout back: every placed passenger gets its room type, a fixed room slot in
+// board order and the room's hotel numbers. Placed passengers are listed room by room; passengers
+// without a room keep their place.
+function applyRoomLayout(passengers,layout){
+ const placed=new Map(),seen=new Set();
+ (layout||[]).filter(r=>r.ids?.length).forEach((room,index)=>{
+  if(!roomTypes.includes(room.type))throw Error('Oda tipi geçersiz.');
+  if(room.ids.length>roomCapacity(room.type))throw Error((index+1)+'. odaya en çok '+roomCapacity(room.type)+' kişi yerleşebilir.');
+  room.ids.forEach(id=>{if(seen.has(id))throw Error('Bir yolcu iki odaya yerleştirilemez.');seen.add(id);placed.set(id,{room,index});});
+ });
+ const order=new Map([...placed].map(([id,{room}])=>[id,room.ids.indexOf(id)]));
+ const next=(passengers||[]).map(p=>{
+  const hit=placed.get(p.id);if(!hit){const {roomSlot,...rest}=p;return rest;}
+  const {room,index}=hit,{roomNo,...rest}=p;
+  return {...rest,roomPeople:room.type,roomSlot:'R'+(index+1),mekkeRoomNo:String(room.mekkeRoomNo||'').trim(),medineRoomNo:String(room.medineRoomNo||'').trim()};
+ });
+ // Inside a room the board order wins; everyone else keeps their place.
+ const slots=next.map((p,i)=>placed.has(p.id)?i:-1).filter(i=>i>=0),moved=slots.map(i=>next[i]).sort((a,b)=>placed.get(a.id).index-placed.get(b.id).index||order.get(a.id)-order.get(b.id));
+ slots.forEach((i,k)=>{next[i]=moved[k];});
+ return next;
+}
+// Two passengers of the same room type trade rooms (and room numbers); nobody else moves.
+function swapRooms(passengers,firstId,secondId){
+ const layout=roomLayout(passengers).rooms,a=layout.find(r=>r.ids.includes(firstId)),b=layout.find(r=>r.ids.includes(secondId));
+ if(!a||!b)throw Error('Oda tipi seçilmemiş yolcu için önce oda tipini seçin.');
+ if(a===b){const i=a.ids.indexOf(firstId),j=a.ids.indexOf(secondId);[a.ids[i],a.ids[j]]=[a.ids[j],a.ids[i]];}
+ else{a.ids[a.ids.indexOf(firstId)]=secondId;b.ids[b.ids.indexOf(secondId)]=firstId;}
+ return applyRoomLayout(passengers,layout);
+}
+const api={relationships,letters,group,seating,validate,changedSeats,syncPlans,currentSeat,seatOptions,seatMap,guide,guideChoices,guideBusFor,guideText,rooms,roomTypes,roomCapacity,roomLayout,applyRoomLayout,swapRooms,hasPayments,tourCurrency,priceText,relationshipText};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 root.TurizmPassengerRegistration=api;
 })(typeof window==='undefined'?globalThis:window);
