@@ -1,12 +1,12 @@
-const CACHE_NAME = 'turizm-v21-rooming-board';
+const CACHE_NAME = 'turizm-v22-rooming-wait';
 const APP_SHELL = [
-  '/rooming-board.js?v=20261103-rooms1',
-  '/rooming-board.css?v=20261103-rooms1',
+  '/rooming-board.js?v=20261103-rooms2',
+  '/rooming-board.css?v=20261103-rooms2',
   '/nusuk-tracking.js?v=20261101-nusuk4',
   '/nusuk-tracking.css?v=20261101-nusuk4',
   '/payment-status.js?v=20261031-pay2',
   '/payment-status.css?v=20261031-pay2',
-  '/passenger-registration.js?v=20261103-rooms1',
+  '/passenger-registration.js?v=20261103-rooms2',
   '/receipt-preview.js?v=20261002-mobile3',
   '/tour-picker.js?v=20261002-mobile3',
   '/state-sync.js?v=20261002-tour-save1',
@@ -45,7 +45,7 @@ const APP_SHELL = [
   '/sidebar-nav.js?v=20261020-guide2',
   '/assets/app-icon-hazeyn-64.png',
   '/assets/app-icon-hakikat-64.png',
-  '/app.js?v=20261103-rooms1',
+  '/app.js?v=20261103-rooms2',
   '/vendor/exceljs.min.js?v=4.4.0',
   '/assets/mobile-app-icon-192.png',
   '/assets/mobile-app-icon-512.png',

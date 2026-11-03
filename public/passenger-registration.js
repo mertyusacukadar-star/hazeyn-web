@@ -141,8 +141,8 @@ function roomLayout(passengers){
 }
 // Writes a board layout back: every placed passenger gets its room type, a fixed room slot in
 // board order and the room's hotel numbers. Placed passengers are listed room by room; passengers
-// without a room keep their place.
-function applyRoomLayout(passengers,layout){
+// without a room keep their place and take the room type chosen for them in `waiting` ({id: type}).
+function applyRoomLayout(passengers,layout,waiting={}){
  const placed=new Map(),seen=new Set();
  (layout||[]).filter(r=>r.ids?.length).forEach((room,index)=>{
   if(!roomTypes.includes(room.type))throw Error('Oda tipi geçersiz.');
@@ -151,7 +151,8 @@ function applyRoomLayout(passengers,layout){
  });
  const order=new Map([...placed].map(([id,{room}])=>[id,room.ids.indexOf(id)]));
  const next=(passengers||[]).map(p=>{
-  const hit=placed.get(p.id);if(!hit){const {roomSlot,...rest}=p;return rest;}
+  const hit=placed.get(p.id);
+  if(!hit){const {roomSlot,...rest}=p,type=waiting[p.id];if(type!==undefined&&type!==''&&!roomTypes.includes(type))throw Error('Oda tipi geçersiz.');return type?{...rest,roomPeople:type}:rest;}
   const {room,index}=hit,{roomNo,...rest}=p;
   return {...rest,roomPeople:room.type,roomSlot:'R'+(index+1),mekkeRoomNo:String(room.mekkeRoomNo||'').trim(),medineRoomNo:String(room.medineRoomNo||'').trim()};
  });

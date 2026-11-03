@@ -40,4 +40,12 @@ assert.deepEqual(ids(applied.map(x=>x.id==='a'?{...x,roomPeople:'2'}:x)),['gh','
 const reordered=R.applyRoomLayout(legacy,[{type:'4',ids:['d','c','b','a']},{type:'2',ids:['h','g']},{type:'4',ids:['e','f']}]);
 assert.deepEqual(ids(reordered),['hg','dcba','ef']);
 
+// Odaya girmemiş ama tipi seçilmiş yolcu o tipi alır; tipsiz kalan dokunulmadan kalır; bozulan odanın yeri silinir.
+const fresh=[p('x',''),p('y',''),p('z',''),p('w','4',{roomSlot:'R9'})];
+const waited=R.applyRoomLayout(fresh,[{type:'2',ids:['x']}],{y:'3',z:'',w:'4'});
+assert.deepEqual(waited.map(x=>x.roomPeople),['2','3','','4']);
+assert.equal(waited.find(x=>x.id==='w').roomSlot,undefined);
+assert.throws(()=>R.applyRoomLayout(fresh,[],{y:'7'}),/geçersiz/);
+assert.deepEqual(ids(waited),['x','y','w','z']);
+
 console.log('Arkadaşı relationship, room swaps without shifting, rooming board layouts and legacy rooming passed.');

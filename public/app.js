@@ -3549,15 +3549,15 @@
         const registration = window.TurizmPassengerRegistration;
         window.TurizmRoomingBoard.open({
             title: l.title || 'Yolcu listesi',
-            people: (l.passengers || []).map(p => ({ id: p.id, name: p.name, gender: p.gender, roomGroup: registration.group(p), relation: p.relationship && p.relationship !== 'Kendisi' ? registration.relationshipText(p, l.passengers) : '' })),
+            people: (l.passengers || []).map(p => ({ id: p.id, name: p.name, gender: p.gender, roomGroup: registration.group(p), roomPeople: p.roomPeople || p.room || '', relationship: p.relationship || '', relativeId: p.relativePassengerId || '' })),
             layout: registration.roomLayout(l.passengers || []),
             types: registration.roomTypes,
             capacity: registration.roomCapacity,
             confirm: askAppConfirmation,
             toast,
-            onSave: async rooms => {
+            onSave: async (rooms, waiting) => {
                 if (!requirePermission('managePassengers')) return false;
-                return commitRoomChange(l, registration.applyRoomLayout(l.passengers, rooms), 'Odalama kaydedildi.');
+                return commitRoomChange(l, registration.applyRoomLayout(l.passengers, rooms, waiting), 'Odalama kaydedildi.');
             }
         });
     }
