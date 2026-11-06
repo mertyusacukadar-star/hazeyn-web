@@ -27,5 +27,10 @@ function fixture(){
  const canonical=fixture();canonical.env.saveData=async()=>{canonical.env.state.passengerLists[0].passengers[0].accounting.payments.push({id:'remote',amount:50});return true;};await canonical.env.savePassengerList();assert.equal(canonical.rows()[0].accounting.payments.length,2,'Editor must reload canonical saved accounting before the next edit');
  const slowMessage=fixture();let releaseMessage,messageStarted=false;slowMessage.env.sendNewPassengerWelcomeMessages=async()=>{messageStarted=true;await new Promise(r=>releaseMessage=r);};
  await slowMessage.env.savePassengerList();assert(messageStarted);assert.equal(slowMessage.fields.savePassengerList.disabled,false,'Confirmed save unlocks immediately even while WhatsApp is slow');assert.equal(slowMessage.env.state.passengerLists.filter(l=>l.id==='list-1').length,1);releaseMessage();
+ // Form açıkken kesilen makbuz, formdaki eski kopyayla Listeyi Kaydet'te silinmez.
+ const stale=fixture();await stale.env.savePassengerList();const staleId=stale.fields.listId.value;
+ stale.env.state.passengerLists.find(l=>l.id===staleId).passengers[0].accounting.payments.push({id:'cut-later',amount:30});
+ assert.equal(stale.rows()[0].accounting.payments.length,1);await stale.env.savePassengerList();
+ assert.deepEqual(stale.env.state.passengerLists.find(l=>l.id===staleId).passengers[0].accounting.payments.map(p=>p.id).join(','),'paid,cut-later');
  console.log('Actual passenger save: repeated append/update keeps one list and stable passenger/payment/relation IDs; double-click and retry keep one identity; editor reloads canonical response.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1468,9 +1468,11 @@
         const indexed = await idbGet(key);
         const bestLocal = chooseBestData([indexed, local]);
         const preserve=shouldPreserveUnsyncedLocal(remote,bestLocal);
+        // Sunucu kaydı eski bir taslağın yerine geçerken taslaktaki makbuzlar kuyruğa alınır.
+        if(!preserve&&bestLocal?._meta?.pendingSync)await queuePaymentOps(paymentOpsMissingFrom(bestLocal,remote));
         state = mergeDefaults(preserve ? bestLocal : remote);
         serverBase=preserve ? await idbGet(key+':server-base') : null;
-        if(!preserve)await rememberServerBase(state);
+        if(!preserve){await rememberServerBase(state);await reapplyPaymentOutbox();setTimeout(()=>void flushPaymentOutbox(),0);}
         await cacheDataLocally(state);
         return true;
     }
@@ -1565,6 +1567,64 @@
         if(state?._meta?.pendingSync)return {company:currentCompanyId,state:clone(state)};
         return await idbGet(companyCacheKey()+':unbased-draft');
     }
+    // Makbuz kuyruğu: kesilen ya da iptal edilen her ödeme sunucu onaylayana kadar bu cihazda ayrıca
+    // tutulur. Ekran sunucudan yenilense, eski bir taslak bırakılsa bile ödeme yeniden eklenir ve
+    // bir sonraki kayıtla gönderilir; kesilmiş makbuz böylece kaybolmaz.
+    const paymentOutboxKey = () => companyCacheKey() + ':payment-outbox';
+    async function readPaymentOutbox() { return (await idbGet(paymentOutboxKey())) || []; }
+    async function queuePaymentOps(ops) {
+        if (!IS_APP_MODE || !ops.length) return;
+        const key = op => op.kind + ':' + op.payment.id, queued = await readPaymentOutbox(), known = new Set(queued.map(key));
+        await idbSet(paymentOutboxKey(), [...queued, ...ops.filter(op => !known.has(key(op)))]);
+    }
+    // 'done': kayıtta zaten var; 'pending': eklenebilir; 'missing': yolcu ya da ödeme bulunamadı.
+    function paymentOpStatus(data, op) {
+        const passenger = (data?.passengerLists || []).find(list => list.id === op.listId)?.passengers?.find(item => item.id === op.passengerId);
+        if (!passenger) return 'missing';
+        const found = (passenger.accounting?.payments || []).find(item => item.id === op.payment.id);
+        if (op.kind === 'void') return !found ? 'missing' : found.voided ? 'done' : 'pending';
+        return found ? 'done' : 'pending';
+    }
+    function applyPaymentOp(data, op) {
+        const passenger = data.passengerLists.find(list => list.id === op.listId).passengers.find(item => item.id === op.passengerId);
+        const accounting = passenger.accounting = { agreedPrice: '', currency: '', priceSource: 'room', ...(passenger.accounting || {}) };
+        accounting.payments = [...(accounting.payments || [])];
+        if (op.kind === 'void') { const index = accounting.payments.findIndex(item => item.id === op.payment.id); accounting.payments[index] = { ...accounting.payments[index], voided: true, voidedAt: op.voidedAt, voidedBy: clone(op.voidedBy) }; return; }
+        if (!accounting.payments.length && op.currency) accounting.currency = op.currency;
+        if (!accounting.agreedPrice && op.agreedPrice) { accounting.agreedPrice = op.agreedPrice; accounting.priceSource = op.priceSource || accounting.priceSource; }
+        accounting.payments.push(clone(op.payment));
+    }
+    // Bırakılan bir taslakta olup sunucuda olmayan makbuzlar kuyruğa alınır.
+    function paymentOpsMissingFrom(draft, remote) {
+        const ops = [];
+        (draft?.passengerLists || []).forEach(list => (list.passengers || []).forEach(passenger => (passenger.accounting?.payments || []).forEach(payment => {
+            const base = { listId: list.id, passengerId: passenger.id };
+            const add = { ...base, kind: 'add', payment: clone(payment), currency: passenger.accounting.currency, agreedPrice: passenger.accounting.agreedPrice, priceSource: passenger.accounting.priceSource };
+            if (paymentOpStatus(remote, add) === 'pending') ops.push(add);
+            else if (payment.voided) { const cancel = { ...base, kind: 'void', payment: { id: payment.id }, voidedAt: payment.voidedAt, voidedBy: clone(payment.voidedBy) }; if (paymentOpStatus(remote, cancel) === 'pending') ops.push(cancel); }
+        })));
+        return ops;
+    }
+    // Kuyruktakileri ekrandaki kayda ekler; sunucuda görünenleri kuyruktan çıkarır. Eklenen varsa true.
+    async function reapplyPaymentOutbox() {
+        const queued = await readPaymentOutbox();
+        if (!queued.length) return false;
+        let applied = false;
+        const keep = queued.filter(op => { const status = paymentOpStatus(state, op); if (status === 'pending') { applyPaymentOp(state, op); applied = true; } return status !== 'done'; });
+        await idbSet(paymentOutboxKey(), keep);
+        return applied;
+    }
+    async function prunePaymentOutbox() {
+        const queued = await readPaymentOutbox();
+        if (queued.length) await idbSet(paymentOutboxKey(), queued.filter(op => paymentOpStatus(state, op) !== 'done'));
+    }
+    async function flushPaymentOutbox() {
+        if (!IS_APP_MODE || state?._meta?.pendingSync || !hasPermission('recordPayments')) return;
+        await reapplyPaymentOutbox();
+        if (!(await readPaymentOutbox()).some(op => paymentOpStatus(state, op) !== 'missing')) return;
+        renderAccounting(accountingSearchQuery);
+        if (await saveData({ keepLocalAccounting: true })) toast('Bu cihazda bekleyen makbuzlar sunucuya kaydedildi.');
+    }
     async function saveData(options = {}) {
         saveData.pending=(saveData.pending||0)+1;
         const indicator = typeof document !== 'undefined' ? $('dataSaveStatus') : null;
@@ -1592,7 +1652,7 @@
             if(company!==currentCompanyId)return false;
             if(!raw)return preserve('Sunucuya ulaşılamadı. Değişiklikler bu cihazda korundu; bağlantı gelince tekrar kaydedin.');
             const latest=mergeDefaults(raw);let candidate=clone(intent);
-            if(window.TurizmStateSync.sameData(intent,latest)||(base&&!isolated&&window.TurizmStateSync.sameData(intent,base))){state=latest;await rememberServerBase(state);await cacheDataLocally(state);window.dispatchEvent(new Event('turizm-data-saved'));return true;}
+            if(window.TurizmStateSync.sameData(intent,latest)||(base&&!isolated&&window.TurizmStateSync.sameData(intent,base))){state=latest;await rememberServerBase(state);await cacheDataLocally(state);await prunePaymentOutbox();window.dispatchEvent(new Event('turizm-data-saved'));return true;}
             if(intent._meta?.serverRevision!==latest._meta?.serverRevision){
                 if(!base)base=await fetchSaveBaseline(company,intent._meta?.serverRevision);
                 if(company!==currentCompanyId)return false;
@@ -1617,7 +1677,7 @@
                 if(company!==currentCompanyId)return true;
                 if(!saved.revision)throw Error('Sunucu kayıt onayı doğrulanamadı.');
                 payload._meta.serverRevision=saved.revision;state=mergeDefaults(saved.state||payload);
-                await rememberServerBase(state);await cacheDataLocally(state);
+                await rememberServerBase(state);await cacheDataLocally(state);await prunePaymentOutbox();
                 window.dispatchEvent(new Event('turizm-data-saved'));return true;
             }catch(error){return preserve((error.message||'Sunucu kaydı başarısız.')+' Değişiklikler bu cihazda korundu.');}
         }
@@ -3304,6 +3364,18 @@
             if (button) { button.disabled = false; button.textContent = 'Listeyi Kaydet'; }
         }
     }
+    // Yolcu formu ödemeleri düzenlemez. Form açıldıktan sonra kesilen ya da iptal edilen makbuzlar,
+    // formdaki eski kopya yüzünden Listeyi Kaydet ile silinmesin: kayıttaki güncel ödemeler korunur.
+    function keepLivePayments(passengers, existing) {
+        const live = new Map((existing?.passengers || []).map(p => [p.id, p.accounting]));
+        passengers.forEach(p => {
+            const current = live.get(p.id);
+            if (!current?.payments?.length) return;
+            const payments = new Map((p.accounting?.payments || []).map(item => [item.id, item]));
+            current.payments.forEach(item => payments.set(item.id, clone(item)));
+            p.accounting = { ...(p.accounting || {}), currency: current.currency || p.accounting?.currency, payments: [...payments.values()] };
+        });
+    }
     async function savePassengerListOnce() {
         if (!requirePermission('managePassengers')) return;
         const passengers = readPassengers();
@@ -3316,6 +3388,7 @@
 
         const id = $('listId').value || uid('l');
         const existing = state.passengerLists.find(x => x.id === id);
+        keepLivePayments(passengers, existing);
         const item = {
             id, tourId, title: $('listTitle').value.trim(), date: $('listDate').value,
             leader: $('listLeader').value.trim(), notes: $('listNotes').value.trim(),
@@ -4171,8 +4244,11 @@
     async function latestAccountingContext(listId, passengerId) {
         const remote = await fetchRemoteData({ admin: true });
         if (remote) {
+            // Gönderilememiş makbuzlar sunucu kaydıyla ezilmeden önce kuyruğa alınır ve geri eklenir.
+            if (state?._meta?.pendingSync) await queuePaymentOps(paymentOpsMissingFrom(state, mergeDefaults(remote)));
             state = mergeDefaults(remote);
             await rememberServerBase(state);
+            await reapplyPaymentOutbox();
             await cacheDataLocally(state);
         }
         return getPassengerContext(listId, passengerId);
@@ -4237,8 +4313,9 @@
             priceSource: snapshot.priceSource,
             payments: [...snapshot.payments, payment]
         };
+        await queuePaymentOps([{ kind: 'add', listId: context.list.id, passengerId: context.passenger.id, payment: clone(payment), currency: context.passenger.accounting.currency, agreedPrice: snapshot.agreedPrice, priceSource: snapshot.priceSource }]);
         const saved = await saveData({ keepLocalAccounting: true });
-        if (!saved) { if (receiptWindow) receiptWindow.close(); return; }
+        if (!saved) { if (receiptWindow) receiptWindow.close(); renderAccounting(accountingSearchQuery); toast('Makbuz bu cihazda saklandı; sunucuya ulaşılınca ya da Senkronize Et ile otomatik kaydedilecek.'); return; }
         renderAccounting();
         if (hasPermission('printReceipts')) {
             const opened = printPaymentReceipt(context.list.id, context.passenger.id, payment.id, receiptWindow);
@@ -4261,6 +4338,7 @@
         payment.voided = true;
         payment.voidedAt = new Date().toISOString();
         payment.voidedBy = currentActor();
+        await queuePaymentOps([{ kind: 'void', listId: context.list.id, passengerId: context.passenger.id, payment: { id: payment.id }, voidedAt: payment.voidedAt, voidedBy: clone(payment.voidedBy) }]);
         const saved = await saveData({ keepLocalAccounting: true });
         if (!saved) return;
         renderAccounting();
@@ -4324,9 +4402,11 @@
             const remote = await fetchRemoteData({ admin: true });
             if (!remote || company !== currentCompanyId) { toast('Merkezi veriye ulaşılamadı. Taslak bu cihazda korunuyor.'); return; }
             await idbSet(companyCacheKey() + ':unbased-draft', { company, state: draft, createdAt: new Date().toISOString() });
-            state = mergeDefaults(remote); await rememberServerBase(state); await cacheDataLocally(state);
+            await queuePaymentOps(paymentOpsMissingFrom(draft, mergeDefaults(remote)));
+            state = mergeDefaults(remote); await rememberServerBase(state); await reapplyPaymentOutbox(); await cacheDataLocally(state);
             busWorkspace?.reset(); renderAdmin(); renderAccounting(accountingSearchQuery); workspaceUI?.checkpoint();
             toast('Güncel kayıt açıldı. Bu cihazdaki eski taslak yedek olarak saklandı.');
+            void flushPaymentOutbox();
             return;
         }
         const loaded = await loadAuthenticatedAdminData();
@@ -4345,8 +4425,8 @@
             const remote=await fetchRemoteData({admin:true});
             if(!remote||company!==currentCompanyId||busy()||!window.TurizmStateSync.equal(previous,state))return;
             if(remote._meta?.serverRevision===state._meta?.serverRevision)return;
-            state=mergeDefaults(remote);await rememberServerBase(state);await cacheDataLocally(state);
-            renderAdmin();
+            state=mergeDefaults(remote);await rememberServerBase(state);await reapplyPaymentOutbox();await cacheDataLocally(state);
+            renderAdmin();void flushPaymentOutbox();
         }finally{refreshIdleAdminData.pending=false;}
     }
 

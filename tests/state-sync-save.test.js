@@ -6,7 +6,7 @@ async function run({intent=base,baseline=base,remotes=[base],responses=[{ok:true
  const posts=[],warnings=[],cache=[],archives=[];let reads=0;
  const env={IS_APP_MODE:true,state:structuredClone(intent),serverBase:baseline&&structuredClone(baseline),currentCompanyId:'hazeyn',clone:structuredClone,mergeDefaults:structuredClone,Date,Math,window:{TurizmStateSync:Sync,dispatchEvent(){}},Event:class{},authorizedHeaders:h=>h,statePayloadForSave:structuredClone,
   fetchSaveBaseline:async()=>historical&&structuredClone(historical),options,idbSet:async(k,v)=>archives.push(structuredClone(v)),companyCacheKey:()=>env.currentCompanyId,
-  fetchRemoteData:async()=>structuredClone(remotes[Math.min(reads++,remotes.length-1)]),cacheDataLocally:async s=>cache.push(structuredClone(s)),rememberServerBase:async s=>env.serverBase=structuredClone(s),toast:m=>warnings.push(m),
+  fetchRemoteData:async()=>structuredClone(remotes[Math.min(reads++,remotes.length-1)]),cacheDataLocally:async s=>cache.push(structuredClone(s)),prunePaymentOutbox:async()=>{},reapplyPaymentOutbox:async()=>false,flushPaymentOutbox:async()=>{},rememberServerBase:async s=>env.serverBase=structuredClone(s),toast:m=>warnings.push(m),
   fetch:async(_,opts)=>{posts.push(JSON.parse(opts.body));const r=responses[Math.min(posts.length-1,responses.length-1)];if(r.offline)throw Error('Connection lost');return {...r,json:async()=>r};}};
  const ok=await vm.runInNewContext(actual+';saveData(options)',env);return {ok,posts,reads,warnings,cache,archives,state:env.state,baseline:env.serverBase};
 }

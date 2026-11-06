@@ -1,4 +1,4 @@
-const CACHE_NAME = 'turizm-v23-sync-draft';
+const CACHE_NAME = 'turizm-v24-payment-outbox';
 const APP_SHELL = [
   '/rooming-board.js?v=20261103-rooms2',
   '/rooming-board.css?v=20261106-sync1',
@@ -45,7 +45,7 @@ const APP_SHELL = [
   '/sidebar-nav.js?v=20261020-guide2',
   '/assets/app-icon-hazeyn-64.png',
   '/assets/app-icon-hakikat-64.png',
-  '/app.js?v=20261106-sync1',
+  '/app.js?v=20261106-pay1',
   '/vendor/exceljs.min.js?v=4.4.0',
   '/assets/mobile-app-icon-192.png',
   '/assets/mobile-app-icon-512.png',
