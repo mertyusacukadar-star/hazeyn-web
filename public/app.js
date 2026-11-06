@@ -1605,13 +1605,15 @@
         })));
         return ops;
     }
-    // Kuyruktakileri ekrandaki kayda ekler; sunucuda görünenleri kuyruktan çıkarır. Eklenen varsa true.
+    // Kuyruktakileri ekrandaki kayda ekler. Yerel kayıtta görünmesi sunucu onayı değildir;
+    // işlem yalnız başarılı kayıt sonrası prunePaymentOutbox ile kuyruktan çıkarılır.
     async function reapplyPaymentOutbox() {
         const queued = await readPaymentOutbox();
         if (!queued.length) return false;
         let applied = false;
-        const keep = queued.filter(op => { const status = paymentOpStatus(state, op); if (status === 'pending') { applyPaymentOp(state, op); applied = true; } return status !== 'done'; });
-        await idbSet(paymentOutboxKey(), keep);
+        for (const op of queued) {
+            if (paymentOpStatus(state, op) === 'pending') { applyPaymentOp(state, op); applied = true; }
+        }
         return applied;
     }
     async function prunePaymentOutbox() {
