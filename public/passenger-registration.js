@@ -140,8 +140,9 @@ function roomLayout(passengers){
  };
 }
 // Writes a board layout back: every placed passenger gets its room type, a fixed room slot in
-// board order and the room's hotel numbers. Placed passengers are listed room by room; passengers
-// without a room keep their place and take the room type chosen for them in `waiting` ({id: type}).
+// board order and the room's hotel numbers. Passengers without a room take the room type chosen for
+// them in `waiting` ({id: type}). List order never changes, so two devices editing rooms do not
+// produce competing passenger orders.
 function applyRoomLayout(passengers,layout,waiting={}){
  const placed=new Map(),seen=new Set();
  (layout||[]).filter(r=>r.ids?.length).forEach((room,index)=>{
@@ -149,19 +150,22 @@ function applyRoomLayout(passengers,layout,waiting={}){
   if(room.ids.length>roomCapacity(room.type))throw Error((index+1)+'. odaya en çok '+roomCapacity(room.type)+' kişi yerleşebilir.');
   room.ids.forEach(id=>{if(seen.has(id))throw Error('Bir yolcu iki odaya yerleştirilemez.');seen.add(id);placed.set(id,{room,index});});
  });
- const order=new Map([...placed].map(([id,{room}])=>[id,room.ids.indexOf(id)]));
- const next=(passengers||[]).map(p=>{
+ // Only fields that really change are written, so a merge with another device sees the smallest edit.
+ return (passengers||[]).map(p=>{
   const hit=placed.get(p.id);
-  if(!hit){const {roomSlot,...rest}=p,type=waiting[p.id];if(type!==undefined&&type!==''&&!roomTypes.includes(type))throw Error('Oda tipi geçersiz.');return type?{...rest,roomPeople:type}:rest;}
-  const {room,index}=hit,{roomNo,...rest}=p;
-  return {...rest,roomPeople:room.type,roomSlot:'R'+(index+1),mekkeRoomNo:String(room.mekkeRoomNo||'').trim(),medineRoomNo:String(room.medineRoomNo||'').trim()};
+  if(!hit){
+   const type=waiting[p.id];if(type!==undefined&&type!==''&&!roomTypes.includes(type))throw Error('Oda tipi geçersiz.');
+   const {roomSlot,...rest}=p;const next=roomSlot===undefined?{...p}:rest;
+   if(type&&type!==roomType(p))next.roomPeople=type;
+   return next;
+  }
+  const {room,index}=hit,next={...p,roomPeople:room.type,roomSlot:'R'+(index+1)};
+  const mekke=String(room.mekkeRoomNo||'').trim(),medine=String(room.medineRoomNo||'').trim();
+  if(mekke!==String(p.mekkeRoomNo||p.roomNo||'')||medine!==String(p.medineRoomNo||p.roomNo||'')){delete next.roomNo;next.mekkeRoomNo=mekke;next.medineRoomNo=medine;}
+  return next;
  });
- // Inside a room the board order wins; everyone else keeps their place.
- const slots=next.map((p,i)=>placed.has(p.id)?i:-1).filter(i=>i>=0),moved=slots.map(i=>next[i]).sort((a,b)=>placed.get(a.id).index-placed.get(b.id).index||order.get(a.id)-order.get(b.id));
- slots.forEach((i,k)=>{next[i]=moved[k];});
- return next;
 }
-// Two passengers of the same room type trade rooms (and room numbers); nobody else moves.
+// Two passengers trade rooms (and room numbers); nobody else moves.
 function swapRooms(passengers,firstId,secondId){
  const layout=roomLayout(passengers).rooms,a=layout.find(r=>r.ids.includes(firstId)),b=layout.find(r=>r.ids.includes(secondId));
  if(!a||!b)throw Error('Oda tipi seçilmemiş yolcu için önce oda tipini seçin.');

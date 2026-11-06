@@ -31,7 +31,7 @@
 .rb-cluster.flat .rb-person{margin-bottom:5px;break-inside:avoid}
 .rb-cluster-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 4px;color:var(--muted,#66757a);font-size:11px;font-weight:800}
 .rb-cluster-head .link-btn{padding:0;border:0;background:none;color:inherit;font:inherit;text-decoration:underline;cursor:pointer}
-.rb-dissolve{min-height:26px;padding:1px 8px;border:1px solid var(--line,#dce5e0);border-radius:7px;background:transparent;color:var(--muted,#66757a);font:inherit;font-size:11px;font-weight:800;cursor:pointer}
+.rb-dissolve{flex-shrink:0;min-height:26px;padding:1px 7px;border:1px solid var(--line,#dce5e0);border-radius:7px;background:transparent;color:var(--muted,#66757a);font:inherit;font-size:11px;font-weight:800;cursor:pointer}
 .rb-dissolve:hover{border-color:#b2433a;color:#b2433a}
 .rb-scroll{flex:1;min-height:0;overflow:auto;padding:14px 18px 40px;overscroll-behavior:contain}
 .rb-type{margin-bottom:22px}
@@ -39,15 +39,15 @@
 .rb-type h3 span{color:var(--muted,#66757a);font-size:12px;font-weight:600}
 .rb-type-empty{margin-bottom:10px}
 .rb-type-empty .rb-add{min-height:44px;width:auto;padding:8px 16px}
-.rb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.rb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
 .rb-room{display:flex;flex-direction:column;gap:8px;padding:10px;border:2px solid var(--line,#dce5e0);border-radius:14px;background:var(--paper,#fff);transition:border-color .15s,box-shadow .15s}
 .rb-room.full{background:color-mix(in srgb,var(--soft,#f6f8f7) 60%,var(--paper,#fff))}
 .rb-room.empty-room{border-style:dashed}
 .rb-room.target{border-color:#2f8f5b;box-shadow:0 0 0 3px #2f8f5b26;cursor:pointer}
-.rb-room-head{display:flex;align-items:center;gap:8px}
+.rb-room-head{display:flex;align-items:center;gap:5px;min-width:0}
 .rb-room-head b{font-size:14px;white-space:nowrap}
-.rb-room-head select{width:auto!important;min-height:30px!important;padding:2px 6px!important;border:1px solid var(--line,#dce5e0);border-radius:8px;background:var(--soft,#f6f8f7);color:var(--ink,#203337);font-size:12px}
-.rb-count{margin-left:auto;color:var(--muted,#66757a);font-size:12px;font-weight:800;white-space:nowrap}
+.rb-room-head select{flex:0 1 auto;width:auto!important;min-width:0;max-width:80px;min-height:30px!important;padding:2px 2px!important;border:1px solid var(--line,#dce5e0);border-radius:8px;background:var(--soft,#f6f8f7);color:var(--ink,#203337);font-size:12px}
+.rb-count{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:right;color:var(--muted,#66757a);font-size:12px;font-weight:800;white-space:nowrap}
 .rb-occupants{display:grid;gap:6px}
 .rb-pool-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px}
 .rb-person,.rb-free{display:grid;gap:1px;width:100%;min-height:44px;padding:7px 10px;border:1px solid var(--line,#dce5e0);border-left-width:5px;border-radius:10px;background:var(--soft,#f6f8f7);color:var(--ink,#203337);font:inherit;text-align:left;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation}

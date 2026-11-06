@@ -21,8 +21,12 @@
     const bm=new Map(b.map(v=>[key(v),v])),lm=new Map(l.map(v=>[key(v),v])),rm=new Map(r.map(v=>[key(v),v]));
     const common=b.filter(v=>lm.has(key(v))&&rm.has(key(v))).map(key),inCommon=new Set(common);
     const lo=l.map(key).filter(id=>inCommon.has(id)),ro=r.map(key).filter(id=>inCommon.has(id));
-    if(!equal(lo,common)&&!equal(ro,common)&&!equal(lo,ro))conflicts.push(path.join('.')+'.order');
-    const order=!equal(lo,common)?l:r,ids=[...new Set([...order.map(key),...l.map(key),...r.map(key)])];
+    // Passenger order is only a display/rooming order: when both devices reordered one list, the
+    // server's order wins instead of blocking every other edit on that device.
+    const passengerOrder=path.length===3&&path[0]==='passengerLists'&&path[2]==='passengers';
+    const bothMoved=!equal(lo,common)&&!equal(ro,common)&&!equal(lo,ro);
+    if(bothMoved&&!passengerOrder)conflicts.push(path.join('.')+'.order');
+    const order=bothMoved&&passengerOrder?r:!equal(lo,common)?l:r,ids=[...new Set([...order.map(key),...l.map(key),...r.map(key)])];
     return ids.map(id=>visit(bm.get(id),lm.get(id),rm.get(id),[...path,id])).filter(v=>v!==undefined);
    }
    conflicts.push(path.join('.'));return copy(l);

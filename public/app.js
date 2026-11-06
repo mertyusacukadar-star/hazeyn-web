@@ -1604,7 +1604,7 @@
                 }
                 if(!base)return preserve('Bu cihazda güncel kayıtla karşılaştırılacak önceki sürüm yok. Değişiklikleriniz korundu; yedek ve kurtarma bölümünden cihaz taslağını yedekleyin.');
                 const merged=window.TurizmStateSync.merge(base,intent,latest);
-                if(!merged.ok)return preserve('Aynı kayıt üzerinde iki farklı düzenleme var. Değişiklikleriniz korundu; cihaz taslağını yedekleyip güncel kaydı inceleyin.');
+                if(!merged.ok)return preserve('Aynı kayıt başka bir cihazda da değiştirildi. Değişiklikleriniz bu cihazda korundu. Güncel kaydı görmek için Senkronize Et düğmesine basın.');
                 candidate=merged.state;
             }
             candidate._meta={...latest._meta,updatedAt:Math.max(Date.now(),Number(latest._meta?.updatedAt||0)+1),pendingSync:false};
@@ -4316,6 +4316,19 @@
 
     async function refreshAdminFromServer() {
         if (workspaceUI && !workspaceUI.canLeave()) return;
+        // Gönderilemeyen bir cihaz taslağı varken bu cihaz güncel kaydı göremez. Kullanıcı isterse taslak
+        // bu cihazda yedek olarak saklanır (Yedek ve kurtarmadan indirilebilir) ve sunucudaki kayıt açılır.
+        if (IS_APP_MODE && state?._meta?.pendingSync) {
+            if (!await askAppConfirmation('Bu cihazda sunucuya gönderilemeyen bir taslak var; bu yüzden diğer bilgisayarlardaki son kayıtlar burada görünmüyor. Taslak bu cihazda yedeklenip güncel kayıt açılsın mı? (Taslak, Yedek ve kurtarma bölümünden indirilebilir.)')) return;
+            const company = currentCompanyId, draft = clone(state);
+            const remote = await fetchRemoteData({ admin: true });
+            if (!remote || company !== currentCompanyId) { toast('Merkezi veriye ulaşılamadı. Taslak bu cihazda korunuyor.'); return; }
+            await idbSet(companyCacheKey() + ':unbased-draft', { company, state: draft, createdAt: new Date().toISOString() });
+            state = mergeDefaults(remote); await rememberServerBase(state); await cacheDataLocally(state);
+            busWorkspace?.reset(); renderAdmin(); renderAccounting(accountingSearchQuery); workspaceUI?.checkpoint();
+            toast('Güncel kayıt açıldı. Bu cihazdaki eski taslak yedek olarak saklandı.');
+            return;
+        }
         const loaded = await loadAuthenticatedAdminData();
         if (!loaded) { toast('Merkezi veriye ulaşılamadı. İnternet bağlantısını kontrol et.'); return; }
         renderAdmin();
